@@ -1,0 +1,7 @@
+name = "ChessProject"
+uuid = "f591c62c-242e-4069-a3ea-9f76b695a940"
+authors = ["Jeremy <j.d.revell1@ncl.ac.uk>"]
+version = "0.1.0"
+
+[deps]
+Crayons = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
