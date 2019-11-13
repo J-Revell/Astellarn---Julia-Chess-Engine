@@ -1,9 +1,9 @@
-function displayColorBoard(b::Board)
+function displayColorBoard(board::Board)
     for row in 1:8
         for col in 1:8
             sqr = square(col, 9 - row)
-            piece = getPiece(b, sqr)
-            color = getColor(b, sqr)
+            piece = getPiece(board, sqr)
+            color = getColor(board, sqr)
             if color == BLACK
                 sym = SYMBOLS[piece]
                 foreground = :black
@@ -27,7 +27,7 @@ function displayColorBoard(b::Board)
     println()
 end
 
-function displayLabelledColorBoard(b::Board)
+function displayLabelledColorBoard(board::Board)
     for row in 1:9
         for col in 1:9
             if row == 9
@@ -54,8 +54,8 @@ function displayLabelledColorBoard(b::Board)
                 print(9 - row, " ")
             else
                 sqr = square(col - 1, 9 - row)
-                piece = getPiece(b, sqr)
-                color = getColor(b, sqr)
+                piece = getPiece(board, sqr)
+                color = getColor(board, sqr)
                 if color == BLACK
                     sym = SYMBOLS[piece]
                     foreground = :black
@@ -73,9 +73,9 @@ function displayLabelledColorBoard(b::Board)
                 end
                 print(Crayon(foreground = foreground, background = background),
                 sym, " ")
-                if (row == 1) && (col == 9) && (b.turn == WHITE)
+                if (row == 1) && (col == 9) && (board.turn == WHITE)
                     print(Crayon(reset = true), " White to move...")
-                elseif (row == 1) && (col == 9) && (b.turn == BLACK)
+                elseif (row == 1) && (col == 9) && (board.turn == BLACK)
                     print(Crayon(reset = true), " Black to move...")
                 end
             end
@@ -86,9 +86,9 @@ function displayLabelledColorBoard(b::Board)
 end
 
 # useful for testing
-function displayPawnMoves(b::Board)
+function displayPawnMoves(board::Board)
     moveList = MoveList()
-    build_pawn_moves!(moveList, b)
+    build_pawn_moves!(moveList, board)
     dests = [el.move_to for el in moveList]
     collapse_dests = mapreduce(|, |, dests)
     for row in 1:9
@@ -117,8 +117,6 @@ function displayPawnMoves(b::Board)
                 print(9 - row, " ")
             else
                 sqr = square(col - 1, 9 - row)
-                #piece = getPiece(b, sqr)
-                #color = getColor(b, sqr)
                 if (sqr & collapse_dests) > 0
                     sym = 'x'
                     foreground = :red

@@ -1,10 +1,13 @@
 module ChessProject
     using Crayons
-    include("consts.jl")
+    include("constants.jl")
     include("board.jl")
-    include("display.jl")
-    include("move.jl")
-    include("gen_moves.jl")
+    include("displayBoard.jl")
+    include("makeMove.jl")
+    include("pawnMoves.jl")
+    include("kingMoves.jl")
+    include("knightMoves.jl")
+    include("moveBuilder.jl")
 
 
     export @newGame, @move
