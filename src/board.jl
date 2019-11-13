@@ -1,4 +1,14 @@
-# store the state
+#=
+store the state, currently using the following square scheme
+64 63 62 61 60 59 58 57
+56 ....................
+48 ....................
+.......................
+.......................
+.......................
+.......................
+ 8  7  6  5  4  3  2  1
+ =#
 mutable struct Board
     white_kings::UInt64
     white_queens::UInt64
@@ -49,30 +59,30 @@ end
 
 # functions for logically querying squares #
 function isKing(board::Board, sqr::UInt64)
-    (sqr & (board.white_kings | board.black_kings)) > 0
+    (sqr & (board.white_kings | board.black_kings)) > zero(UInt)
 end
 function isQueen(board::Board, sqr::UInt64)
-    (sqr & (board.white_queens | board.black_queens)) > 0
+    (sqr & (board.white_queens | board.black_queens)) > zero(UInt)
 end
 function isRook(board::Board, sqr::UInt64)
-    (sqr & (board.white_rooks | board.black_rooks)) > 0
+    (sqr & (board.white_rooks | board.black_rooks)) > zero(UInt)
 end
 function isBishop(board::Board, sqr::UInt64)
-    (sqr & (board.white_bishops | board.black_bishops)) > 0
+    (sqr & (board.white_bishops | board.black_bishops)) > zero(UInt)
 end
 function isKnight(board::Board, sqr::UInt64)
-    (sqr & (board.white_knights | board.black_knights)) > 0
+    (sqr & (board.white_knights | board.black_knights)) > zero(UInt)
 end
 function isPawn(board::Board, sqr::UInt64)
-    (sqr & (board.white_pawns | board.black_pawns)) > 0
+    (sqr & (board.white_pawns | board.black_pawns)) > zero(UInt)
 end
 function isWhite(board::Board, sqr::UInt64)
     (sqr & (board.white_kings | board.white_queens | board.white_rooks |
-    board.white_bishops | board.white_knights | board.white_pawns)) > 0
+    board.white_bishops | board.white_knights | board.white_pawns)) > zero(UInt)
 end
 function isBlack(board::Board, sqr::UInt64)
     (sqr & (board.black_kings | board.black_queens | board.black_rooks |
-    board.black_bishops | board.black_knights | board.black_pawns)) > 0
+    board.black_bishops | board.black_knights | board.black_pawns)) > zero(UInt)
 end
 
 # useful classifying queries
@@ -90,6 +100,28 @@ function getColor(board::Board, sqr::UInt64)
     isWhite(board, sqr) && (return WHITE)
     isBlack(board, sqr) && (return BLACK)
     return NONE
+end
+
+function getFile(sqr::UInt64)
+    ((sqr & FILE_A) > zero(UInt)) && return FILE_A
+    ((sqr & FILE_B) > zero(UInt)) && return FILE_B
+    ((sqr & FILE_C) > zero(UInt)) && return FILE_C
+    ((sqr & FILE_D) > zero(UInt)) && return FILE_D
+    ((sqr & FILE_E) > zero(UInt)) && return FILE_E
+    ((sqr & FILE_F) > zero(UInt)) && return FILE_F
+    ((sqr & FILE_G) > zero(UInt)) && return FILE_G
+    ((sqr & FILE_H) > zero(UInt)) && return FILE_H
+end
+
+function getRank(sqr::UInt64)
+    ((sqr & RANK_1) > zero(UInt)) && return RANK_1
+    ((sqr & RANK_2) > zero(UInt)) && return RANK_2
+    ((sqr & RANK_3) > zero(UInt)) && return RANK_3
+    ((sqr & RANK_4) > zero(UInt)) && return RANK_4
+    ((sqr & RANK_5) > zero(UInt)) && return RANK_5
+    ((sqr & RANK_6) > zero(UInt)) && return RANK_6
+    ((sqr & RANK_7) > zero(UInt)) && return RANK_7
+    ((sqr & RANK_8) > zero(UInt)) && return RANK_8
 end
 
 # useful groups #

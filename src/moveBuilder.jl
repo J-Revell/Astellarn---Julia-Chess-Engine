@@ -18,7 +18,7 @@ end
 
 # build moves onto the movelist
 function build_moves!(moveList::MoveList, move_BB::UInt64, move_from::UInt64)
-    while move_BB > 0
+    while move_BB > zero(UInt)
         move_to, move_BB = popSquare(move_BB)
         push!(moveList, Move(move_from, UInt64(1) << move_to, 0))
     end
@@ -26,7 +26,7 @@ end
 
 # build pawn moves onto the movelist
 function build_pawn_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    while move_BB > 0
+    while move_BB > zero(UInt)
         move_to, move_BB = popSquare(move_BB)
         push!(moveList, Move(UInt64(1) << (move_to + jump), UInt64(1) << move_to, 0))
     end
@@ -34,7 +34,7 @@ end
 
 # build promotions onto the movelist
 function build_promo_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    while move_BB > 0
+    while move_BB > zero(UInt)
         move_to, move_BB = popSquare(move_BB)
         push!(moveList, Move(UInt64(1) << (move_to + jump), UInt64(1) << move_to, KNIGHT))
         push!(moveList, Move(UInt64(1) << (move_to + jump), UInt64(1) << move_to, BISHOP))
@@ -48,7 +48,7 @@ function build_king_moves!(moveList::MoveList, targets::UInt64, king::UInt64)
 end
 
 function build_knight_moves!(moveList::MoveList, targets::UInt64, knights::UInt64)
-    while knights > 0
+    while knights > zero(UInt)
         knight, knights = popSquare(knights)
         build_moves!(moveList, targets & knightMoves(UInt64(1) << knight), UInt64(1) << knight)
     end
