@@ -1,59 +1,20 @@
 function displayColorBoard(board::Board)
-    for row in 1:8
-        for col in 1:8
-            sqr = square(col, 9 - row)
-            piece = getPiece(board, sqr)
-            color = getColor(board, sqr)
-            if color == BLACK
-                sym = SYMBOLS[piece]
-                foreground = :black
-            elseif color == WHITE
-                sym = SYMBOLS[piece]
-                foreground = :white
-            else
-                sym = ' '
-                foreground = :default
-            end
-            if isodd(row+col)
-                background = :blue
-            else
-                background = :light_blue
-            end
-            print(Crayon(foreground = foreground, background = background),
-            sym, " ")
-        end
-        print(Crayon(reset = true), "\n")
-    end
-    println()
-end
-
-function displayLabelledColorBoard(board::Board)
     for row in 1:9
         for col in 1:9
             if row == 9
-                if col == 1
-                    print("  ")
-                elseif col == 2
-                    print("A ")
-                elseif col == 3
-                    print("B ")
-                elseif col == 4
-                    print("C ")
-                elseif col == 5
-                    print("D ")
-                elseif col == 6
-                    print("E ")
-                elseif col == 7
-                    print("F ")
-                elseif col == 8
-                    print("G ")
-                elseif col == 9
-                    print("H ")
-                end
+                    col == 1 && print("  ")
+                    col == 2 && print("A ")
+                    col == 3 && print("B ")
+                    col == 4 && print("C ")
+                    col == 5 && print("D ")
+                    col == 6 && print("E ")
+                    col == 7 && print("F ")
+                    col == 8 && print("G ")
+                    col == 9 && print("H ")
             elseif col == 1
                 print(9 - row, " ")
             else
-                sqr = square(col - 1, 9 - row)
+                sqr = getBitboard(col - 1, 9 - row)
                 piece = getPiece(board, sqr)
                 color = getColor(board, sqr)
                 if color == BLACK
@@ -85,68 +46,12 @@ function displayLabelledColorBoard(board::Board)
     println()
 end
 
-# useful for testing
-function displayPawnMoves(board::Board)
-    moveList = MoveList()
-    build_pawn_moves!(moveList, board)
-    dests = [el.move_to for el in moveList]
-    collapse_dests = mapreduce(|, |, dests)
-    for row in 1:9
-        for col in 1:9
-            if row == 9
-                if col == 1
-                    print("  ")
-                elseif col == 2
-                    print("A ")
-                elseif col == 3
-                    print("B ")
-                elseif col == 4
-                    print("C ")
-                elseif col == 5
-                    print("D ")
-                elseif col == 6
-                    print("E ")
-                elseif col == 7
-                    print("F ")
-                elseif col == 8
-                    print("G ")
-                elseif col == 9
-                    print("H ")
-                end
-            elseif col == 1
-                print(9 - row, " ")
-            else
-                sqr = square(col - 1, 9 - row)
-                if (sqr & collapse_dests) > 0
-                    sym = 'x'
-                    foreground = :red
-                else
-                    sym = ' '
-                    foreground = :default
-                end
-                if isodd(row + col + 1)
-                    background = :blue
-                else
-                    background = :light_blue
-                end
-                print(Crayon(foreground = foreground, background = background),
-                sym, " ")
-                if (row == 1) && (col == 9)
-                    print(Crayon(reset = true), " Available pawn moves...")
-                end
-            end
-        end
-        print(Crayon(reset = true), "\n")
-    end
-    println()
-end
-
 macro board()
     global __gboard = Board()
-    displayLabelledColorBoard(__gboard)
+    displayColorBoard(__gboard)
 end
 
 macro newGame()
     global __gboard = startBoard()
-    displayLabelledColorBoard(__gboard)
+    displayColorBoard(__gboard)
 end

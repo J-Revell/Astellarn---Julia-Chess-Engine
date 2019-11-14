@@ -1,6 +1,4 @@
-#=
-store the state of the chess board
- =#
+# store the state of the chess board
 mutable struct Board
     white::UInt64
     black::UInt64
@@ -11,7 +9,7 @@ mutable struct Board
     knights::UInt64
     pawns::UInt64
 
-    turn::UInt8 # colour to move
+    turn::UInt8
     enpass::UInt64
 end
 

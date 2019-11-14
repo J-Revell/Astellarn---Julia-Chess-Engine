@@ -37,5 +37,3 @@ function knightMove_all(knight::UInt64)
 end
 
 const KNIGHT_MOVES = @SVector [knightMove_all(UInt(1) << i) for i in 0:63]
-
-#knightMoves(knight::UInt64) = KNIGHT_MOVES[trailing_zeros(knight) + 1]

@@ -15,6 +15,5 @@ module ChessProject
     include("knightMoves.jl")
     include("moveBuilder.jl")
 
-
     export @newGame, @move
 end # module

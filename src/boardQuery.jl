@@ -10,9 +10,14 @@ isPawn(board::Board, sqr::UInt64)  = (sqr & board.pawns) > zero(UInt)
 isWhite(board::Board, sqr::UInt64) = (sqr & board.white) > zero(UInt)
 isBlack(board::Board, sqr::UInt64) = (sqr & board.black) > zero(UInt)
 
-# convert between
+# convert between bitboard <-> int representation
 getSquare(sqr::UInt64) = trailing_zeros(sqr) + 1
-getSquare(sqr::Int) = UInt(1) << sqr
+getBitboard(sqr::Int) = UInt(1) << (sqr - 1)
+
+# given a column (1->8), and a row (1->8),
+# return the BB or Int representation of the square
+getBitboard(col::Int, row::Int) = UInt64(1) << ((8-col) + 8*(row-1))
+getSquare(col::Int, row::Int) = ((8-col) + 8*(row-1)) + 1
 
 # query files & ranks
 getFile(sqr::UInt64) = FILE_A >> (leading_zeros(sqr) % 8)
@@ -48,12 +53,6 @@ getTheirPieces(board::Board) = (board.turn == WHITE) ? getBlack(board) : getWhit
 # find all the empty, or occupied squares
 getOccupied(board::Board) = getWhite(board) | getBlack(board)
 getEmpty(board::Board) = ~getOccupied(board)
-
-# given a column (1->8), and a row (1->8),
-# return the UInt64 representation of the square
-function square(col::Int, row::Int)
-    sqr = UInt64(1) << ((8-col) + 8*(row-1))
-end
 
 # retrieve the piece type on a given square
 function getPiece(board::Board, sqr::UInt64)
