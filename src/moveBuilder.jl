@@ -1,5 +1,6 @@
 include("pawnMoves.jl")
 include("kingMoves.jl")
+include("knightMoves.jl")
 
 # datatype for storing the information about a move
 struct Move
