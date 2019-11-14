@@ -1,37 +1,41 @@
-function knightMove_NNE(knights::UInt64)
-    ~FILE_A & (knights << 15)
+function knightMove_NNE(knight::UInt64)
+    ~FILE_A & (knight << 15)
 end
 
-function knightMove_ENE(knights::UInt64)
-    ~FILE_AB & (knights << 6)
+function knightMove_ENE(knight::UInt64)
+    ~FILE_AB & (knight << 6)
 end
 
-function knightMove_ESE(knights::UInt64)
-    ~FILE_AB & (knights >> 10)
+function knightMove_ESE(knight::UInt64)
+    ~FILE_AB & (knight >> 10)
 end
 
-function knightMove_SSE(knights::UInt64)
-    ~FILE_A & (knights >> 17)
+function knightMove_SSE(knight::UInt64)
+    ~FILE_A & (knight >> 17)
 end
 
-function knightMove_SSW(knights::UInt64)
-    ~FILE_H & (knights >> 15)
+function knightMove_SSW(knight::UInt64)
+    ~FILE_H & (knight >> 15)
 end
 
-function knightMove_WSW(knights::UInt64)
-    ~FILE_GH & (knights >> 6)
+function knightMove_WSW(knight::UInt64)
+    ~FILE_GH & (knight >> 6)
 end
 
-function knightMove_WNW(knights::UInt64)
-    ~FILE_GH & (knights << 10)
+function knightMove_WNW(knight::UInt64)
+    ~FILE_GH & (knight << 10)
 end
 
-function knightMove_NNW(knights::UInt64)
-    ~FILE_H & (knights << 17)
+function knightMove_NNW(knight::UInt64)
+    ~FILE_H & (knight << 17)
 end
 
-function knightMoves(knights::UInt64)
-    knightMove_NNE(knights) | knightMove_ENE(knights) | knightMove_ESE(knights) |
-    knightMove_SSE(knights) | knightMove_SSW(knights) | knightMove_WSW(knights) |
-    knightMove_WNW(knights) | knightMove_NNW(knights)
+function knightMove_all(knight::UInt64)
+    knightMove_NNE(knight) | knightMove_ENE(knight) | knightMove_ESE(knight) |
+    knightMove_SSE(knight) | knightMove_SSW(knight) | knightMove_WSW(knight) |
+    knightMove_WNW(knight) | knightMove_NNW(knight)
 end
+
+const KNIGHT_MOVES = @SVector [knightMove_all(UInt(1) << i) for i in 0:63]
+
+#knightMoves(knight::UInt64) = KNIGHT_MOVES[trailing_zeros(knight) + 1]

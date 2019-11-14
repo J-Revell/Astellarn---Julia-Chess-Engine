@@ -1,5 +1,10 @@
 module ChessProject
     using Crayons
+    using StaticArrays
+
+    import Base.iterate, Base.push!, Base.length, Base.eltype, Base.size,
+    Base.IndexStyle, Base.getindex
+
     include("constants.jl")
     include("board.jl")
     include("displayBoard.jl")

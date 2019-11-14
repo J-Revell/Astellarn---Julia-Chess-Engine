@@ -31,7 +31,9 @@ function kingMove_NW(king::UInt64)
     ~FILE_H & (king << 9)
 end
 
-function kingMoves(king::UInt64)
+function kingMove_all(king::UInt64)
     kingMove_N(king) | kingMove_NE(king) | kingMove_E(king) | kingMove_SE(king) |
     kingMove_S(king) | kingMove_SW(king) | kingMove_W(king) | kingMove_NW(king)
 end
+
+const KING_MOVES = @SVector [kingMove_all(UInt(1) << i) for i in 0:63]
