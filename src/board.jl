@@ -102,26 +102,32 @@ function getColor(board::Board, sqr::UInt64)
     return NONE
 end
 
+# function getFile(sqr::UInt64)
+#     ((sqr & FILE_A) > zero(UInt)) && return FILE_A
+#     ((sqr & FILE_B) > zero(UInt)) && return FILE_B
+#     ((sqr & FILE_C) > zero(UInt)) && return FILE_C
+#     ((sqr & FILE_D) > zero(UInt)) && return FILE_D
+#     ((sqr & FILE_E) > zero(UInt)) && return FILE_E
+#     ((sqr & FILE_F) > zero(UInt)) && return FILE_F
+#     ((sqr & FILE_G) > zero(UInt)) && return FILE_G
+#     ((sqr & FILE_H) > zero(UInt)) && return FILE_H
+# end
 function getFile(sqr::UInt64)
-    ((sqr & FILE_A) > zero(UInt)) && return FILE_A
-    ((sqr & FILE_B) > zero(UInt)) && return FILE_B
-    ((sqr & FILE_C) > zero(UInt)) && return FILE_C
-    ((sqr & FILE_D) > zero(UInt)) && return FILE_D
-    ((sqr & FILE_E) > zero(UInt)) && return FILE_E
-    ((sqr & FILE_F) > zero(UInt)) && return FILE_F
-    ((sqr & FILE_G) > zero(UInt)) && return FILE_G
-    ((sqr & FILE_H) > zero(UInt)) && return FILE_H
+    (FILE_A >> (leading_zeros(sqr) % 8))
 end
 
+# function getRank(sqr::UInt64)
+#     ((sqr & RANK_1) > zero(UInt)) && return RANK_1
+#     ((sqr & RANK_2) > zero(UInt)) && return RANK_2
+#     ((sqr & RANK_3) > zero(UInt)) && return RANK_3
+#     ((sqr & RANK_4) > zero(UInt)) && return RANK_4
+#     ((sqr & RANK_5) > zero(UInt)) && return RANK_5
+#     ((sqr & RANK_6) > zero(UInt)) && return RANK_6
+#     ((sqr & RANK_7) > zero(UInt)) && return RANK_7
+#     ((sqr & RANK_8) > zero(UInt)) && return RANK_8
+# end
 function getRank(sqr::UInt64)
-    ((sqr & RANK_1) > zero(UInt)) && return RANK_1
-    ((sqr & RANK_2) > zero(UInt)) && return RANK_2
-    ((sqr & RANK_3) > zero(UInt)) && return RANK_3
-    ((sqr & RANK_4) > zero(UInt)) && return RANK_4
-    ((sqr & RANK_5) > zero(UInt)) && return RANK_5
-    ((sqr & RANK_6) > zero(UInt)) && return RANK_6
-    ((sqr & RANK_7) > zero(UInt)) && return RANK_7
-    ((sqr & RANK_8) > zero(UInt)) && return RANK_8
+    RANK_1 << (fld(trailing_zeros(sqr), 8) * 8)
 end
 
 # useful groups #
