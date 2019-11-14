@@ -57,16 +57,14 @@ end
 
 # build pawn moves onto the movelist
 function build_pawn_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    while move_BB > zero(UInt)
-        move_to, move_BB = pop_square(move_BB)
+    for move_to in move_BB
         push!(moveList, Move(move_to + jump, move_to, 0))
     end
 end
 
 # build pawn promotions onto the movelist
 function build_promo_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    while move_BB > zero(UInt)
-        move_to, move_BB = pop_square(move_BB)
+    for move_to in move_BB
         push!(moveList, Move(move_to + jump, move_to, KNIGHT))
         push!(moveList, Move(move_to + jump, move_to, BISHOP))
         push!(moveList, Move(move_to + jump, move_to, ROOK))
