@@ -7,6 +7,7 @@ module ChessProject
 
     include("constants.jl")
     include("board.jl")
+    include("boardQuery.jl")
     include("displayBoard.jl")
     include("makeMove.jl")
     include("pawnMoves.jl")
