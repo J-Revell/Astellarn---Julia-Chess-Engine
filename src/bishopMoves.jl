@@ -35,5 +35,5 @@ const BISHOP_MOVE_FUNCTIONS = @SVector Function[bishopMove_NE, bishopMove_SE, bi
 # initialise the tables on startup
 const BISHOP_TABLE = initSlidingTable(Vector{UInt}(undef, 5248), BISHOP_MAGIC, BISHOP_MASK, BISHOP_OFFSET, BISHOP_MOVE_FUNCTIONS)
 
-bishopMoves(sqr::Int, occupied::UInt64) = BISHOP_TABLE[tableIndex(occupied, BISHOP_MAGIC[sqr], BISHOP_MASK[sqr], BISHOP_OFFSET[sqr])]
+bishopMoves(sqr::Int, occupied::UInt64) = @inbounds BISHOP_TABLE[tableIndex(occupied, BISHOP_MAGIC[sqr], BISHOP_MASK[sqr], BISHOP_OFFSET[sqr])]
 bishopMoves(sqr::UInt, occupied::UInt64) = getBishopMoves(getSquare(sqr), occupied)

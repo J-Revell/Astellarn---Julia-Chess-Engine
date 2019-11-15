@@ -32,5 +32,5 @@ const ROOK_MOVE_FUNCTIONS = @SVector Function[rookMove_N, rookMove_S, rookMove_E
 # initialise the tables on startup
 const ROOK_TABLE = initSlidingTable(Vector{UInt}(undef, 102400), ROOK_MAGIC, ROOK_MASK, ROOK_OFFSET, ROOK_MOVE_FUNCTIONS)
 
-rookMoves(sqr::Int, occupied::UInt64) = ROOK_TABLE[tableIndex(occupied, ROOK_MAGIC[sqr], ROOK_MASK[sqr], ROOK_OFFSET[sqr])]
+rookMoves(sqr::Int, occupied::UInt64) = @inbounds ROOK_TABLE[tableIndex(occupied, ROOK_MAGIC[sqr], ROOK_MASK[sqr], ROOK_OFFSET[sqr])]
 rookMoves(sqr::UInt, occupied::UInt64) = getRookMoves(getSquare(sqr), occupied)
