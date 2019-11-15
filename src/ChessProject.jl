@@ -10,7 +10,11 @@ module ChessProject
     include("boardQuery.jl")
     include("displayBoard.jl")
     include("makeMove.jl")
+    include("slidingMoves.jl")
+    include("rookMoves.jl")
+    include("bishopMoves.jl")
     include("moveBuilder.jl")
+
 
     export @newGame, @move
 end # module

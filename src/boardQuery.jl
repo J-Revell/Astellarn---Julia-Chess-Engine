@@ -16,12 +16,14 @@ getBitboard(sqr::Int) = UInt(1) << (sqr - 1)
 
 # given a column (1->8), and a row (1->8),
 # return the BB or Int representation of the square
-getBitboard(col::Int, row::Int) = UInt64(1) << ((8-col) + 8*(row-1))
-getSquare(col::Int, row::Int) = ((8-col) + 8*(row-1)) + 1
+getBitboard(col::Int, row::Int) = UInt64(1) << (-col + 8 * row)
+getSquare(col::Int, row::Int) = -col + 8 * row + 1
 
 # query files & ranks
 getFile(sqr::UInt64) = FILE_A >> (leading_zeros(sqr) % 8)
 getRank(sqr::UInt64) = RANK_1 << (fld(trailing_zeros(sqr), 8) * 8)
+getFile(sqr::Int) = getFile(getBitboard(sqr))
+getRank(sqr::Int) = getRank(getBitboard(sqr))
 
 # get all the black pieces, or all the white pieces
 getWhite(board::Board) = board.white
@@ -53,6 +55,10 @@ getTheirPieces(board::Board) = (board.turn == WHITE) ? getBlack(board) : getWhit
 # find all the empty, or occupied squares
 getOccupied(board::Board) = getWhite(board) | getBlack(board)
 getEmpty(board::Board) = ~getOccupied(board)
+
+# is a given square empty or occupied?
+isOccupied(board::Board, sqr::UInt64) = (getOccupied(board, sqr) & sqr) > zero(UInt)
+isempty(board::Board, sqr::UInt64) = ~isOccupied(board, sqr)
 
 # retrieve the piece type on a given square
 function getPiece(board::Board, sqr::UInt64)
