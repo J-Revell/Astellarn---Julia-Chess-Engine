@@ -75,13 +75,13 @@ end
 # build king moves onto the movelist
 function build_king_moves!(moveList::MoveList, board::Board, targets::UInt64)
     king = getSquare(getOurKing(board))
-    build_moves!(moveList, targets & KING_MOVES[king], king)
+    @inbounds build_moves!(moveList, targets & KING_MOVES[king], king)
 end
 
 # build knight moves onto the movelist
 function build_knight_moves!(moveList::MoveList, board::Board, targets::UInt64)
     for knight in getOurKnights(board)
-        build_moves!(moveList, targets & KNIGHT_MOVES[knight], knight)
+        @inbounds build_moves!(moveList, targets & KNIGHT_MOVES[knight], knight)
     end
 end
 
