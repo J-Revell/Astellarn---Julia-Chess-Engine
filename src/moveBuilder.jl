@@ -81,6 +81,29 @@ function build_knight_moves!(moveList::MoveList, board::Board, targets::UInt64)
     end
 end
 
+# function to build bishop moves onto the movelist
+function build_bishop_moves!(moveList::MoveList, board::Board, targets::UInt64, occupied::UInt64)
+    for bishop in getOurBishops(board)
+        @inbounds build_moves!(moveList, targets & bishopMoves(bishop, occupied), bishop)
+    end
+end
+
+# function to add the rook moves onto the movelist
+function build_rook_moves!(moveList::MoveList, board::Board, targets::UInt64, occupied::UInt64)
+    for rook in getOurRooks(board)
+        @inbounds build_moves!(moveList, targets & rookMoves(rook, occupied), rook)
+    end
+end
+
+# function to add the queen moves
+function build_queen_moves!(moveList::MoveList, board::Board, targets::UInt64, occupied::UInt64)
+    for queen in getOurQueens(board)
+        @inbounds build_moves!(moveList, targets & queenMoves(queen, occupied), queen)
+    end
+end
+
+
+
 # generate all possible moves
 function gen_moves!(moveList::MoveList, board::Board)
     # find all our pieces, may not be needed
@@ -95,6 +118,9 @@ function gen_moves!(moveList::MoveList, board::Board)
     enemies = getTheirPieces(board)
     empty = getEmpty(board)
 
+    # find the occupied squares
+    occupied = getOccupied(board)
+
     # dictate direction of pawn movement, could in future add new pawn methods
     if board.turn == WHITE
         oneStep = -8
@@ -108,6 +134,7 @@ function gen_moves!(moveList::MoveList, board::Board)
         right = 7
     end
 
+    # first, we generate all the pawn target squares
     pawnOne = pawnAdvance(pawns, empty, board.turn) & ~RANK_18
     pawnTwo = pawnDoubleAdvance(pawns, empty, board.turn)
     pawnLeft = pawnLeftCaptures(pawns, enemies, board.turn)
@@ -119,6 +146,8 @@ function gen_moves!(moveList::MoveList, board::Board)
     pawnLeft &= ~RANK_18
     pawnPromoRight = pawnRight & RANK_18
     pawnRight &= ~RANK_18
+
+    # next, we add all the possible pawn moves onto the movelist
     build_pawn_moves!(moveList, pawnOne, oneStep)
     build_pawn_moves!(moveList, pawnTwo, twoStep)
     build_pawn_moves!(moveList, pawnLeft, left)
@@ -129,10 +158,23 @@ function gen_moves!(moveList::MoveList, board::Board)
     build_promo_moves!(moveList, pawnPromoLeft, left)
     build_promo_moves!(moveList, pawnPromoRight, right)
 
-
+    # king moves, no check-threats built yet, no castling implemented yet,
     build_king_moves!(moveList, board, empty)
     build_king_moves!(moveList, board, enemies)
 
+    # build the knights moves
     build_knight_moves!(moveList, board, empty)
     build_knight_moves!(moveList, board, enemies)
+
+    # generate the bishop moves using magic bitboards
+    build_bishop_moves!(moveList, board, empty, occupied)
+    build_bishop_moves!(moveList, board, enemies, occupied)
+
+    # generate the rook moves using magic bitboards
+    build_rook_moves!(moveList, board, empty, occupied)
+    build_rook_moves!(moveList, board, enemies, occupied)
+
+    # build the queen moves
+    build_queen_moves!(moveList, board, empty, occupied)
+    build_queen_moves!(moveList, board, enemies, occupied)
 end
