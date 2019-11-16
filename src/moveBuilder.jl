@@ -1,7 +1,3 @@
-include("pawnMoves.jl")
-include("kingMoves.jl")
-include("knightMoves.jl")
-
 # datatype for storing the information about a move
 struct Move
     move_from::UInt8
@@ -25,13 +21,13 @@ Base.size(moveList::MoveList) = (moveList.idx, )
 Base.IndexStyle(::Type{<:MoveList}) = IndexLinear()
 Base.getindex(moveList::MoveList, idx::Int) = moveList.moves[idx]
 
-# add a push function
+# add a push function. The MoveList object is preallocated for performance.
 function push!(moveList::MoveList, move::Move)
     moveList.idx += 1
     moveList.moves[moveList.idx] = move
 end
 
-# pseudo-clear the moveList
+# pseudo-clear the moveList.
 function clear!(moveList::MoveList)
     moveList.idx = 0
 end
