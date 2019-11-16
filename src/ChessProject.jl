@@ -20,6 +20,7 @@ module ChessProject
     include("slidingMoves.jl")
     include("rookMoves.jl")
     include("bishopMoves.jl")
+    include("queenMoves.jl")
     include("moveBuilder.jl")
 
 
