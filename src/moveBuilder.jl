@@ -144,6 +144,9 @@ function gen_moves!(moveList::MoveList, board::Board)
     # find the occupied squares
     occupied = getOccupied(board)
 
+    # squares attacking the king, if any
+    kingAttacks = kingAttackers(board)
+
     # dictate direction of pawn movement, could in future add new pawn methods
     if board.turn == WHITE
         oneStep = -8
@@ -155,6 +158,25 @@ function gen_moves!(moveList::MoveList, board::Board)
         twoStep = 16
         left = 9
         right = 7
+    end
+
+    # are we in double check?
+    # if so we can only ever move the king: either to an empty square, or capture.
+    if count_ones(kingAttacks) > 1
+        build_king_moves!(moveList, board, empty)
+        build_king_moves!(moveList, board, enemies)
+        return
+    end
+
+    if count_ones(kingAttacks) == 1
+        # if we are in check from a single attacker, we can only target the attacker,
+        # move the king, or block the attack
+        targets = kingAttacks | BLOCKERMASKS[getSquare(king), getSquare(kingAttacks)]
+    else
+        # not in check, so we can build castling moves
+        build_castling!(moveList, board, occupied)
+        # and we can move to any enemy or empty square
+        targets = enemies | empty
     end
 
     # first, we generate all the pawn target squares
@@ -171,36 +193,38 @@ function gen_moves!(moveList::MoveList, board::Board)
     pawnRight &= ~RANK_18
 
     # next, we add all the possible pawn moves onto the movelist
-    build_pawn_moves!(moveList, pawnOne, oneStep)
-    build_pawn_moves!(moveList, pawnTwo, twoStep)
-    build_pawn_moves!(moveList, pawnLeft, left)
-    build_pawn_moves!(moveList, pawnRight, right)
-    build_enpass_moves!(moveList, pawnLeftEnpass, left)
-    build_enpass_moves!(moveList, pawnRightEnpass, right)
-    build_promo_moves!(moveList, pawnPromo, oneStep)
-    build_promo_moves!(moveList, pawnPromoLeft, left)
-    build_promo_moves!(moveList, pawnPromoRight, right)
+    build_pawn_moves!(moveList, pawnOne & targets, oneStep)
+    build_pawn_moves!(moveList, pawnTwo & targets, twoStep)
+    build_pawn_moves!(moveList, pawnLeft & targets, left)
+    build_pawn_moves!(moveList, pawnRight & targets, right)
+    build_enpass_moves!(moveList, pawnLeftEnpass & targets, left)
+    build_enpass_moves!(moveList, pawnRightEnpass & targets, right)
+    build_promo_moves!(moveList, pawnPromo & targets, oneStep)
+    build_promo_moves!(moveList, pawnPromoLeft & targets, left)
+    build_promo_moves!(moveList, pawnPromoRight & targets, right)
 
     # king moves, no check-threats built yet, no castling implemented yet,
     build_king_moves!(moveList, board, empty)
     build_king_moves!(moveList, board, enemies)
 
     # build the knights moves
-    build_knight_moves!(moveList, board, empty)
-    build_knight_moves!(moveList, board, enemies)
+    # build_knight_moves!(moveList, board, empty)
+    # build_knight_moves!(moveList, board, enemies)
+    build_knight_moves!(moveList, board, targets)
 
     # generate the bishop moves using magic bitboards
-    build_bishop_moves!(moveList, board, empty, occupied)
-    build_bishop_moves!(moveList, board, enemies, occupied)
+    #build_bishop_moves!(moveList, board, empty, occupied)
+    #build_bishop_moves!(moveList, board, enemies, occupied)
+    build_bishop_moves!(moveList, board, targets, occupied)
 
     # generate the rook moves using magic bitboards
-    build_rook_moves!(moveList, board, empty, occupied)
-    build_rook_moves!(moveList, board, enemies, occupied)
+    # build_rook_moves!(moveList, board, empty, occupied)
+    # build_rook_moves!(moveList, board, enemies, occupied)
+    build_rook_moves!(moveList, board, targets, occupied)
 
     # build the queen moves
-    build_queen_moves!(moveList, board, empty, occupied)
-    build_queen_moves!(moveList, board, enemies, occupied)
-
-    # build castling moves
-    build_castling!(moveList, board, occupied)
+    # build_queen_moves!(moveList, board, empty, occupied)
+    # build_queen_moves!(moveList, board, enemies, occupied)
+    build_queen_moves!(moveList, board, targets, occupied)
+    return
 end

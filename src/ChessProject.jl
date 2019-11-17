@@ -21,6 +21,7 @@ module ChessProject
     include("rookMoves.jl")
     include("bishopMoves.jl")
     include("queenMoves.jl")
+    include("attacks.jl")
     include("moveBuilder.jl")
 
 
