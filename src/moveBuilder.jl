@@ -180,13 +180,14 @@ function gen_moves!(moveList::MoveList, board::Board)
     end
 
     # first, we generate all the pawn target squares
-    pawnOne = pawnAdvance(pawns, empty, board.turn) & ~RANK_18
+    pawnOne = pawnAdvance(pawns, empty, board.turn)
     pawnTwo = pawnDoubleAdvance(pawns, empty, board.turn)
     pawnLeft = pawnLeftCaptures(pawns, enemies, board.turn)
     pawnRight = pawnRightCaptures(pawns, enemies, board.turn)
     pawnLeftEnpass = pawnLeftCaptures(pawns, board.enpass, board.turn)
     pawnRightEnpass = pawnRightCaptures(pawns, board.enpass, board.turn)
-    pawnPromo = pawnAdvance(pawns, empty, board.turn) & RANK_18
+    pawnPromo = pawnOne & RANK_18
+    pawnOne &= ~RANK_18
     pawnPromoLeft = pawnLeft & RANK_18
     pawnLeft &= ~RANK_18
     pawnPromoRight = pawnRight & RANK_18
