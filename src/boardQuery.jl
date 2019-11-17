@@ -60,6 +60,11 @@ getEmpty(board::Board) = ~getOccupied(board)
 isOccupied(board::Board, sqr::UInt64) = (getOccupied(board, sqr) & sqr) > zero(UInt)
 isempty(board::Board, sqr::UInt64) = ~isOccupied(board, sqr)
 
+# query if we have castling rights still
+canCastleKingside(board::Board, color::UInt8) = (board.castling & (color == WHITE ? 0x01 : 0x04)) > zero(UInt8)
+canCastleQueenside(board::Board, color::UInt8) = (board.castling & (color == WHITE ? 0x02 : 0x08)) > zero(UInt8)
+canCastle(board::Board, color::UInt8) = canCastleKingside(board, color) | canCastleQueenside(board, color)
+
 # retrieve the piece type on a given square
 function getPiece(board::Board, sqr::UInt64)
     isPawn(board, sqr) && (return PAWN)

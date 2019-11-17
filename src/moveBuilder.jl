@@ -2,7 +2,7 @@
 struct Move
     move_from::UInt8
     move_to::UInt8
-    promote_to::UInt8
+    move_flag::UInt8
 end
 
 # datatype for storing all the possible moves
@@ -58,6 +58,12 @@ function build_pawn_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
     end
 end
 
+function build_enpass_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
+    for move_to in move_BB
+        push!(moveList, Move(move_to + jump, move_to, ENPASS))
+    end
+end
+
 # build pawn promotions onto the movelist
 function build_promo_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
     for move_to in move_BB
@@ -72,6 +78,25 @@ end
 function build_king_moves!(moveList::MoveList, board::Board, targets::UInt64)
     king = getSquare(getOurKing(board))
     @inbounds build_moves!(moveList, targets & KING_MOVES[king], king)
+end
+
+# build castling moves onto the movelist
+function build_castling!(moveList::MoveList, board::Board, occupied::UInt64)
+    king = getSquare(getOurKing(board))
+
+    # kingside castling
+    if canCastleKingside(board, board.turn)
+        if occupied & ((board.turn == WHITE) ? (CASTLE_OO_MASK_W) : (CASTLE_OO_MASK_B)) == zero(UInt)
+            push!(moveList, Move(king, king - 2, CASTLE))
+        end
+    end
+
+    # queenside castling
+    if canCastleQueenside(board::Board, board.turn)
+        if occupied & ((board.turn == WHITE) ? (CASTLE_OOO_MASK_W) : (CASTLE_OOO_MASK_B)) == zero(UInt)
+            push!(moveList, Move(king, king + 2, CASTLE))
+        end
+    end
 end
 
 # build knight moves onto the movelist
@@ -101,8 +126,6 @@ function build_queen_moves!(moveList::MoveList, board::Board, targets::UInt64, o
         @inbounds build_moves!(moveList, targets & queenMoves(queen, occupied), queen)
     end
 end
-
-
 
 # generate all possible moves
 function gen_moves!(moveList::MoveList, board::Board)
@@ -152,8 +175,8 @@ function gen_moves!(moveList::MoveList, board::Board)
     build_pawn_moves!(moveList, pawnTwo, twoStep)
     build_pawn_moves!(moveList, pawnLeft, left)
     build_pawn_moves!(moveList, pawnRight, right)
-    build_pawn_moves!(moveList, pawnLeftEnpass, left)
-    build_pawn_moves!(moveList, pawnRightEnpass, right)
+    build_enpass_moves!(moveList, pawnLeftEnpass, left)
+    build_enpass_moves!(moveList, pawnRightEnpass, right)
     build_promo_moves!(moveList, pawnPromo, oneStep)
     build_promo_moves!(moveList, pawnPromoLeft, left)
     build_promo_moves!(moveList, pawnPromoRight, right)
@@ -177,4 +200,7 @@ function gen_moves!(moveList::MoveList, board::Board)
     # build the queen moves
     build_queen_moves!(moveList, board, empty, occupied)
     build_queen_moves!(moveList, board, enemies, occupied)
+
+    # build castling moves
+    build_castling!(moveList, board, occupied)
 end

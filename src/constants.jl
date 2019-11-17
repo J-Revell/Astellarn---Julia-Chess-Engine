@@ -8,13 +8,19 @@ const NONE = UInt8(0)
 const WHITE = UInt8(1)
 const BLACK = UInt8(2)
 
-# pieces
+# pieces, also used as PROMOTION flags
 const PAWN = UInt8(1)
 const KNIGHT = UInt8(2)
 const BISHOP = UInt8(3)
 const ROOK = UInt8(4)
 const QUEEN = UInt8(5)
 const KING = UInt8(6)
+
+# Enpassant flag
+const ENPASS = UInt8(10)
+
+# Castling flag
+const CASTLE = UInt8(20)
 
 # convert labels to bitboard representation
 const LABELLED_SQUARES = [*(args...) for args in Base.product("hgfedcba","12345678")]
@@ -50,3 +56,9 @@ const RANK_78 = RANK_7 | RANK_8
 
 # Bitboard representation of the panw promotion ranks.
 const RANK_18 = RANK_1 | RANK_8
+
+# castling masks
+const CASTLE_OO_MASK_W = (UInt(1) << 1) | (UInt(1) << 2)
+const CASTLE_OOO_MASK_W = (UInt(1) << 4) | (UInt(1) << 5)
+const CASTLE_OO_MASK_B = (UInt(1) << 57) | (UInt(1) << 58)
+const CASTLE_OOO_MASK_B = (UInt(1) << 60) | (UInt(1) << 61)

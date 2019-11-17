@@ -10,11 +10,12 @@ mutable struct Board
     pawns::UInt64
 
     turn::UInt8
+    castling::UInt8
     enpass::UInt64
 end
 
 # empty board
-Board() = Board(repeat([0x000000000], 8)..., WHITE, 0x000000000)
+Board() = Board(repeat([0x000000000], 8)..., WHITE, 0x00, 0x000000000)
 
 # define the start position
 startBoard() = Board(
@@ -27,6 +28,7 @@ startBoard() = Board(
     0x4200000000000042,
     0x00ff00000000ff00,
     WHITE,
+    0x0f,
     0x000000000)
 
 # clear a square
