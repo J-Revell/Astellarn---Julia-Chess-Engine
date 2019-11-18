@@ -4,11 +4,37 @@ function isLegal(board::Board)
 end
 
 function isCheckmate(board::Board)
-    (length(gen_moves(board)) == 0) && isOurKingAttacked(board)
+    pml = MoveList(150)
+    ml = MoveList(150)
+    gen_moves!(ml, board)
+    ml = filter(move -> move.move_flag !== CASTLE, ml)
+    for move in ml
+        _board = deepcopy(board)
+        (move.move_flag == NONE) && move_normal!(_board, move)
+        (move.move_flag == ENPASS) && move_enpass!(_board, move)
+        (UInt8(1) < move.move_flag < UInt8(6)) && move_promo!(_board, move)
+        if isLegal(_board)
+            push!(pml, move)
+        end
+    end
+    (length(pml) == 0) && isOurKingAttacked(board)
 end
 
 function isStalemate(board::Board)
-    (length(gen_moves(board)) == 0) && !isOurKingAttacked(board)
+    pml = MoveList(150)
+    ml = MoveList(150)
+    gen_moves!(ml, board)
+    ml = filter(move -> move.move_flag !== CASTLE, ml)
+    for move in ml
+        _board = deepcopy(board)
+        (move.move_flag == NONE) && move_normal!(_board, move)
+        (move.move_flag == ENPASS) && move_enpass!(_board, move)
+        (UInt8(1) < move.move_flag < UInt8(6)) && move_promo!(_board, move)
+        if isLegal(_board)
+            push!(pml, move)
+        end
+    end
+    (length(pml) == 0) && !isOurKingAttacked(board)
 end
 
 function isDrawByMaterial(board::Board)
@@ -88,7 +114,7 @@ function move_enpass!(board::Board, move::Move)
     sqr_from_bb = getBitboard(sqr_from)
     sqr_to_bb = getBitboard(sqr_to)
 
-    cap_sqr = sqr_to - 24 + (board.turn << 4)
+    cap_sqr = getBitboard(sqr_to - 24 + (board.turn << 4))
 
     piece_from = makePiece(PAWN, board.turn)
 
@@ -108,6 +134,7 @@ function move_enpass!(board::Board, move::Move)
 
     board.squares[sqr_from] = NONE
     board.squares[sqr_to] = piece_from
+    board.squares[sqr_to - 24 + (board.turn << 4)] = NONE
 
     board.enpass = zero(UInt8)
     switchTurn!(board)
