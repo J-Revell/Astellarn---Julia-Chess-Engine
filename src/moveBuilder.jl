@@ -140,6 +140,7 @@ function gen_moves!(moveList::MoveList, board::Board)
     # find target squares
     enemies = getTheirPieces(board)
     empty = getEmpty(board)
+    enpass = getBitboard(Int(board.enpass))
 
     # find the occupied squares
     occupied = getOccupied(board)
@@ -184,8 +185,8 @@ function gen_moves!(moveList::MoveList, board::Board)
     pawnTwo = pawnDoubleAdvance(pawns, empty, board.turn)
     pawnLeft = pawnLeftCaptures(pawns, enemies, board.turn)
     pawnRight = pawnRightCaptures(pawns, enemies, board.turn)
-    pawnLeftEnpass = pawnLeftCaptures(pawns, board.enpass, board.turn)
-    pawnRightEnpass = pawnRightCaptures(pawns, board.enpass, board.turn)
+    pawnLeftEnpass = pawnLeftCaptures(pawns, enpass, board.turn)
+    pawnRightEnpass = pawnRightCaptures(pawns, enpass, board.turn)
     pawnPromo = pawnOne & RANK_18
     pawnOne &= ~RANK_18
     pawnPromoLeft = pawnLeft & RANK_18

@@ -6,7 +6,7 @@ mutable struct Board
 
     turn::UInt8
     castling::UInt8
-    enpass::UInt64
+    enpass::UInt8
 end
 
 # empty board
@@ -16,7 +16,7 @@ Board() = Board(
     MVector{2,UInt64}(repeat([0x000000000], 2)),
     WHITE,
     0x00,
-    0x000000000)
+    0x00)
 
 # define the start position
 startBoard() = Board(
@@ -38,7 +38,7 @@ startBoard() = Board(
     0xffff000000000000],
     WHITE,
     0x0f,
-    0x000000000)
+    0x00)
 
 # clear a square
 function clearSquare!(board::Board, sqr_bb::UInt64)

@@ -86,3 +86,5 @@ isempty(board::Board, sqr_bb::UInt64) = ~isOccupied(board, sqr_bb)
 canCastleKingside(board::Board, color::UInt8) = (board.castling & (color == WHITE ? 0x01 : 0x04)) > zero(UInt8)
 canCastleQueenside(board::Board, color::UInt8) = (board.castling & (color == WHITE ? 0x02 : 0x08)) > zero(UInt8)
 canCastle(board::Board, color::UInt8) = canCastleKingside(board, color) | canCastleQueenside(board, color)
+
+makePiece(pieceType::UInt8, color::UInt8) = pieceType*UInt8(4) + color

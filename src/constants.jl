@@ -80,3 +80,5 @@ const CASTLE_OO_MASK_W = (UInt(1) << 1) | (UInt(1) << 2)
 const CASTLE_OOO_MASK_W = (UInt(1) << 4) | (UInt(1) << 5)
 const CASTLE_OO_MASK_B = (UInt(1) << 57) | (UInt(1) << 58)
 const CASTLE_OOO_MASK_B = (UInt(1) << 60) | (UInt(1) << 61)
+
+const CASTLE_ROOK_MASK = UInt(1) | (UInt(1) << 7) | (UInt(1) << 56) | (UInt(1) << 63)
