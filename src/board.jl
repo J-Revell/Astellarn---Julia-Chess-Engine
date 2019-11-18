@@ -1,6 +1,6 @@
 # store the state of the chess board
 mutable struct Board
-    pieces::MVector{64,UInt8}
+    squares::MVector{64,UInt8}
 
     white::UInt64
     black::UInt64
@@ -48,7 +48,7 @@ startBoard() = Board(
 
 # clear a square
 function clearSquare!(board::Board, sqr_bb::UInt64)
-    board.pieces[getSquare(sqr_bb)] = NONE
+    board.squares[getSquare(sqr_bb)] = NONE
     board.white &= ~sqr_bb
     board.black &= ~sqr_bb
     board.rooks &= ~sqr_bb
@@ -63,7 +63,7 @@ clearSquare!(board::Board, sqr::Int) = clearSquare!(board, getBitboard(sqr))
 # set the piece type on a square
 function setSquare!(board::Board, pieceType::UInt8, pieceColor::UInt8, sqr_bb::UInt64)
     clearSquare!(board, sqr_bb)
-    board.pieces[sqr] = pieceType * UInt8(4) + pieceColor
+    board.squares[sqr] = pieceType * UInt8(4) + pieceColor
     pieceColor == WHITE ? (board.white |= sqr_bb) : (board.black |= sqr_bb)
     pieceType == KING && (board.kings |= sqr_bb; return)
     pieceType == QUEEN && (board.queens |= sqr_bb; return)
@@ -75,7 +75,7 @@ end
 function setSquare!(board::Board, pieceType::UInt8, pieceColor::UInt8, sqr::Int)
     sqr_bb = getBitboard(sqr)
     clearSquare!(board, sqr_bb)
-    board.pieces[sqr] = pieceType * UInt8(4) + pieceColor
+    board.squares[sqr] = pieceType * UInt8(4) + pieceColor
     pieceColor == WHITE ? (board.white |= sqr_bb) : (board.black |= sqr_bb)
     pieceType == KING && (board.kings |= sqr_bb; return)
     pieceType == QUEEN && (board.queens |= sqr_bb; return)

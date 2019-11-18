@@ -32,8 +32,8 @@ function move_normal!(board::Board, move::Move)
     (to_color == WHITE) && (board.white ⊻= sqr_to_bb)
     (to_color == BLACK) && (board.black ⊻= sqr_to_bb)
 
-    board.pieces[sqr_from] = NONE
-    board.pieces[sqr_to] = piece_from
+    board.squares[sqr_from] = NONE
+    board.squares[sqr_to] = piece_from
 
     switchTurn!(board)
 end
