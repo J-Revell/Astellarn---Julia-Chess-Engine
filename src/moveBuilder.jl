@@ -209,23 +209,15 @@ function gen_moves!(moveList::MoveList, board::Board)
     build_king_moves!(moveList, board, enemies)
 
     # build the knights moves
-    # build_knight_moves!(moveList, board, empty)
-    # build_knight_moves!(moveList, board, enemies)
     build_knight_moves!(moveList, board, targets)
 
     # generate the bishop moves using magic bitboards
-    #build_bishop_moves!(moveList, board, empty, occupied)
-    #build_bishop_moves!(moveList, board, enemies, occupied)
     build_bishop_moves!(moveList, board, targets, occupied)
 
     # generate the rook moves using magic bitboards
-    # build_rook_moves!(moveList, board, empty, occupied)
-    # build_rook_moves!(moveList, board, enemies, occupied)
     build_rook_moves!(moveList, board, targets, occupied)
 
     # build the queen moves
-    # build_queen_moves!(moveList, board, empty, occupied)
-    # build_queen_moves!(moveList, board, enemies, occupied)
     build_queen_moves!(moveList, board, targets, occupied)
     return
 end
