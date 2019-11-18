@@ -33,40 +33,40 @@ function clear!(moveList::MoveList)
 end
 
 # useful bitboard manipulation
-function pop_square(bb::UInt64)
-    sqr = getSquare(bb)
-    bb &= bb - 1
-    return sqr, bb
+function pop_square(sqr_bb::UInt64)
+    sqr = getSquare(sqr_bb)
+    sqr_bb &= sqr_bb - 1
+    return sqr, sqr_bb
 end
 
 # ability to iterate through squares
-function Base.iterate(bb::UInt64, state::UInt64 = bb)
+function Base.iterate(sqr_bb::UInt64, state::UInt64 = sqr_bb)
     (state == zero(UInt)) ? nothing : pop_square(state)
 end
 
 # build moves onto the movelist
-function build_moves!(moveList::MoveList, move_BB::UInt64, move_from::Int)
-    for move_to in move_BB
+function build_moves!(moveList::MoveList, move_bb::UInt64, move_from::Int)
+    for move_to in move_bb
         push!(moveList, Move(move_from, move_to, 0))
     end
 end
 
 # build pawn moves onto the movelist
-function build_pawn_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    for move_to in move_BB
+function build_pawn_moves!(moveList::MoveList, move_bb::UInt64, jump::Int)
+    for move_to in move_bb
         push!(moveList, Move(move_to + jump, move_to, 0))
     end
 end
 
-function build_enpass_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    for move_to in move_BB
+function build_enpass_moves!(moveList::MoveList, move_bb::UInt64, jump::Int)
+    for move_to in move_bb
         push!(moveList, Move(move_to + jump, move_to, ENPASS))
     end
 end
 
 # build pawn promotions onto the movelist
-function build_promo_moves!(moveList::MoveList, move_BB::UInt64, jump::Int)
-    for move_to in move_BB
+function build_promo_moves!(moveList::MoveList, move_bb::UInt64, jump::Int)
+    for move_to in move_bb
         push!(moveList, Move(move_to + jump, move_to, KNIGHT))
         push!(moveList, Move(move_to + jump, move_to, BISHOP))
         push!(moveList, Move(move_to + jump, move_to, ROOK))
@@ -228,4 +228,9 @@ function gen_moves!(moveList::MoveList, board::Board)
     # build_queen_moves!(moveList, board, enemies, occupied)
     build_queen_moves!(moveList, board, targets, occupied)
     return
+end
+
+# is the position legal
+function isLegal(board::Board)
+    !isTheirKingAttacked(board::Board)
 end

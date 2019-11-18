@@ -9,10 +9,10 @@ function tableIndex(occupied::UInt64, magic::UInt64, moveMask::UInt64, offset::I
 end
 
 # generate all possible sliding moves in a given move direction, for a given occupancy.
-function sliderMoves(sqr::UInt64, occupied::UInt64, moveDirections::SArray{Tuple{4},Function,1,4})
+function sliderMoves(sqr_bb::UInt64, occupied::UInt64, moveDirections::SArray{Tuple{4},Function,1,4})
 	moveMask = zero(UInt)
 	for direction in moveDirections
-		newSqr = sqr
+		newSqr = sqr_bb
 		while newSqr > zero(UInt)
 			newSqr = direction(newSqr)
 			moveMask ⊻= newSqr
@@ -22,7 +22,7 @@ function sliderMoves(sqr::UInt64, occupied::UInt64, moveDirections::SArray{Tuple
 	return moveMask
 end
 
-# generate the sliding tables, by creating the indexes and all possible occupancy masks. 
+# generate the sliding tables, by creating the indexes and all possible occupancy masks.
 function initSlidingTable(table::Vector{UInt}, magics::SArray{Tuple{64},UInt64,1,64}, moveMasks::SArray{Tuple{64},UInt64,1,64}, offset::SArray{Tuple{64},Int64,1,64}, moveDirections::SArray{Tuple{4},Function,1,4})
 	for sqr in 1:64
 		occupied = zero(UInt)

@@ -5,6 +5,7 @@ const COLUMNS = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
 # colours
 const NONE = UInt8(0)
+
 const WHITE = UInt8(1)
 const BLACK = UInt8(2)
 
@@ -16,15 +17,32 @@ const ROOK = UInt8(4)
 const QUEEN = UInt8(5)
 const KING = UInt8(6)
 
+const WHITE_PAWN = UInt8(5)
+const WHITE_KNIGHT = UInt8(9)
+const WHITE_BISHOP = UInt8(13)
+const WHITE_ROOK = UInt8(17)
+const WHITE_QUEEN = UInt8(21)
+const WHITE_KING = UInt8(25)
+
+const BLACK_PAWN = UInt8(6)
+const BLACK_KNIGHT = UInt8(10)
+const BLACK_BISHOP = UInt8(14)
+const BLACK_ROOK = UInt8(18)
+const BLACK_QUEEN = UInt8(22)
+const BLACK_KING = UInt8(26)
+
 # Enpassant flag
-const ENPASS = UInt8(10)
+const ENPASS = UInt8(30)
 
 # Castling flag
-const CASTLE = UInt8(20)
+const CASTLE = UInt8(40)
 
 # convert labels to bitboard representation
 const LABELLED_SQUARES = [*(args...) for args in Base.product("hgfedcba","12345678")]
 const LABEL_TO_BITBOARD = Dict(reshape(LABELLED_SQUARES, 64) .=> [UInt64(1) << i for i in 0:63])
+
+# convert labels to squares
+const LABEL_TO_SQUARE = Dict(reshape(LABELLED_SQUARES, 64) .=> 1:64)
 
 # Bitboard representation of the board FILES
 const FILE_A = 0x8080808080808080

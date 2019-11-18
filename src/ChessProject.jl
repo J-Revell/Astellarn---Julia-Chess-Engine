@@ -7,11 +7,10 @@ module ChessProject
 
     include("constants.jl")
 
-    # Files which modify the board
+    # Files relating to the board
     include("board.jl")
     include("boardQuery.jl")
     include("displayBoard.jl")
-    include("makeMove.jl")
 
     # Load the files which build moves
     include("pawnMoves.jl")
@@ -23,6 +22,8 @@ module ChessProject
     include("queenMoves.jl")
     include("attacks.jl")
     include("moveBuilder.jl")
+
+    include("makeMove.jl")
 
 
     export @newGame, @move

@@ -9,7 +9,7 @@ function squareAttackers(board::Board, sqr::Int)
     (rookMoves(sqr, occupied) & enemies & (board.rooks | board.queens)) |
     (KING_MOVES[sqr] & enemies & board.kings)
 end
-squareAttackers(board::Board, sqr::UInt) = squareAttackers(board, getSquare(sqr))
+squareAttackers(board::Board, sqr_bb::UInt) = squareAttackers(board, getSquare(sqr_bb))
 
 # is a given square attacked? Bool.
 isSquareAttacked(board::Board, sqr::Int) = squareAttackers(board, square) > zero(UInt)
@@ -20,7 +20,8 @@ function kingAttackers(board::Board)
 end
 
 # is the king attacked? Bool.
-isKingAttacked(board::Board) = squareAttackers(board, getOurKing(board)) > zero(UInt)
+isOurKingAttacked(board::Board) = squareAttackers(board, getOurKing(board)) > zero(UInt)
+isTheirKingAttacked(board::Board) = squareAttackers(board, getTheirKing(board)) > zero(UInt)
 
 # generate a mask for the bits between two squares of a sliding attack
 function initBlockerMasks(blockermasks::Array{UInt, 2})
