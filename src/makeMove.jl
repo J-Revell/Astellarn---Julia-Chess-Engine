@@ -50,6 +50,20 @@ function move_promo!(board::Board, move::Board)
 
 end
 
+function randMove!(board::Board)
+    pml = MoveList(150)
+    ml = MoveList(150)
+    gen_moves!(ml, board)
+    ml = filter(move -> move.move_flag == 0, ml)
+    for move in ml
+        _board = deepcopy(board)
+        move_normal!(_board, move)
+        if isLegal(_board)
+            push!(pml, move)
+        end
+    end
+    move_normal!(board, pml[rand(1:length(pml))])
+end
 
 # clear both squares (in case of captures), and set the second square
 function move!(board::Board, movefrom::String, moveto::String)

@@ -27,4 +27,6 @@ module ChessProject
 
 
     export @newGame, @move
+
+    export Board, gen_moves!, MoveList, Move, randMove!
 end # module

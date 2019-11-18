@@ -26,6 +26,28 @@ function displayColorBoard(board::Board)
     end
 end
 
+function displayBitboard(bitboard::UInt64)
+    for row in 1:9
+        for col in 1:9
+            if row == 9
+                (col > 1) ? print(COLUMNS[col - 1]*" ") : print("  ")
+            elseif col == 1
+                print(9 - row, " ")
+            else
+                sqr = getBitboard(col - 1, 9 - row)
+                #color = getPieceColor(board, sqr)
+                #piece = getPieceType(board, sqr)
+                sym = ((sqr & bitboard) > zero(UInt)) ? 'x' : ' '
+                #sym = (piece > zero(UInt8)) ? SYMBOLS[getPieceType(board, sqr)] : ' '
+                foreground = :red
+                background = isodd(row + col + 1) ? :blue : :light_blue
+                print(Crayon(foreground = foreground, background = background), sym, " ")    
+            end
+        end
+        print(Crayon(reset = true), "\n")
+    end
+end
+
 # function displayAttackBoard(board::Board, attacks::UInt64)
 #     for row in 1:9
 #         for col in 1:9
