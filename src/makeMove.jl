@@ -12,25 +12,13 @@ function move_normal!(board::Board, move::Move)
     pieceType_to = getPieceType(board, sqr_to)
     to_color = getPieceColor(board, sqr_to)
 
-    (pieceType_from == PAWN) && (board.pawns ⊻= sqr_from_bb ⊻ sqr_to_bb)
-    (pieceType_from == KNIGHT) && (board.knights ⊻= sqr_from_bb ⊻ sqr_to_bb)
-    (pieceType_from == BISHOP) && (board.bishops ⊻= sqr_from_bb ⊻ sqr_to_bb)
-    (pieceType_from == ROOK) && (board.rooks ⊻= sqr_from_bb ⊻ sqr_to_bb)
-    (pieceType_from == QUEEN) && (board.queens ⊻= sqr_from_bb ⊻ sqr_to_bb)
-    (pieceType_from == KING) && (board.kings ⊻= sqr_from_bb ⊻ sqr_to_bb)
+    board.pieces[pieceType_from] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    (board.turn == WHITE) && (board.white ⊻= sqr_from_bb ⊻ sqr_to_bb)
-    (board.turn == BLACK) && (board.black ⊻= sqr_from_bb ⊻ sqr_to_bb)
-
-    (pieceType_to == PAWN) && (board.pawns ⊻=  sqr_to_bb)
-    (pieceType_to == KNIGHT) && (board.knights ⊻= sqr_to_bb)
-    (pieceType_to == BISHOP) && (board.bishops ⊻= sqr_to_bb)
-    (pieceType_to == ROOK) && (board.rooks ⊻= sqr_to_bb)
-    (pieceType_to == QUEEN) && (board.queens ⊻= sqr_to_bb)
-    (pieceType_to == KING) && (board.kings ⊻= sqr_to_bb)
-
-    (to_color == WHITE) && (board.white ⊻= sqr_to_bb)
-    (to_color == BLACK) && (board.black ⊻= sqr_to_bb)
+    if piece_to !== NONE
+        board.pieces[pieceType_to] ⊻= sqr_to_bb
+        board.colors[to_color] ⊻= sqr_to_bb
+    end
 
     board.squares[sqr_from] = NONE
     board.squares[sqr_to] = piece_from

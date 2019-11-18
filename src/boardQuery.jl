@@ -4,12 +4,12 @@ getPieceType(board::Board, sqr::Int) = fld(board.squares[sqr], UInt8(4))
 getPieceColor(board::Board, sqr::Int) = board.squares[sqr] % UInt8(4)
 
 # functions for logically querying piece types on squares
-isKing(board::Board, sqr_bb::UInt64) = (sqr_bb & board.kings) > zero(UInt)
-isQueen(board::Board, sqr_bb::UInt64) = (sqr_bb & board.queens) > zero(UInt)
-isRook(board::Board, sqr_bb::UInt64) = (sqr_bb & board.rooks) > zero(UInt)
-isBishop(board::Board, sqr_bb::UInt64) = (sqr_bb & board.bishops) > zero(UInt)
-isKnight(board::Board, sqr_bb::UInt64) = (sqr_bb & board.knights) > zero(UInt)
-isPawn(board::Board, sqr_bb::UInt64)  = (sqr_bb & board.pawns) > zero(UInt)
+isKing(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[KING]) > zero(UInt)
+isQueen(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[QUEEN]) > zero(UInt)
+isRook(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[ROOK]) > zero(UInt)
+isBishop(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[BISHOP]) > zero(UInt)
+isKnight(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[KNIGHT]) > zero(UInt)
+isPawn(board::Board, sqr_bb::UInt64)  = (sqr_bb & board.pieces[PAWN]) > zero(UInt)
 
 isKing(board::Board, sqr::Int) = getPieceType(board, sqr) == KING
 isQueen(board::Board, sqr::Int) = getPieceType(board, sqr) == QUEEN
@@ -19,8 +19,8 @@ isKnight(board::Board, sqr::Int) = getPieceType(board, sqr) == KNIGHT
 isPawn(board::Board, sqr::Int)  = getPieceType(board, sqr) == PAWN
 
 # functions for logically querying colour of piece on squares
-isWhite(board::Board, sqr_bb::UInt64) = (sqr_bb & board.white) > zero(UInt)
-isBlack(board::Board, sqr_bb::UInt64) = (sqr_bb & board.black) > zero(UInt)
+isWhite(board::Board, sqr_bb::UInt64) = (sqr_bb & board.colors[WHITE]) > zero(UInt)
+isBlack(board::Board, sqr_bb::UInt64) = (sqr_bb & board.colors[BLACK]) > zero(UInt)
 
 isWhite(board::Board, sqr::Int) = getPieceColor(board, sqr) == WHITE
 isBlack(board::Board, sqr::Int) = getPieceColor(board, sqr) == BLACK
@@ -41,30 +41,37 @@ getFile(sqr::Int) = getFile(getBitboard(sqr))
 getRank(sqr::Int) = getRank(getBitboard(sqr))
 
 # get all the black pieces, or all the white pieces
-getWhite(board::Board) = board.white
-getBlack(board::Board) = board.black
+getWhite(board::Board) = board.colors[WHITE]
+getBlack(board::Board) = board.colors[BLACK]
+
+getKings(board::Board) = board.pieces[KING]
+getQueens(board::Board) = board.pieces[QUEEN]
+getRooks(board::Board) = board.pieces[ROOK]
+getBishops(board::Board) = board.pieces[BISHOP]
+getKnights(board::Board) = board.pieces[KNIGHT]
+getPawns(board::Board) = board.pieces[PAWN]
 
 # It's our turn, find our kings/queens/rooks/bishops/knights/pawns
 # Or it's our turn, find their kings/queens/rooks/bishops/knights/pawns
-getOurKing(board::Board) = board.kings & (board.turn == WHITE ? board.white : board.black)
-getTheirKing(board::Board) = board.kings & (board.turn == WHITE ? board.black : board.white)
+getOurKing(board::Board) = getKings(board) & board.colors[board.turn]
+getTheirKing(board::Board) = getKings(board) & (board.turn == WHITE ? getBlack(board) : getWhite(board))
 
-getOurQueens(board::Board) = board.queens & (board.turn == WHITE ? board.white : board.black)
-getTheirQueens(board::Board) = board.queens & (board.turn == WHITE ? board.black : board.white)
+getOurQueens(board::Board) = getQueens(board) & board.colors[board.turn]
+getTheirQueens(board::Board) = getQueens(board) & (board.turn == WHITE ? getBlack(board) : getWhite(board))
 
-getOurRooks(board::Board) = board.rooks & (board.turn == WHITE ? board.white : board.black)
-getTheirRooks(board::Board) = board.rooks & (board.turn == WHITE ? board.black : board.white)
+getOurRooks(board::Board) = getRooks(board) & board.colors[board.turn]
+getTheirRooks(board::Board) = getRooks(board) & (board.turn == WHITE ? getBlack(board) : getWhite(board))
 
-getOurBishops(board::Board) = board.bishops & (board.turn == WHITE ? board.white : board.black)
-getTheirBishops(board::Board) = board.bishops & (board.turn == WHITE ? board.black : board.white)
+getOurBishops(board::Board) = getBishops(board) & board.colors[board.turn]
+getTheirBishops(board::Board) = getBishops(board) & (board.turn == WHITE ? getBlack(board) : getWhite(board))
 
-getOurKnights(board::Board) = board.knights & (board.turn == WHITE ? board.white : board.black)
-getTheirKnights(board::Board) = board.knights & (board.turn == WHITE ? board.black : board.white)
+getOurKnights(board::Board) = getKnights(board) & board.colors[board.turn]
+getTheirKnights(board::Board) = getKnights(board) & (board.turn == WHITE ? getBlack(board) : getWhite(board))
 
-getOurPawns(board::Board) = board.pawns & (board.turn == WHITE ? board.white : board.black)
-getTheirPawns(board::Board) = board.pawns & (board.turn == WHITE ? board.black : board.white)
+getOurPawns(board::Board) = getPawns(board) & board.colors[board.turn]
+getTheirPawns(board::Board) = getPawns(board) & (board.turn == WHITE ? getBlack(board) : getWhite(board))
 
-getOurPieces(board::Board) = (board.turn == WHITE) ? getWhite(board) : getBlack(board)
+getOurPieces(board::Board) = board.colors[board.turn]
 getTheirPieces(board::Board) = (board.turn == WHITE) ? getBlack(board) : getWhite(board)
 
 # find all the empty, or occupied squares
