@@ -24,7 +24,7 @@ Base.getindex(moveList::MoveList, idx::Int) = moveList.moves[idx]
 # add a push function. The MoveList object is preallocated for performance.
 function push!(moveList::MoveList, move::Move)
     moveList.idx += 1
-    moveList.moves[moveList.idx] = move
+    @inbounds moveList.moves[moveList.idx] = move
 end
 
 # pseudo-clear the moveList.
@@ -180,7 +180,7 @@ function gen_moves!(moveList::MoveList, board::Board)
     end
 
     # first, we generate all the pawn target squares
-    pawnOne = pawnAdvance(pawns, empty, board.turn)
+    pawnOne = pawnSingleAdvance(pawns, empty, board.turn)
     pawnTwo = pawnDoubleAdvance(pawns, empty, board.turn)
     pawnLeft = pawnLeftCaptures(pawns, enemies, board.turn)
     pawnRight = pawnRightCaptures(pawns, enemies, board.turn)
@@ -222,7 +222,8 @@ function gen_moves!(moveList::MoveList, board::Board)
     return
 end
 
-# is the position legal
-function isLegal(board::Board)
-    !isTheirKingAttacked(board::Board)
+function gen_moves(board::Board)
+    moveList = MoveList(150)
+    gen_moves!(moveList, board)
+    moveList
 end

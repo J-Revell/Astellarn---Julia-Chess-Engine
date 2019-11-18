@@ -1,3 +1,16 @@
+# is the position legal
+function isLegal(board::Board)
+    !isTheirKingAttacked(board::Board)
+end
+
+function isCheckmate(board::Board)
+    (length(gen_moves(board)) == 0) && isOurKingAttacked(board)
+end
+
+function isStalemate(board::Board)
+    (length(gen_moves(board)) == 0) && !isOurKingAttacked(board)
+end
+
 function move_normal!(board::Board, move::Move)
     sqr_from = Int(move.move_from)
     sqr_to = Int(move.move_to)
@@ -51,6 +64,15 @@ function randMove!(board::Board)
         end
     end
     move_normal!(board, pml[rand(1:length(pml))])
+    if isCheckmate(board)
+        println("CHECKMATE!")
+        return true
+    end
+    if isStalemate(board)
+        println("STALEMATE!")
+        return true
+    end
+    return false
 end
 
 # clear both squares (in case of captures), and set the second square
