@@ -5,6 +5,7 @@ module ChessProject
     import Base.iterate, Base.push!, Base.length, Base.eltype, Base.size,
     Base.IndexStyle, Base.getindex
 
+    # globally used constants
     include("constants.jl")
 
     # Files relating to the board
@@ -23,7 +24,11 @@ module ChessProject
     include("attacks.jl")
     include("moveBuilder.jl")
 
-    include("makeMove.jl")
+    include("play.jl")
+    include("moveMaker.jl")
+
+    include("judge.jl")
+    include("monkeyAI.jl")
 
 
     export @newGame, @move

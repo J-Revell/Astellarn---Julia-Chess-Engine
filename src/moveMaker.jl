@@ -1,4 +1,15 @@
 function move(board::Board, move::Move)
+    if move.move_flag == NONE
+        move_normal!(board, move)
+    elseif move.move_flag == ENPASS
+        move_enpass!(board, move)
+    elseif move.move_flag = CASTLE
+        move_castle!(board, move)
+    else
+        move_promo!(board, move)
+    end
+    switchTurn!(board)
+end
 
 # generate non special moves
 function move_normal!(board::Board, move::Move)
@@ -25,8 +36,6 @@ function move_normal!(board::Board, move::Move)
         board.pieces[pieceType_to] ⊻= sqr_to_bb
         board.colors[to_color] ⊻= sqr_to_bb
     end
-
-    switchTurn!(board)
 
     # check for double pawn advance, and set enpass square
     if (pieceType_from == PAWN) && (sqr_from-sqr_to > 10)
@@ -82,11 +91,47 @@ function move_enpass!(board::Board, move::Move)
     board.squares[sqr_to - 24 + (board.turn << 4)] = NONE
 
     board.enpass = zero(UInt8)
-    switchTurn!(board)
 end
 
 function move_castle!(board::Board, move::Move)
+    king_from = Int(move.move_from)
+    king_to = Int(move.move_to)
 
+    king_from_bb = getBitboard(sqr_from)
+    king_to_bb = getBitboard(sqr_to)
+
+    if sqr_to == 2
+        rook_from = 1
+        rook_to = 3
+        board.castling &= ~0x01 | ~0x02
+    elseif sqr_to == 6
+        rook_from = 8
+        rook_to = 5
+        board.castling &= ~0x01 | ~0x02
+    elseif sqr_to == 58
+        rook_from = 57
+        rook_to = 59
+        board.castling &= ~0x04 | ~0x08
+    elseif sqr_to == 62
+        rook_from = 64
+        rook_to = 61
+        board.castling &= ~0x04 | ~0x08
+    end
+    rook_from_bb = getBitboard(rook_from)
+    rook_to_bb = getBitboard(rook_to)
+
+    board.pieces[KING] ⊻= king_from_bb ⊻ king_to_bb
+    board.pieces[ROOK] ⊻= rook_from_bb ⊻ rook_to_bb
+
+    board.colors[board.turn] ⊻= king_from_bb ⊻ king_to_bb
+    board.colors[board.turn] ⊻= rook_from_bb ⊻ rook_to_bb
+
+    board.squares[king_from] = NONE
+    board.squares[rook_from] = NONE
+    board.squares[king_to] = makePiece(KING, board.turn)
+    board.squares[rook_to] = makePiece(ROOK, board.turn)
+
+    board.enpass = zero(UInt8)
 end
 
 function move_promo!(board::Board, move::Move)
@@ -118,7 +163,6 @@ function move_promo!(board::Board, move::Move)
     end
 
     board.enpass = zero(UInt8)
-    switchTurn!(board)
 
     # rook square moved to (captured)? remove rights
     (sqr_to == 1) && (board.castling ⊻= 0x01)
