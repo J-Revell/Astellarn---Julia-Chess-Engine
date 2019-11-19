@@ -14,13 +14,17 @@ module ChessProject
     include("displayBoard.jl")
 
     # Load the files which build moves
+    # standard piece moves
     include("pawnMoves.jl")
     include("kingMoves.jl")
     include("knightMoves.jl")
+    # sliding piece moves
+    include("magic.jl")
     include("slidingMoves.jl")
     include("rookMoves.jl")
     include("bishopMoves.jl")
     include("queenMoves.jl")
+    
     include("attacks.jl")
     include("moveBuilder.jl")
 
@@ -33,5 +37,5 @@ module ChessProject
 
     export @newGame, @move
 
-    export Board, gen_moves!, MoveList, Move, randMove!
+    export Board, gen_moves!, MoveList, Move, randMove!, startBoard, move!, gen_moves, gen_moves!
 end # module
