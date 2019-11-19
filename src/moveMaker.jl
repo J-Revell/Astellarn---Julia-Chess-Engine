@@ -1,9 +1,9 @@
-function move(board::Board, move::Move)
+function move!(board::Board, move::Move)
     if move.move_flag == NONE
         move_normal!(board, move)
     elseif move.move_flag == ENPASS
         move_enpass!(board, move)
-    elseif move.move_flag = CASTLE
+    elseif move.move_flag == CASTLE
         move_castle!(board, move)
     else
         move_promo!(board, move)
@@ -51,8 +51,8 @@ function move_normal!(board::Board, move::Move)
     (sqr_from == 64) && (board.castling &= ~0x08)
 
     # king moves, remove castle rights
-    (sqr_from == 60) && (board.castling &= ~0x04 | ~0x08)
-    (sqr_from == 4) && (board.castling &= ~0x01 | ~0x02)
+    (sqr_from == 60) && (board.castling &= ~0x04 & ~0x08)
+    (sqr_from == 4) && (board.castling &= ~0x01 & ~0x02)
 
     # rook square moved to (captured)? remove rights
     (sqr_to == 1) && (board.castling &= ~0x01)
@@ -97,25 +97,25 @@ function move_castle!(board::Board, move::Move)
     king_from = Int(move.move_from)
     king_to = Int(move.move_to)
 
-    king_from_bb = getBitboard(sqr_from)
-    king_to_bb = getBitboard(sqr_to)
+    king_from_bb = getBitboard(king_from)
+    king_to_bb = getBitboard(king_to)
 
-    if sqr_to == 2
+    if king_to == 2
         rook_from = 1
         rook_to = 3
-        board.castling &= ~0x01 | ~0x02
-    elseif sqr_to == 6
+        board.castling &= ~0x01 & ~0x02
+    elseif king_to == 6
         rook_from = 8
         rook_to = 5
-        board.castling &= ~0x01 | ~0x02
-    elseif sqr_to == 58
+        board.castling &= ~0x01 & ~0x02
+    elseif king_to == 58
         rook_from = 57
         rook_to = 59
-        board.castling &= ~0x04 | ~0x08
-    elseif sqr_to == 62
+        board.castling &= ~0x04 & ~0x08
+    elseif king_to == 62
         rook_from = 64
         rook_to = 61
-        board.castling &= ~0x04 | ~0x08
+        board.castling &= ~0x04 & ~0x08
     end
     rook_from_bb = getBitboard(rook_from)
     rook_to_bb = getBitboard(rook_to)
@@ -165,8 +165,8 @@ function move_promo!(board::Board, move::Move)
     board.enpass = zero(UInt8)
 
     # rook square moved to (captured)? remove rights
-    (sqr_to == 1) && (board.castling ⊻= 0x01)
-    (sqr_to == 8) && (board.castling ⊻= 0x02)
-    (sqr_to == 57) && (board.castling ⊻= 0x04)
-    (sqr_to == 64) && (board.castling ⊻= 0x08)
+    (sqr_to == 1) && (board.castling &= ~0x01)
+    (sqr_to == 8) && (board.castling &= ~0x02)
+    (sqr_to == 57) && (board.castling &= ~0x04)
+    (sqr_to == 64) && (board.castling &= ~0x08)
 end

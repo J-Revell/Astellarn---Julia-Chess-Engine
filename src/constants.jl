@@ -77,8 +77,8 @@ const RANK_18 = RANK_1 | RANK_8
 
 # castling masks
 const CASTLE_OO_MASK_W = (UInt(1) << 1) | (UInt(1) << 2)
-const CASTLE_OOO_MASK_W = (UInt(1) << 4) | (UInt(1) << 5)
+const CASTLE_OOO_MASK_W = (UInt(1) << 4) | (UInt(1) << 5) | (UInt(1) << 6)
 const CASTLE_OO_MASK_B = (UInt(1) << 57) | (UInt(1) << 58)
-const CASTLE_OOO_MASK_B = (UInt(1) << 60) | (UInt(1) << 61)
+const CASTLE_OOO_MASK_B = (UInt(1) << 60) | (UInt(1) << 61) | (UInt(1) << 62)
 
 const CASTLE_ROOK_MASK = UInt(1) | (UInt(1) << 7) | (UInt(1) << 56) | (UInt(1) << 63)

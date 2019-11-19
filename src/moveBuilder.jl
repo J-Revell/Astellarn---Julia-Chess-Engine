@@ -86,14 +86,14 @@ function build_castling!(moveList::MoveList, board::Board, occupied::UInt64)
 
     # kingside castling
     if canCastleKingside(board, board.turn)
-        if occupied & ((board.turn == WHITE) ? (CASTLE_OO_MASK_W) : (CASTLE_OO_MASK_B)) == zero(UInt)
+        if (occupied & ((board.turn == WHITE) ? (CASTLE_OO_MASK_W) : (CASTLE_OO_MASK_B))) == zero(UInt)
             push!(moveList, Move(king, king - 2, CASTLE))
         end
     end
 
     # queenside castling
     if canCastleQueenside(board::Board, board.turn)
-        if occupied & ((board.turn == WHITE) ? (CASTLE_OOO_MASK_W) : (CASTLE_OOO_MASK_B)) == zero(UInt)
+        if (occupied & ((board.turn == WHITE) ? (CASTLE_OOO_MASK_W) : (CASTLE_OOO_MASK_B))) == zero(UInt)
             push!(moveList, Move(king, king + 2, CASTLE))
         end
     end
