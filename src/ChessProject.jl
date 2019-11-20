@@ -24,7 +24,7 @@ module ChessProject
     include("rookMoves.jl")
     include("bishopMoves.jl")
     include("queenMoves.jl")
-    
+
     include("attacks.jl")
     include("moveBuilder.jl")
 
@@ -37,5 +37,5 @@ module ChessProject
 
     export @newGame, @move
 
-    export Board, gen_moves!, MoveList, Move, randMove!, startBoard, move!, gen_moves, gen_moves!
+    export Board, gen_moves!, MoveList, Move, randMove!, startBoard, move!, gen_moves, gen_moves!, isCheckmate, isStalemate, isDrawByMaterial
 end # module
