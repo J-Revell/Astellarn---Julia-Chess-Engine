@@ -303,7 +303,6 @@ function gen_quiet_moves!(moveList::MoveList, board::Board)
     end
     pawnOne = pawnSingleAdvance(pawns, empty, board.turn)
     pawnTwo = pawnDoubleAdvance(pawns, empty, board.turn)
-    pawnPromo = pawnOne & RANK_18
     pawnOne &= ~RANK_18
     build_pawn_moves!(moveList, pawnOne & targets, oneStep)
     build_pawn_moves!(moveList, pawnTwo & targets, twoStep)
