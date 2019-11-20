@@ -32,10 +32,15 @@ module ChessProject
     include("moveMaker.jl")
 
     include("judge.jl")
+
     include("monkeyAI.jl")
 
 
-    export @newGame, @move
+    export @newGame, @play
 
-    export Board, gen_moves!, MoveList, Move, randMove!, startBoard, move!, gen_moves, gen_moves!, isCheckmate, isStalemate, isDrawByMaterial
+    export Board, startBoard, displayBitboard, displayColorBoard, Move, MoveList, Undo, UndoStack
+
+    export gen_moves!, randMove!, move!, gen_moves
+
+    export isCheckmate, isStalemate, isDrawByMaterial, isLegal
 end # module
