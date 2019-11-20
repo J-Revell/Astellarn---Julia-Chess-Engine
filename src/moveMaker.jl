@@ -9,6 +9,8 @@ function move!(board::Board, move::Move)
         move_promo!(board, move)
     end
     switchTurn!(board)
+    board.kingattackers = kingAttackers(board)
+    return
 end
 
 # generate non special moves
@@ -45,20 +47,27 @@ function move_normal!(board::Board, move::Move)
     end
 
     # rook moves, remove castle rights
-    (sqr_from == 1) && (board.castling &= ~0x01)
-    (sqr_from == 8) && (board.castling &= ~0x02)
-    (sqr_from == 57) && (board.castling &= ~0x04)
-    (sqr_from == 64) && (board.castling &= ~0x08)
+    if pieceType_from == ROOK
+        (sqr_from == 1) && (board.castling &= ~0x01)
+        (sqr_from == 8) && (board.castling &= ~0x02)
+        (sqr_from == 57) && (board.castling &= ~0x04)
+        (sqr_from == 64) && (board.castling &= ~0x08)
+    end
 
     # king moves, remove castle rights
-    (sqr_from == 60) && (board.castling &= ~0x04 & ~0x08)
-    (sqr_from == 4) && (board.castling &= ~0x01 & ~0x02)
+    if pieceType_from == KING
+        (sqr_from == 60) && (board.castling &= ~0x04 & ~0x08)
+        (sqr_from == 4) && (board.castling &= ~0x01 & ~0x02)
+    end
 
     # rook square moved to (captured)? remove rights
-    (sqr_to == 1) && (board.castling &= ~0x01)
-    (sqr_to == 8) && (board.castling &= ~0x02)
-    (sqr_to == 57) && (board.castling &= ~0x04)
-    (sqr_to == 64) && (board.castling &= ~0x08)
+    if pieceType_to == ROOK
+        (sqr_to == 1) && (board.castling &= ~0x01)
+        (sqr_to == 8) && (board.castling &= ~0x02)
+        (sqr_to == 57) && (board.castling &= ~0x04)
+        (sqr_to == 64) && (board.castling &= ~0x08)
+    end
+    return
 end
 
 function move_enpass!(board::Board, move::Move)
@@ -91,6 +100,7 @@ function move_enpass!(board::Board, move::Move)
     board.squares[sqr_to - 24 + (board.turn << 4)] = NONE
 
     board.enpass = zero(UInt8)
+    return
 end
 
 function move_castle!(board::Board, move::Move)
@@ -132,6 +142,7 @@ function move_castle!(board::Board, move::Move)
     board.squares[rook_to] = makePiece(ROOK, board.turn)
 
     board.enpass = zero(UInt8)
+    return
 end
 
 function move_promo!(board::Board, move::Move)
@@ -169,4 +180,5 @@ function move_promo!(board::Board, move::Move)
     (sqr_to == 8) && (board.castling &= ~0x02)
     (sqr_to == 57) && (board.castling &= ~0x04)
     (sqr_to == 64) && (board.castling &= ~0x08)
+    return
 end

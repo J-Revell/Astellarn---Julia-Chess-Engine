@@ -1,13 +1,15 @@
 # is the position legal
 function isLegal(board::Board)
-    !isTheirKingAttacked(board::Board)
+    switchTurn!(board)
+    bool = !isOurKingAttacked(board::Board)
+    switchTurn!(board)
+    return bool
 end
 
 function isCheckmate(board::Board)
-    pml = MoveList(150)
-    ml = MoveList(150)
-    gen_moves!(ml, board)
-    #ml = filter(move -> move.move_flag !== CASTLE, ml)
+    pml = MoveList(8)
+    ml = MoveList(8)
+    build_king_moves!(ml, board, ~getWhite(board))
     for move in ml
         _board = deepcopy(board)
         move!(_board, move)
@@ -22,7 +24,6 @@ function isStalemate(board::Board)
     pml = MoveList(150)
     ml = MoveList(150)
     gen_moves!(ml, board)
-    #ml = filter(move -> move.move_flag !== CASTLE, ml)
     for move in ml
         _board = deepcopy(board)
         move!(_board, move)

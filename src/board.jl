@@ -4,6 +4,8 @@ mutable struct Board
     pieces::MVector{6,UInt64}
     colors::MVector{2,UInt64}
 
+    kingattackers::UInt64
+
     turn::UInt8
     castling::UInt8
     enpass::UInt8
@@ -11,12 +13,13 @@ end
 
 # empty board
 Board() = Board(
-    MVector{64,UInt8}(repeat([0x00], 64)),
-    MVector{6,UInt64}(repeat([0x000000000], 6)),
-    MVector{2,UInt64}(repeat([0x000000000], 2)),
+    MVector{64,UInt8}(repeat([zero(UInt8)], 64)),
+    MVector{6,UInt64}(repeat([zero(UInt64)], 6)),
+    MVector{2,UInt64}(repeat([zero(UInt64)], 2)),
+    zero(UInt64),
     WHITE,
-    0x00,
-    0x00)
+    zero(UInt8),
+    zero(UInt8))
 
 # define the start position
 startBoard() = Board(
@@ -36,9 +39,10 @@ startBoard() = Board(
     0x0800000000000008],
     [0x000000000000ffff,
     0xffff000000000000],
+    zero(UInt64),
     WHITE,
     0x0f,
-    0x00)
+    zero(UInt8))
 
 # clear a square
 function clearSquare!(board::Board, sqr_bb::UInt64)

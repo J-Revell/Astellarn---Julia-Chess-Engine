@@ -22,19 +22,6 @@ function sliderMoves(sqr_bb::UInt64, occupied::UInt64, moveDirections::SArray{Tu
 	return moveMask
 end
 
-# generate the sliding tables, by creating the indexes and all possible occupancy masks.
-# function initSlidingTable(table::Vector{UInt}, magics::SArray{Tuple{64}, Magic, 1, 64}, moveDirections::SArray{Tuple{4},Function,1,4})
-# 	for sqr in 1:64
-# 		occupied = zero(UInt)
-# 		@inbounds for i in 1:(1 << count_ones(magics[sqr].mask))
-# 			idx = tableIndex(occupied, magics[sqr])
-# 			table[idx] = sliderMoves(getBitboard(sqr), occupied, moveDirections)
-# 			occupied = (occupied - magics[sqr].mask) & magics[sqr].mask
-# 		end
-# 	end
-# 	return table
-# end
-
 function initSlidingTable(table::Vector{Vector{UInt}}, magics::SArray{Tuple{64}, Magic, 1, 64}, moveDirections::SArray{Tuple{4},Function,1,4})
 	for sqr in 1:64
 		occupied = zero(UInt)

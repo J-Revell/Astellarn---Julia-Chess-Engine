@@ -20,14 +20,14 @@ function kingAttackers(board::Board)
 end
 
 # is the king attacked? Bool.
-isOurKingAttacked(board::Board) = squareAttackers(board, getOurKing(board)) > zero(UInt)
+isOurKingAttacked(board::Board) = board.kingattackers > zero(UInt)#squareAttackers(board, getOurKing(board)) > zero(UInt)
 
-function isTheirKingAttacked(board::Board)
-    switchTurn!(board)
-    bool = isOurKingAttacked(board)
-    switchTurn!(board)
-    return bool
-end
+# function isTheirKingAttacked(board::Board)
+#     switchTurn!(board)
+#     bool = isOurKingAttacked(board)
+#     switchTurn!(board)
+#     return bool
+# end
 
 # generate a mask for the bits between two squares of a sliding attack
 function initBlockerMasks(blockermasks::Array{UInt, 2})

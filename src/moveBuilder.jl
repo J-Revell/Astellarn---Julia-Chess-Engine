@@ -47,14 +47,14 @@ end
 # build moves onto the movelist
 function build_moves!(moveList::MoveList, move_bb::UInt64, move_from::Int)
     for move_to in move_bb
-        push!(moveList, Move(move_from, move_to, 0))
+        push!(moveList, Move(move_from, move_to, NONE))
     end
 end
 
 # build pawn moves onto the movelist
 function build_pawn_moves!(moveList::MoveList, move_bb::UInt64, jump::Int)
     for move_to in move_bb
-        push!(moveList, Move(move_to + jump, move_to, 0))
+        push!(moveList, Move(move_to + jump, move_to, NONE))
     end
 end
 
@@ -87,16 +87,21 @@ function build_castling!(moveList::MoveList, board::Board, occupied::UInt64)
     # kingside castling
     if canCastleKingside(board, board.turn)
         if (occupied & ((board.turn == WHITE) ? (CASTLE_OO_MASK_W) : (CASTLE_OO_MASK_B))) == zero(UInt)
-            push!(moveList, Move(king, king - 2, CASTLE))
+            if !isSquareAttacked(board, king - 1) && !isSquareAttacked(board, king - 2)
+                push!(moveList, Move(king, king - 2, CASTLE))
+            end
         end
     end
 
     # queenside castling
     if canCastleQueenside(board::Board, board.turn)
         if (occupied & ((board.turn == WHITE) ? (CASTLE_OOO_MASK_W) : (CASTLE_OOO_MASK_B))) == zero(UInt)
-            push!(moveList, Move(king, king + 2, CASTLE))
+            if !isSquareAttacked(board, king + 1) && !isSquareAttacked(board, king + 2)
+                push!(moveList, Move(king, king + 2, CASTLE))
+            end
         end
     end
+    return
 end
 
 # build knight moves onto the movelist
@@ -108,14 +113,14 @@ end
 
 # function to build bishop moves onto the movelist
 function build_bishop_moves!(moveList::MoveList, board::Board, targets::UInt64, occupied::UInt64)
-    for bishop in getOurBishops(board)
+    for bishop in (getOurBishops(board) | getOurQueens(board))
         @inbounds build_moves!(moveList, targets & bishopMoves(bishop, occupied), bishop)
     end
 end
 
 # function to add the rook moves onto the movelist
 function build_rook_moves!(moveList::MoveList, board::Board, targets::UInt64, occupied::UInt64)
-    for rook in getOurRooks(board)
+    for rook in (getOurRooks(board) | getOurQueens(board))
         @inbounds build_moves!(moveList, targets & rookMoves(rook, occupied), rook)
     end
 end
@@ -127,14 +132,10 @@ function build_queen_moves!(moveList::MoveList, board::Board, targets::UInt64, o
     end
 end
 
-# generate all possible moves
-function gen_moves!(moveList::MoveList, board::Board)
+# generate all possible moves in one go
+function gen_all_moves!(moveList::MoveList, board::Board)
     # find all our pieces, may not be needed
     pawns = getOurPawns(board)
-    knights = getOurKnights(board)
-    bishops = getOurBishops(board)
-    rooks = getOurRooks(board)
-    queens = getOurQueens(board)
     king = getOurKing(board)
 
     # find target squares
@@ -146,7 +147,7 @@ function gen_moves!(moveList::MoveList, board::Board)
     occupied = getOccupied(board)
 
     # squares attacking the king, if any
-    kingAttacks = kingAttackers(board)
+    kingAttacks = board.kingattackers#kingAttackers(board)
 
     # dictate direction of pawn movement, could in future add new pawn methods
     if board.turn == WHITE
@@ -219,12 +220,108 @@ function gen_moves!(moveList::MoveList, board::Board)
     build_rook_moves!(moveList, board, targets, occupied)
 
     # build the queen moves
-    build_queen_moves!(moveList, board, targets, occupied)
+    #build_queen_moves!(moveList, board, targets, occupied)
+    return
+end
+
+# generate captures + promos
+function gen_noisy_moves!(moveList::MoveList, board::Board)
+    pawns = getOurPawns(board)
+    king = getOurKing(board)
+    enemies = getTheirPieces(board)
+    empty = getEmpty(board)
+    enpass = getBitboard(Int(board.enpass))
+    occupied = getOccupied(board)
+    kingAttacks = board.kingattackers
+    if board.turn == WHITE
+        oneStep = -8
+        left = -9
+        right = -7
+    else
+        oneStep = 8
+        left = 9
+        right = 7
+    end
+    if count_ones(kingAttacks) > 1
+        build_king_moves!(moveList, board, enemies)
+        return
+    end
+    if count_ones(kingAttacks) == 1
+        targets = kingAttacks
+    else
+        targets = enemies
+    end
+    pawnOne = pawnSingleAdvance(pawns, empty, board.turn)
+    pawnLeft = pawnLeftCaptures(pawns, enemies, board.turn)
+    pawnRight = pawnRightCaptures(pawns, enemies, board.turn)
+    pawnLeftEnpass = pawnLeftCaptures(pawns, enpass, board.turn)
+    pawnRightEnpass = pawnRightCaptures(pawns, enpass, board.turn)
+    pawnPromo = pawnOne & RANK_18
+    pawnPromoLeft = pawnLeft & RANK_18
+    pawnLeft &= ~RANK_18
+    pawnPromoRight = pawnRight & RANK_18
+    pawnRight &= ~RANK_18
+    build_pawn_moves!(moveList, pawnLeft & targets, left)
+    build_pawn_moves!(moveList, pawnRight & targets, right)
+    build_enpass_moves!(moveList, pawnLeftEnpass & targets, left)
+    build_enpass_moves!(moveList, pawnRightEnpass & targets, right)
+    build_promo_moves!(moveList, pawnPromo & targets, oneStep)
+    build_promo_moves!(moveList, pawnPromoLeft & targets, left)
+    build_promo_moves!(moveList, pawnPromoRight & targets, right)
+    build_king_moves!(moveList, board, enemies)
+    build_knight_moves!(moveList, board, targets)
+    build_bishop_moves!(moveList, board, targets, occupied)
+    build_rook_moves!(moveList, board, targets, occupied)
+    return
+end
+
+# generate non captures
+function gen_quiet_moves!(moveList::MoveList, board::Board)
+    pawns = getOurPawns(board)
+    king = getOurKing(board)
+    enemies = getTheirPieces(board)
+    empty = getEmpty(board)
+    enpass = getBitboard(Int(board.enpass))
+    occupied = getOccupied(board)
+    kingAttacks = board.kingattackers
+    if board.turn == WHITE
+        oneStep = -8
+        twoStep = -16
+    else
+        oneStep = 8
+        twoStep = 16
+    end
+    if count_ones(kingAttacks) > 1
+        build_king_moves!(moveList, board, enemies)
+        return
+    end
+    if count_ones(kingAttacks) == 1
+        targets = BLOCKERMASKS[getSquare(king), getSquare(kingAttacks)]
+    else
+        build_castling!(moveList, board, occupied)
+        targets = empty
+    end
+    pawnOne = pawnSingleAdvance(pawns, empty, board.turn)
+    pawnTwo = pawnDoubleAdvance(pawns, empty, board.turn)
+    pawnPromo = pawnOne & RANK_18
+    pawnOne &= ~RANK_18
+    build_pawn_moves!(moveList, pawnOne & targets, oneStep)
+    build_pawn_moves!(moveList, pawnTwo & targets, twoStep)
+    build_king_moves!(moveList, board, empty)
+    build_knight_moves!(moveList, board, targets)
+    build_bishop_moves!(moveList, board, targets, occupied)
+    build_rook_moves!(moveList, board, targets, occupied)
+    return
+end
+
+function gen_moves!(moveList::MoveList, board::Board)
+    gen_noisy_moves!(moveList, board)
+    gen_quiet_moves!(moveList, board)
     return
 end
 
 function gen_moves(board::Board)
     moveList = MoveList(150)
     gen_moves!(moveList, board)
-    moveList
+    return moveList
 end
