@@ -3,6 +3,10 @@ getPiece(board::Board, sqr::Int) = board.squares[sqr]
 getPieceType(board::Board, sqr::Int) = fld(board.squares[sqr], UInt8(4))
 getPieceColor(board::Board, sqr::Int) = board.squares[sqr] % UInt8(4)
 
+# query a piece's type or colour
+getPieceType(piece::UInt8) = fld(piece, UInt8(4))
+getPieceColor(piece::UInt8) = piece % UInt8(4)
+
 # functions for logically querying piece types on squares
 isKing(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[KING]) > zero(UInt)
 isQueen(board::Board, sqr_bb::UInt64) = (sqr_bb & board.pieces[QUEEN]) > zero(UInt)

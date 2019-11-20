@@ -1,26 +1,29 @@
 function randMove!(board::Board)
-    if isCheckmate(board)
-        #println("CHECKMATE!")
-        return true
-    end
     pml = MoveList(150)
     ml = MoveList(150)
     gen_moves!(ml, board)
-    for move in ml
-        _board = deepcopy(board)
-        move!(_board, move)
-        if isLegal(_board)
+    ul = UndoStack(150)
+    for (num, move) in enumerate(ml)
+        push!(ul, Undo())
+        legal = move!(board, move, ul[num])
+        if legal
             push!(pml, move)
+            undomove!(board, move, ul[num])
+        end
+    end
+    if length(pml) == 0
+        if isCheck(board)
+            println("checkmate!")
+            return true
+        else
+            println("statemate!")
+            return true
         end
     end
     monkeymove = pml[rand(1:length(pml))]
-    move!(board, monkeymove)
-    if isStalemate(board)
-        #println("STALEMATE!")
-        return true
-    end
+    move!(board, monkeymove, Undo())
     if isDrawByMaterial(board)
-        #println("DRAW DETECTED!")
+        println("draw!")
         return true
     end
     return false
