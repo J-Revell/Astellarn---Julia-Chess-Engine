@@ -70,6 +70,7 @@ function makemove!(board::Board, move::Move, undo::Undo)
 
     switchTurn!(board)
     board.checkers = checkers(board)
+    board.movecount += one(UInt16)
     return
 end
 
@@ -251,6 +252,7 @@ function undomove!(board::Board, move::Move, undo::Undo)
     board.checkers = undo.checkers
     board.enpass = undo.enpass
     board.castling = undo.castling
+    board.movecount -= one(UInt16)
     switchTurn!(board)
     if move.move_flag == NONE
         undomove_normal!(board, move, undo)

@@ -7,6 +7,7 @@ mutable struct Board
     turn::UInt8
     castling::UInt8
     enpass::UInt8
+    movecount::UInt16
 end
 
 # empty board
@@ -17,7 +18,8 @@ Board() = Board(
     zero(UInt64),
     WHITE,
     zero(UInt8),
-    zero(UInt8))
+    zero(UInt8),
+    zero(UInt16))
 
 # define the start position
 startBoard() = Board(
@@ -40,7 +42,8 @@ startBoard() = Board(
     zero(UInt64),
     WHITE,
     0x0f,
-    zero(UInt8))
+    zero(UInt8),
+    zero(UInt16))
 
 # clear a square
 function clearSquare!(board::Board, sqr_bb::UInt64)

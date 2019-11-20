@@ -13,17 +13,17 @@ function randMove!(board::Board)
     end
     if length(pml) == 0
         if isCheck(board)
-            println("checkmate!")
+            #println("checkmate!")
             return true
         else
-            println("statemate!")
+            #println("statemate!")
             return true
         end
     end
     monkeymove = pml[rand(1:length(pml))]
     move!(board, monkeymove, Undo())
     if isDrawByMaterial(board)
-        println("draw!")
+        #println("draw!")
         return true
     end
     return false

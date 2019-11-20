@@ -2,11 +2,13 @@
 function squareAttackers(board::Board, sqr::Int)
     enemies = getTheirPieces(board)
     occupied = getOccupied(board)
-    return (pawnLeftCaptures(getBitboard(sqr), occupied | ~occupied, board.turn) & getTheirPawns(board)) |
-    (pawnRightCaptures(getBitboard(sqr), occupied | ~occupied, board.turn) & getTheirPawns(board)) |
+    sqr_bb = getBitboard(sqr)
+    pawns = getPawns(board)
+    queens = getQueens(board)
+    return  enemies & pawns & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr]) |
     (KNIGHT_MOVES[sqr] & enemies & getKnights(board)) |
-    (bishopMoves(sqr, occupied) & enemies & (getBishops(board) | getQueens(board))) |
-    (rookMoves(sqr, occupied) & enemies & (getRooks(board) | getQueens(board))) |
+    (bishopMoves(sqr, occupied) & enemies & (getBishops(board) | queens)) |
+    (rookMoves(sqr, occupied) & enemies & (getRooks(board) | queens)) |
     (KING_MOVES[sqr] & enemies & getKings(board))
 end
 squareAttackers(board::Board, sqr_bb::UInt) = squareAttackers(board, getSquare(sqr_bb))
