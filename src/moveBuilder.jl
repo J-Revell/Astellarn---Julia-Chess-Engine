@@ -147,7 +147,7 @@ function gen_all_moves!(moveList::MoveList, board::Board)
     occupied = getOccupied(board)
 
     # squares attacking the king, if any
-    kingAttacks = board.kingattackers#kingAttackers(board)
+    kingAttacks = board.checkers#kingAttackers(board)
 
     # dictate direction of pawn movement, could in future add new pawn methods
     if board.turn == WHITE
@@ -232,7 +232,7 @@ function gen_noisy_moves!(moveList::MoveList, board::Board)
     empty = getEmpty(board)
     enpass = getBitboard(Int(board.enpass))
     occupied = getOccupied(board)
-    kingAttacks = board.kingattackers
+    kingAttacks = board.checkers
     if board.turn == WHITE
         oneStep = -8
         left = -9
@@ -283,7 +283,7 @@ function gen_quiet_moves!(moveList::MoveList, board::Board)
     empty = getEmpty(board)
     enpass = getBitboard(Int(board.enpass))
     occupied = getOccupied(board)
-    kingAttacks = board.kingattackers
+    kingAttacks = board.checkers
     if board.turn == WHITE
         oneStep = -8
         twoStep = -16

@@ -15,12 +15,12 @@ squareAttackers(board::Board, sqr_bb::UInt) = squareAttackers(board, getSquare(s
 isSquareAttacked(board::Board, sqr::Int) = squareAttackers(board, square) > zero(UInt)
 
 # find the squares attacking the king!
-function kingAttackers(board::Board)
+function checkers(board::Board)
     squareAttackers(board, getOurKing(board))
 end
 
 # is the king attacked? Bool.
-isOurKingAttacked(board::Board) = board.kingattackers > zero(UInt)#squareAttackers(board, getOurKing(board)) > zero(UInt)
+isCheck(board::Board) = board.checkers > zero(UInt)#squareAttackers(board, getOurKing(board)) > zero(UInt)
 
 # function isTheirKingAttacked(board::Board)
 #     switchTurn!(board)

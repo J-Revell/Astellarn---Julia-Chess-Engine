@@ -3,9 +3,7 @@ mutable struct Board
     squares::MVector{64,UInt8}
     pieces::MVector{6,UInt64}
     colors::MVector{2,UInt64}
-
-    kingattackers::UInt64
-
+    checkers::UInt64
     turn::UInt8
     castling::UInt8
     enpass::UInt8

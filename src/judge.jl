@@ -1,7 +1,7 @@
 # is the position legal
 function isLegal(board::Board)
     switchTurn!(board)
-    bool = !isOurKingAttacked(board::Board)
+    bool = !isCheck(board::Board)
     switchTurn!(board)
     return bool
 end
@@ -17,7 +17,7 @@ function isCheckmate(board::Board)
             push!(pml, move)
         end
     end
-    (length(pml) == 0) && isOurKingAttacked(board)
+    (length(pml) == 0) && isCheck(board)
 end
 
 function isStalemate(board::Board)
@@ -31,7 +31,7 @@ function isStalemate(board::Board)
             push!(pml, move)
         end
     end
-    (length(pml) == 0) && !isOurKingAttacked(board)
+    (length(pml) == 0) && !isCheck(board)
 end
 
 function isDrawByMaterial(board::Board)

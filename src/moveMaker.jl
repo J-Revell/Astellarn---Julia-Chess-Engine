@@ -1,20 +1,43 @@
+mutable struct Undo
+    checkers::UInt64
+    enpass::UInt8
+    castling::UInt8
+    piece_captured::UInt8
+end
+Undo() = Undo(zero(UInt64), zero(UInt8), zero(UInt8), zero(UInt8))
+
 function move!(board::Board, move::Move)
-    if move.move_flag == NONE
-        move_normal!(board, move)
-    elseif move.move_flag == ENPASS
-        move_enpass!(board, move)
-    elseif move.move_flag == CASTLE
-        move_castle!(board, move)
+    undo = Undo()
+    makemove!(board, move, undo)
+    if isLegal(board)
+        # nothing
     else
-        move_promo!(board, move)
+        # revert move
+    end
+end
+
+# implement a new undo format
+function makemove!(board::Board, move::Move, undo::Undo)
+    undo.checkers = board.checkers
+    undo.enpass = board.enpass
+    undo.castling = board.castling
+
+    if move.move_flag == NONE
+        makemove_normal!(board, move, undo)
+    elseif move.move_flag == ENPASS
+        makemove_enpass!(board, move, undo)
+    elseif move.move_flag == CASTLE
+        makemove_castle!(board, move, undo)
+    else
+        makemove_promo!(board, move, undo)
     end
     switchTurn!(board)
-    board.kingattackers = kingAttackers(board)
+    board.checkers = checkers(board)
     return
 end
 
 # generate non special moves
-function move_normal!(board::Board, move::Move)
+function makemove_normal!(board::Board, move::Move, undo::Undo)
     sqr_from = Int(move.move_from)
     sqr_to = Int(move.move_to)
 
@@ -23,6 +46,7 @@ function move_normal!(board::Board, move::Move)
 
     piece_from = getPiece(board, sqr_from)
     piece_to = getPiece(board, sqr_to)
+    undo.piece_captured = piece_to
 
     pieceType_from = getPieceType(board, sqr_from)
     pieceType_to = getPieceType(board, sqr_to)
@@ -70,7 +94,7 @@ function move_normal!(board::Board, move::Move)
     return
 end
 
-function move_enpass!(board::Board, move::Move)
+function makemove_enpass!(board::Board, move::Move, undo::Undo)
     sqr_from = Int(move.move_from)
     sqr_to = Int(move.move_to)
 
@@ -82,10 +106,10 @@ function move_enpass!(board::Board, move::Move)
     piece_from = makePiece(PAWN, board.turn)
 
     if board.turn == WHITE
-        piece_captured = makePiece(PAWN, BLACK)
+        undo.piece_captured = makePiece(PAWN, BLACK)
         to_color = BLACK
     else
-        piece_captured = makePiece(PAWN, WHITE)
+        undo.piece_captured = makePiece(PAWN, WHITE)
         to_color = WHITE
     end
 
@@ -103,7 +127,7 @@ function move_enpass!(board::Board, move::Move)
     return
 end
 
-function move_castle!(board::Board, move::Move)
+function makemove_castle!(board::Board, move::Move, undo::Undo)
     king_from = Int(move.move_from)
     king_to = Int(move.move_to)
 
@@ -145,7 +169,7 @@ function move_castle!(board::Board, move::Move)
     return
 end
 
-function move_promo!(board::Board, move::Move)
+function makemove_promo!(board::Board, move::Move, undo::Undo)
     sqr_from = Int(move.move_from)
     sqr_to = Int(move.move_to)
 
@@ -173,6 +197,7 @@ function move_promo!(board::Board, move::Move)
         board.colors[to_color] ⊻= sqr_to_bb
     end
 
+    undo.piece_captured = piece_to
     board.enpass = zero(UInt8)
 
     # rook square moved to (captured)? remove rights
