@@ -36,7 +36,7 @@ module ChessProject
     include("monkeyAI.jl")
 
 
-    export @newGame, @play
+    export @newgame, @move, @importfen
 
     export Board, startBoard, displayBitboard, displayColorBoard, Move, MoveList, Undo, UndoStack
 

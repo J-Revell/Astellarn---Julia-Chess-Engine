@@ -45,13 +45,3 @@ function displayBitboard(bitboard::UInt64)
         print(Crayon(reset = true), "\n")
     end
 end
-
-macro board()
-    global __gboard = Board()
-    displayColorBoard(__gboard)
-end
-
-macro newGame()
-    global __gboard = startBoard()
-    displayColorBoard(__gboard)
-end

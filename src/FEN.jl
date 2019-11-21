@@ -10,13 +10,11 @@ function importFEN(fen::String)
     for char in parts[1]
         piece = piecefromchar(char)
         if piece !== NONE
-            println(sqr)
             pieceType = getPieceType(piece)
             pieceColor = getPieceColor(piece)
             setSquare!(board, pieceType, pieceColor, sqr)
             sqr -= 1
         elseif char ≥ '1' && char ≤ '8'
-            println(sqr)
             sqr -= parse(Int, char)
         elseif char == '/'
             nothing
@@ -81,4 +79,10 @@ function piecefromchar(c::Char)
     else
         return NONE
     end
+end
+
+# macro for end use
+macro importfen(fen::String)
+    global __gboard = importFEN(fen)
+    displayColorBoard(__gboard)
 end
