@@ -27,6 +27,16 @@ function push!(moveList::MoveList, move::Move)
     @inbounds moveList.moves[moveList.idx] = move
 end
 
+function popfirst!(moveList::MoveList)
+    moveList.idx -= 1
+    popfirst!(moveList.moves)
+end
+
+function splice!(moveList::MoveList, idx::Int)
+    moveList.idx -= 1
+    splice!(moveList.moves, idx)
+end
+
 # pseudo-clear the moveList.
 function clear!(moveList::MoveList)
     moveList.idx = 0
@@ -265,7 +275,7 @@ function gen_noisy_moves!(moveList::MoveList, board::Board)
     build_pawn_moves!(moveList, pawnRight & targets, right)
     build_enpass_moves!(moveList, pawnLeftEnpass & targets, left)
     build_enpass_moves!(moveList, pawnRightEnpass & targets, right)
-    build_promo_moves!(moveList, pawnPromo & targets, oneStep)
+    build_promo_moves!(moveList, pawnPromo & empty, oneStep)
     build_promo_moves!(moveList, pawnPromoLeft & targets, left)
     build_promo_moves!(moveList, pawnPromoRight & targets, right)
     build_king_moves!(moveList, board, enemies)
@@ -292,7 +302,7 @@ function gen_quiet_moves!(moveList::MoveList, board::Board)
         twoStep = 16
     end
     if count_ones(kingAttacks) > 1
-        build_king_moves!(moveList, board, enemies)
+        build_king_moves!(moveList, board, empty)
         return
     end
     if count_ones(kingAttacks) == 1

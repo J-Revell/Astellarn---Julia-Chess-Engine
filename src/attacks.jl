@@ -1,5 +1,10 @@
 # find the squares attacking a given square
 function squareAttackers(board::Board, sqr::Int)
+    if sqr == 65
+        displayColorBoard(board)
+        println(board)
+        error("You've done something wrong!")
+    end
     enemies = getTheirPieces(board)
     occupied = getOccupied(board)
     sqr_bb = getBitboard(sqr)

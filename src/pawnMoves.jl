@@ -25,16 +25,16 @@ end
 
 # functions used to pregenerate possible pawn moves
 function pawnAdvancesWhite(pawns, targets)
-    ~RANK_12 & (pawnSingleAdvance(pawns, targets, WHITE) | pawnDoubleAdvance(pawns, targets, WHITE))
+    pawnSingleAdvance(pawns, targets, WHITE) | pawnDoubleAdvance(pawns, targets, WHITE)
 end
 function pawnAdvancesBlack(pawns, targets)
-    ~RANK_78 & (pawnSingleAdvance(pawns, targets, BLACK) | pawnDoubleAdvance(pawns, targets, BLACK))
+    pawnSingleAdvance(pawns, targets, BLACK) | pawnDoubleAdvance(pawns, targets, BLACK)
 end
 function pawnCapturesWhite(pawns, targets)
-    ~RANK_12 & (pawnLeftCaptures(pawns, targets, WHITE) | pawnRightCaptures(pawns, targets, WHITE))
+    pawnLeftCaptures(pawns, targets, WHITE) | pawnRightCaptures(pawns, targets, WHITE)
 end
 function pawnCapturesBlack(pawns, targets)
-    ~RANK_78 & (pawnLeftCaptures(pawns, targets, BLACK) | pawnRightCaptures(pawns, targets, BLACK))
+    pawnLeftCaptures(pawns, targets, BLACK) | pawnRightCaptures(pawns, targets, BLACK)
 end
 
 const PAWN_ADVANCES_WHITE = @SVector [pawnAdvancesWhite(getBitboard(sqr), 0xffffffffffffffff) for sqr in 1:64]

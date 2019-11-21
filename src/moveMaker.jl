@@ -19,6 +19,17 @@ function push!(undostack::UndoStack, undo::Undo)
     @inbounds undostack.undos[undostack.idx] = undo
 end
 
+function popfirst!(undostack::UndoStack)
+    undostack.idx -= 1
+    popfirst!(undostack.undos)
+end
+
+function splice!(undostack::UndoStack, idx::Int)
+    res = splice!(undostack.undos, idx)
+    undostack.idx -= 1
+    res
+end
+
 # pseudo-clear the moveList.
 function clear!(undostack::UndoStack)
     undostack.idx = 0
@@ -27,7 +38,7 @@ end
 # define useful array methods for MoveList
 Base.iterate(undostack::UndoStack, state = 1) = (state > undostack.idx) ? nothing : (undostack.undos[state], state + 1)
 Base.length(undostack::UndoStack) = undostack.idx
-Base.eltype(::Type{UndoStack}) = Move
+Base.eltype(::Type{UndoStack}) = Undo
 Base.size(undostack::UndoStack) = (undostack.idx, )
 Base.IndexStyle(::Type{<:UndoStack}) = IndexLinear()
 Base.getindex(undostack::UndoStack, idx::Int) = undostack.undos[idx]
@@ -95,11 +106,11 @@ function makemove_normal!(board::Board, move::Move, undo::Undo)
 
     board.squares[sqr_from] = NONE
     board.squares[sqr_to] = piece_from
+    undo.piece_captured = piece_to
 
     if piece_to !== NONE
         board.pieces[pieceType_to] ⊻= sqr_to_bb
         board.colors[color_to] ⊻= sqr_to_bb
-        undo.piece_captured = piece_to
     end
 
     # check for double pawn advance, and set enpass square

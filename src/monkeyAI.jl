@@ -2,13 +2,13 @@ function randMove!(board::Board)
     pml = MoveList(150)
     ml = MoveList(150)
     gen_moves!(ml, board)
-    ul = UndoStack(150)
-    for (num, move) in enumerate(ml)
-        push!(ul, Undo())
-        legal = move!(board, move, ul[num])
+    undo = Undo()
+    for move in ml
+        #push!(ul, Undo())
+        legal = move!(board, move, undo)
         if legal
             push!(pml, move)
-            undomove!(board, move, ul[num])
+            undomove!(board, move, undo)
         end
     end
     if length(pml) == 0

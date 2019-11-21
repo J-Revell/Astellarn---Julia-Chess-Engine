@@ -3,7 +3,7 @@ module ChessProject
     using StaticArrays
 
     import Base.iterate, Base.push!, Base.length, Base.eltype, Base.size,
-    Base.IndexStyle, Base.getindex
+    Base.IndexStyle, Base.getindex, Base.popfirst!, Base.splice!
 
     # globally used constants
     include("constants.jl")
