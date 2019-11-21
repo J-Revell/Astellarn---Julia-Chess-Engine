@@ -1,17 +1,27 @@
 # ChessProject
-A simple chess project to satisfy my own curiosity, and learn about board representation, engine principles, and algorithms! Written in 100% Julia. 
+A simple chess project to satisfy my own curiosity, and learn about board representation, engine principles, and algorithms! Written in 100% Julia.
 
 ## Example usage:
-![terminal-chess-image](https://raw.githubusercontent.com/J-Revell/ChessProject/master/chessterminal.png)
+`@newgame` starts a new global instance of the `Board` from the starting position (`global __gboard = startBoard(); displayColorBoard(__gboard)`).
+Moves can be made using the `@move` macro call.
+![REPL-Play](https://raw.githubusercontent.com/J-Revell/ChessProject/master/repl-play.jpg)
+Game positions can be imported using the standard FEN notation using the `@importfen` macro.
+![REPL-FEN](https://raw.githubusercontent.com/J-Revell/ChessProject/master/repl-fen.jpg)
+Random moves may be played using the "monkeyAI" via the `@random` macro.
+![REPL-RAND](https://raw.githubusercontent.com/J-Revell/ChessProject/master/repl-rand.jpg)
+
 
 ## News:
+* 21 Nov 2019: Internals now support full legal move generation including all castling, promotions, and enpassant. Internals support making moves, and undoing moves. Magic bitboards have been implemented for bishop, rook, and queen move generation. Checks are made for checkmate, stalemate, and draws by insufficient material. FEN import is now supported.
 * 12 Nov 2019: Initial upload, with workable board display in the Julia REPL
 
 ## Next steps:
-* Add functions to generate all possible moves, for each piece. 
-* En-passant and castling. 
-* Add legality checks to moves (checks?)
-* FEN input. FEN ouput. 
+* perft support, and benchmarks.
+* FEN export.
+* PGN import and export.
+* Algebraic notation for input / output.
+* Engine search features (alpha-beta or MCTS)
+* Better external documentation, and input.
 
 ### Cool things:
 * Ethereal Engine (https://github.com/AndyGrant/Ethereal)
