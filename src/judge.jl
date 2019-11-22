@@ -7,37 +7,39 @@ function isLegal(board::Board)
 end
 
 function isCheckmate(board::Board)
-    pml = MoveList(100)
-    ml = MoveList(100)
-    gen_moves!(ml, board)
-    ul = UndoStack(100)
-    for (num, move) in enumerate(ml)
-        push!(ul, Undo())
-        legal = move!(board, move, ul[num])
-        if legal
-            push!(pml, move)
-            undomove!(board, move, ul[num])
+    if isCheck(board)
+        ml = MoveList(50)
+        gen_moves!(ml, board)
+        for move in ml
+            undo = Undo()
+            legal = move!(board, move, undo)
+            if legal
+                undomove!(board, move, undo)
+                return false
+            end
         end
-        #undomove!(board, move, undo)
+        return true
+    else
+        return false
     end
-    (length(pml) == 0) && isCheck(board)
 end
 
 function isStalemate(board::Board)
-    pml = MoveList(100)
-    ml = MoveList(100)
-    gen_moves!(ml, board)
-    ul = UndoStack(100)
-    for (num, move) in enumerate(ml)
-        push!(ul, Undo())
-        legal = move!(board, move, ul[num])
-        if legal
-            push!(pml, move)
-            undomove!(board, move, ul[num])
+    if !isCheck(board)
+        ml = MoveList(100)
+        gen_moves!(ml, board)
+        for move in ml
+            undo = Undo()
+            legal = move!(board, move, undo)
+            if legal
+                undomove!(board, move, undo)
+                return false
+            end
         end
-        #undomove!(board, move, undo)
+        return true
+    else
+        return false
     end
-    (length(pml) == 0) && !isCheck(board)
 end
 
 function isDrawByMaterial(board::Board)

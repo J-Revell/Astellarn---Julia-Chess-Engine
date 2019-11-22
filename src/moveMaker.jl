@@ -53,16 +53,15 @@ function move!(board::Board, move::Move, undo::Undo)
     return true
 end
 
-function gen_legal_moves!(moveList::MoveList, undostack::UndoStack, board::Board)
-    candidates = MoveList(100)
-    gen_moves!(candidates, board)
-    for candidate in candidates
+function gen_legal_moves!(moveList::MoveList, board::Board)
+    gen_moves!(moveList, board)
+    for (idx, candidate) in enumerate(moveList)
         undo = Undo()
         legal = move!(board, candidate, undo)
         if legal
-            push!(moveList, candidate)
-            push!(undostack, undo)
             undomove!(board, candidate, undo)
+        else
+            pop!(moveList, idx)
         end
     end
     return
@@ -112,16 +111,16 @@ function makemove_normal!(board::Board, move::Move, undo::Undo)
     pieceType_to = getPieceType(piece_to)
     color_to = getPieceColor(piece_to)
 
-    board.pieces[pieceType_from] ⊻= sqr_from_bb ⊻ sqr_to_bb
-    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.pieces[pieceType_from] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    board.squares[sqr_from] = NONE
-    board.squares[sqr_to] = piece_from
+    @inbounds board.squares[sqr_from] = NONE
+    @inbounds board.squares[sqr_to] = piece_from
     undo.piece_captured = piece_to
 
     if piece_to !== NONE
-        board.pieces[pieceType_to] ⊻= sqr_to_bb
-        board.colors[color_to] ⊻= sqr_to_bb
+        @inbounds board.pieces[pieceType_to] ⊻= sqr_to_bb
+        @inbounds board.colors[color_to] ⊻= sqr_to_bb
     end
 
     # check for double pawn advance, and set enpass square
@@ -174,15 +173,15 @@ function makemove_enpass!(board::Board, move::Move, undo::Undo)
         color_to = WHITE
     end
 
-    board.pieces[PAWN] ⊻= sqr_from_bb ⊻ sqr_to_bb
-    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.pieces[PAWN] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    board.pieces[PAWN] ⊻= cap_sqr
-    board.colors[color_to] ⊻= cap_sqr
+    @inbounds board.pieces[PAWN] ⊻= cap_sqr
+    @inbounds board.colors[color_to] ⊻= cap_sqr
 
-    board.squares[sqr_from] = NONE
-    board.squares[sqr_to] = piece_from
-    board.squares[sqr_to - 24 + (board.turn << 4)] = NONE
+    @inbounds board.squares[sqr_from] = NONE
+    @inbounds board.squares[sqr_to] = piece_from
+    @inbounds board.squares[sqr_to - 24 + (board.turn << 4)] = NONE
 
     board.enpass = zero(UInt8)
     return
@@ -215,16 +214,16 @@ function makemove_castle!(board::Board, move::Move, undo::Undo)
     rook_from_bb = getBitboard(rook_from)
     rook_to_bb = getBitboard(rook_to)
 
-    board.pieces[KING] ⊻= king_from_bb ⊻ king_to_bb
-    board.pieces[ROOK] ⊻= rook_from_bb ⊻ rook_to_bb
+    @inbounds board.pieces[KING] ⊻= king_from_bb ⊻ king_to_bb
+    @inbounds board.pieces[ROOK] ⊻= rook_from_bb ⊻ rook_to_bb
 
-    board.colors[board.turn] ⊻= king_from_bb ⊻ king_to_bb
-    board.colors[board.turn] ⊻= rook_from_bb ⊻ rook_to_bb
+    @inbounds board.colors[board.turn] ⊻= king_from_bb ⊻ king_to_bb
+    @inbounds board.colors[board.turn] ⊻= rook_from_bb ⊻ rook_to_bb
 
-    board.squares[king_from] = NONE
-    board.squares[rook_from] = NONE
-    board.squares[king_to] = makePiece(KING, board.turn)
-    board.squares[rook_to] = makePiece(ROOK, board.turn)
+    @inbounds board.squares[king_from] = NONE
+    @inbounds board.squares[rook_from] = NONE
+    @inbounds board.squares[king_to] = makePiece(KING, board.turn)
+    @inbounds board.squares[rook_to] = makePiece(ROOK, board.turn)
 
     board.enpass = zero(UInt8)
     return
@@ -246,16 +245,16 @@ function makemove_promo!(board::Board, move::Move, undo::Undo)
 
     pieceType_promo = move.move_flag
 
-    board.pieces[pieceType_from] ⊻= sqr_from_bb
-    board.pieces[pieceType_promo] ⊻= sqr_to_bb
-    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.pieces[pieceType_from] ⊻= sqr_from_bb
+    @inbounds board.pieces[pieceType_promo] ⊻= sqr_to_bb
+    @inbounds board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    board.squares[sqr_from] = NONE
-    board.squares[sqr_to] = makePiece(pieceType_promo, board.turn)
+    @inbounds board.squares[sqr_from] = NONE
+    @inbounds board.squares[sqr_to] = makePiece(pieceType_promo, board.turn)
 
     if piece_to !== NONE
-        board.pieces[pieceType_to] ⊻= sqr_to_bb
-        board.colors[color_to] ⊻= sqr_to_bb
+        @inbounds board.pieces[pieceType_to] ⊻= sqr_to_bb
+        @inbounds board.colors[color_to] ⊻= sqr_to_bb
     end
 
     undo.piece_captured = piece_to
@@ -301,15 +300,15 @@ function undomove_normal!(board::Board, move::Move, undo::Undo)
 
     color_to = getPieceColor(piece_to)
 
-    board.pieces[pieceType_from] ⊻= sqr_from_bb ⊻ sqr_to_bb
-    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.pieces[pieceType_from] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    board.squares[sqr_from] = piece_from
-    board.squares[sqr_to] = piece_to
+    @inbounds board.squares[sqr_from] = piece_from
+    @inbounds board.squares[sqr_to] = piece_to
 
     if piece_to !== NONE
-        board.pieces[pieceType_to] ⊻= sqr_to_bb
-        board.colors[color_to] ⊻= sqr_to_bb
+        @inbounds board.pieces[pieceType_to] ⊻= sqr_to_bb
+        @inbounds board.colors[color_to] ⊻= sqr_to_bb
     end
 end
 
@@ -326,15 +325,15 @@ function undomove_enpass!(board::Board, move::Move, undo::Undo)
 
     color_to = getPieceColor(piece_captured)
 
-    board.pieces[PAWN] ⊻= sqr_from_bb ⊻ sqr_to_bb
-    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.pieces[PAWN] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    board.squares[sqr_from] = piece_from
-    board.squares[sqr_to] = NONE
-    board.squares[sqr_to - 24 + (board.turn << 4)] = piece_captured
+    @inbounds board.squares[sqr_from] = piece_from
+    @inbounds board.squares[sqr_to] = NONE
+    @inbounds board.squares[sqr_to - 24 + (board.turn << 4)] = piece_captured
 
-    board.pieces[PAWN] ⊻= cap_sqr
-    board.colors[color_to] ⊻= cap_sqr
+    @inbounds board.pieces[PAWN] ⊻= cap_sqr
+    @inbounds board.colors[color_to] ⊻= cap_sqr
 end
 
 function undomove_castle!(board::Board, move::Move, undo::Undo)
@@ -360,16 +359,16 @@ function undomove_castle!(board::Board, move::Move, undo::Undo)
     rook_from_bb = getBitboard(rook_from)
     rook_to_bb = getBitboard(rook_to)
 
-    board.pieces[KING] ⊻= king_from_bb ⊻ king_to_bb
-    board.pieces[ROOK] ⊻= rook_from_bb ⊻ rook_to_bb
+    @inbounds board.pieces[KING] ⊻= king_from_bb ⊻ king_to_bb
+    @inbounds board.pieces[ROOK] ⊻= rook_from_bb ⊻ rook_to_bb
 
-    board.colors[board.turn] ⊻= king_from_bb ⊻ king_to_bb
-    board.colors[board.turn] ⊻= rook_from_bb ⊻ rook_to_bb
+    @inbounds board.colors[board.turn] ⊻= king_from_bb ⊻ king_to_bb
+    @inbounds board.colors[board.turn] ⊻= rook_from_bb ⊻ rook_to_bb
 
-    board.squares[king_from] = makePiece(KING, board.turn)
-    board.squares[rook_from] = makePiece(ROOK, board.turn)
-    board.squares[king_to] = NONE
-    board.squares[rook_to] = NONE
+    @inbounds board.squares[king_from] = makePiece(KING, board.turn)
+    @inbounds board.squares[rook_from] = makePiece(ROOK, board.turn)
+    @inbounds board.squares[king_to] = NONE
+    @inbounds board.squares[rook_to] = NONE
 end
 
 function undomove_promo!(board::Board, move::Move, undo::Undo)
@@ -384,15 +383,15 @@ function undomove_promo!(board::Board, move::Move, undo::Undo)
     pieceType_to = getPieceType(piece_to)
     color_to = getPieceColor(piece_to)
 
-    board.pieces[PAWN] ⊻= sqr_from_bb
-    board.pieces[move.move_flag] ⊻= sqr_to_bb
-    board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
+    @inbounds board.pieces[PAWN] ⊻= sqr_from_bb
+    @inbounds board.pieces[move.move_flag] ⊻= sqr_to_bb
+    @inbounds board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
-    board.squares[sqr_from] = makePiece(PAWN, board.turn)
-    board.squares[sqr_to] = piece_to
+    @inbounds board.squares[sqr_from] = makePiece(PAWN, board.turn)
+    @inbounds board.squares[sqr_to] = piece_to
 
     if piece_to !== NONE
-        board.pieces[pieceType_to] ⊻= sqr_to_bb
-        board.colors[color_to] ⊻= sqr_to_bb
+        @inbounds board.pieces[pieceType_to] ⊻= sqr_to_bb
+        @inbounds board.colors[color_to] ⊻= sqr_to_bb
     end
 end

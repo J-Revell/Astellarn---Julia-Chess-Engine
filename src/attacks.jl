@@ -2,23 +2,32 @@
 function squareAttackers(board::Board, sqr::Int)
     enemies = getTheirPieces(board)
     occupied = getOccupied(board)
-    sqr_bb = getBitboard(sqr)
-    pawns = getPawns(board)
-    queens = getQueens(board)
-    return  enemies & pawns & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr]) |
-    (KNIGHT_MOVES[sqr] & enemies & getKnights(board)) |
-    (bishopMoves(sqr, occupied) & enemies & (getBishops(board) | queens)) |
-    (rookMoves(sqr, occupied) & enemies & (getRooks(board) | queens)) |
-    (KING_MOVES[sqr] & enemies & getKings(board))
+    queens = getTheirQueens(board)
+    return  @inbounds getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr]) |
+    (KNIGHT_MOVES[sqr] & getTheirKnights(board)) |
+    (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) |
+    (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens)) |
+    (KING_MOVES[sqr] & getTheirKing(board))
 end
 squareAttackers(board::Board, sqr_bb::UInt) = squareAttackers(board, getSquare(sqr_bb))
+
+function kingAttackers(board::Board, sqr::Int)
+    enemies = getTheirPieces(board)
+    occupied = getOccupied(board)
+    queens = getTheirQueens(board)
+    return  @inbounds getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr]) |
+    (KNIGHT_MOVES[sqr] & getTheirKnights(board)) |
+    (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) |
+    (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens))
+end
+kingAttackers(board::Board, sqr_bb::UInt) = kingAttackers(board, getSquare(sqr_bb))
 
 # is a given square attacked? Bool.
 isSquareAttacked(board::Board, sqr::Int) = squareAttackers(board, sqr) > zero(UInt)
 
 # find the squares attacking the king!
 function checkers(board::Board)
-    squareAttackers(board, getOurKing(board))
+    kingAttackers(board, getOurKing(board))
 end
 
 # is the king attacked? Bool.
