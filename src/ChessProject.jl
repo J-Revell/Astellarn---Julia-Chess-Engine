@@ -12,6 +12,7 @@ module ChessProject
     include("board.jl")
     include("boardQuery.jl")
     include("displayBoard.jl")
+    include("FEN.jl")
 
     # Load the files which build moves
     # standard piece moves
@@ -32,6 +33,8 @@ module ChessProject
     include("moveMaker.jl")
 
     include("judge.jl")
+    
+    include("perft.jl")
 
     include("monkeyAI.jl")
 

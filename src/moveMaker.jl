@@ -53,15 +53,26 @@ function move!(board::Board, move::Move, undo::Undo)
     return true
 end
 
-
-function movetest!(board::Board, move::Move)
-    undo = Undo()
-    makemove!(board, move, undo)
-    displayColorBoard(board)
-    undomove!(board, move, undo)
-    displayColorBoard(board)
+function gen_legal_moves!(moveList::MoveList, undostack::UndoStack, board::Board)
+    candidates = MoveList(100)
+    gen_moves!(candidates, board)
+    for candidate in candidates
+        undo = Undo()
+        legal = move!(board, candidate, undo)
+        if legal
+            push!(moveList, candidate)
+            push!(undostack, undo)
+            undomove!(board, candidate, undo)
+        end
+    end
+    return
 end
 
+# assert that a move is legal
+function move_legal!(board::Board, move::Move, undo::Undo)
+    makemove!(board, move, undo)
+    return true
+end
 
 # implement a new undo format
 function makemove!(board::Board, move::Move, undo::Undo)
@@ -114,7 +125,7 @@ function makemove_normal!(board::Board, move::Move, undo::Undo)
     end
 
     # check for double pawn advance, and set enpass square
-    if (pieceType_from == PAWN) && (sqr_from-sqr_to > 10)
+    if (pieceType_from == PAWN) && (abs(sqr_from-sqr_to) > 10)
         board.enpass = UInt8(getSquare(BLOCKERMASKS[sqr_from, sqr_to]))
     else
         board.enpass = zero(UInt8)
@@ -319,7 +330,8 @@ function undomove_enpass!(board::Board, move::Move, undo::Undo)
     board.colors[board.turn] ⊻= sqr_from_bb ⊻ sqr_to_bb
 
     board.squares[sqr_from] = piece_from
-    board.squares[cap_sqr] = piece_captured
+    board.squares[sqr_to] = NONE
+    board.squares[sqr_to - 24 + (board.turn << 4)] = piece_captured
 
     board.pieces[PAWN] ⊻= cap_sqr
     board.colors[color_to] ⊻= cap_sqr
