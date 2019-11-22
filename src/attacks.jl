@@ -50,3 +50,18 @@ end
 
 # pre compute blocker masks.
 const BLOCKERMASKS = initBlockerMasks(zeros(UInt, (64,64)))
+
+function getPinned(board::Board)
+    king = getSquare(getOurKing(board))
+    occupied = getOccupied(board)
+    ourpieces = getOurPieces(board)
+    sliders = (bishopMoves(king, zero(UInt)) & (getTheirBishops(board) | getTheirQueens(board))) | (rookMoves(king, zero(UInt)) & (getTheirRooks(board) | getTheirQueens(board)))
+    pinned = zero(UInt64)
+    for sqr in sliders
+        blockers = BLOCKERMASKS[sqr, king] & occupied
+        if (count_ones(blockers) == 1) && ((blockers & getOurPieces(board)) > zero(UInt64))
+            pinned |= blockers
+        end
+    end
+    return pinned
+end
