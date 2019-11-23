@@ -9,7 +9,7 @@ module ChessProject
     include("constants.jl")
 
     # Files relating to the board
-    include("board.jl")
+    include("board2.jl")
     include("boardQuery.jl")
     include("displayBoard.jl")
     include("FEN.jl")
@@ -27,14 +27,14 @@ module ChessProject
     include("queenMoves.jl")
 
     include("attacks.jl")
-    include("moveBuilder.jl")
+    include("moveBuilder2.jl")
 
     include("play.jl")
-    include("moveMaker.jl")
+    include("moveMaker2.jl")
 
     include("judge.jl")
-    
-    include("perft.jl")
+
+    include("perft2.jl")
 
     include("monkeyAI.jl")
 

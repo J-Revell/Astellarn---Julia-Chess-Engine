@@ -1,7 +1,7 @@
 # is the position legal
 function isLegal(board::Board)
     switchTurn!(board)
-    bool = !(checkers(board) > zero(UInt))
+    bool = !isKingAttacked(board)
     switchTurn!(board)
     return bool
 end

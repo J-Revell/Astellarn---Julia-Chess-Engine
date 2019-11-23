@@ -61,7 +61,7 @@ function gen_legal_moves!(moveList::MoveList, board::Board)
         if legal
             undomove!(board, candidate, undo)
         else
-            pop!(moveList, idx)
+            deleteat!(moveList, idx)
         end
     end
     return

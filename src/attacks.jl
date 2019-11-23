@@ -23,7 +23,23 @@ end
 kingAttackers(board::Board, sqr_bb::UInt) = kingAttackers(board, getSquare(sqr_bb))
 
 # is a given square attacked? Bool.
-isSquareAttacked(board::Board, sqr::Int) = squareAttackers(board, sqr) > zero(UInt)
+function isSquareAttacked(board::Board, sqr::Int)
+    enemies = getTheirPieces(board)
+    occupied = getOccupied(board)
+    queens = getTheirQueens(board)
+    if (getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr])) > zero(UInt)
+        return true
+    elseif (KNIGHT_MOVES[sqr] & getTheirKnights(board)) > zero(UInt)
+        return true
+    elseif (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) > zero(UInt)
+        return true
+    elseif (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens)) > zero(UInt)
+        return true
+    elseif (KING_MOVES[sqr] & getTheirKing(board)) > zero(UInt)
+        return true
+    end
+    return false
+end
 
 # find the squares attacking the king!
 function checkers(board::Board)
@@ -32,6 +48,23 @@ end
 
 # is the king attacked? Bool.
 isCheck(board::Board) = board.checkers > zero(UInt)
+
+function isKingAttacked(board::Board)
+    sqr = getSquare(getOurKing(board))
+    enemies = getTheirPieces(board)
+    occupied = getOccupied(board)
+    queens = getTheirQueens(board)
+    if (getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr])) > zero(UInt)
+        return true
+    elseif (KNIGHT_MOVES[sqr] & getTheirKnights(board)) > zero(UInt)
+        return true
+    elseif (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) > zero(UInt)
+        return true
+    elseif (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens)) > zero(UInt)
+        return true
+    end
+    return false
+end
 
 # generate a mask for the bits between two squares of a sliding attack
 function initBlockerMasks(blockermasks::Array{UInt, 2})
