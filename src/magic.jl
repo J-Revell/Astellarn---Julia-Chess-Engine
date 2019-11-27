@@ -1,9 +1,16 @@
+"""
+    Magic
+
+`DataType` used for storing magic numbers, rook or bishop move masks, and respective shift and offset values for the computation of sliding moves.
+"""
 struct Magic
-    mask::UInt64
-    num::UInt64
-    shift::Int
-    offset::Int
+    mask::Bitboard
+    num::Bitboard
+    shift::Int32
+    offset::Int32
 end
+Magic(mask::UInt64, num::UInt64, shift::Integer, offset::Integer) = Magic(Bitboard(mask), Bitboard(num), shift, offset)
+
 
 const ROOK_MAGICS = @SVector [Magic(0x000101010101017e, 0x008000400020801a, 52, 0), Magic(0x000202020202027c, 0x0840004020001003, 53, 4096),
     Magic(0x000404040404047a, 0x8880200010018108, 53, 6144), Magic(0x0008080808080876, 0x0480040800801001, 53, 8192),
@@ -38,6 +45,7 @@ const ROOK_MAGICS = @SVector [Magic(0x000101010101017e, 0x008000400020801a, 52, 
     Magic(0x6e10101010101000, 0x000200304844204a, 53, 92160), Magic(0x5e20202020202000, 0x108200080930041a, 53, 94208),
     Magic(0x3e40404040404000, 0x0482000100840842, 53, 96256), Magic(0x7e80808080808000, 0x0012192404430182, 52, 98304)]
 
+
 const BISHOP_MAGICS = @SVector [Magic(0x0040201008040200, 0x4404700420508600, 58, 0), Magic(0x0000402010080400, 0x9120018401104008, 59, 64),
     Magic(0x0000004020100a00, 0x4004010401100084, 59, 96), Magic(0x0000000040221400, 0x0051040080062000, 59, 128),
     Magic(0x0000000002442800, 0x1124042010010092, 59, 160), Magic(0x0000000204085000, 0x1100882108001000, 59, 192),
@@ -70,3 +78,40 @@ const BISHOP_MAGICS = @SVector [Magic(0x0040201008040200, 0x4404700420508600, 58
     Magic(0x000a102040000000, 0x8120000100809001, 59, 5024), Magic(0x0014224000000000, 0x0200100002104420, 59, 5056),
     Magic(0x0028440200000000, 0x10d100200821010a, 59, 5088), Magic(0x0050080402000000, 0x03002c0448100110, 59, 5120),
     Magic(0x0020100804020000, 0x14004005045c0042, 59, 5152), Magic(0x0040201008040200, 0x4002901008831040, 58, 5184)]
+
+function subindex(occupied::Bitboard, magics::Magic)
+    (((occupied & magics.mask).val * magics.num.val) >> magics.shift) + 1
+end
+
+# obtain the table index using the shift, occupancy mask, and magic number. Adding the offset.
+function tableindex(occupied::Bitboard, magics::Magic)
+    subindex(occupied, magics) + magics.offset
+end
+
+# generate all possible sliding moves in a given move direction, for a given occupancy.
+function slidermoves(sqr::Bitboard, occupied::Bitboard, directions::SArray{Tuple{4},Function,1,4})
+    mask = EMPTY
+    for direction in directions
+    	newsqr = sqr
+		while !isempty(newsqr)
+			newsqr = direction(newsqr)
+    		mask ⊻= newsqr
+    		!isempty(newsqr & occupied) && break
+    	end
+    end
+    return mask
+end
+
+# initiate the attacks table for rook and bishop pieces
+function initSlidingTable(table::Vector{Vector{Bitboard}}, magics::SArray{Tuple{64}, Magic, 1, 64}, directions::SArray{Tuple{4},Function,1,4})
+	for sqr in 1:64
+		occupied = EMPTY
+		table[sqr] = Vector{Bitboard}(undef, 2^count(magics[sqr].mask))
+		@inbounds for i in 1:(1 << count(magics[sqr].mask))
+			idx = subindex(occupied, magics[sqr])
+			table[sqr][idx] = slidermoves(Bitboard(sqr), occupied, directions)
+			occupied = Bitboard(occupied.val - magics[sqr].mask.val) & magics[sqr].mask
+		end
+	end
+	return table
+end

@@ -1,7 +1,3 @@
-import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.isempty
-import Base.show
-
-
 """
     Bitboard
 
@@ -28,27 +24,45 @@ struct Bitboard
 end
 
 
-# Custom show for bitboard types
-function Base.show(io::IO, bb::Bitboard)
-    println(io, "Bitboard:")
-    displayBitboard(bb.val)
+"""
+    square(bb::Bitboard)
+
+Returns an `Int` representing the first square contained within a `Bitboard`.
+"""
+function square(bb::Bitboard)
+    trailing_zeros(bb.val) + 1
+end
+
+
+"""
+    Bitboard(sqr::Integer)
+
+Returns the `Bitboard` representing the square given by an integer `sqr`.
+"""
+function Bitboard(sqr::Integer)
+    #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
+    Bitboard(one(UInt) << (sqr - one(eltype(sqr))))
 end
 
 
 """
     &(bb_1::Bitboard, bb_2::Bitboard)
-
+    &(bb::Bitboard, sqr::Integer)
 The bitwise "and" (intersection) between two `Bitboard` objects.
+Also supports the case where one argument is a square of `Integer` type.
 """
 (&)(bb_1::Bitboard, bb_2::Bitboard) = Bitboard(bb_1.val & bb_2.val)
+(&)(bb::Bitboard, sqr::Integer) = bb & Bitboard(sqr)
 
 
 """
     |(bb_1::Bitboard, bb_2::Bitboard)
-
+    |(bb::Bitboard, sqr::Integer)
 The bitwise "or" (union) between two `Bitboard` objects.
+Also supports the case where one argument is a square of `Integer` type.
 """
 (|)(bb_1::Bitboard, bb_2::Bitboard) = Bitboard(bb_1.val | bb_2.val)
+(|)(bb::Bitboard, sqr::Integer) = bb | Bitboard(sqr)
 
 
 """
@@ -64,7 +78,7 @@ The bitwise "not" of a `Bitboard` object. That is, return a `Bitboard` represent
 
 Shift the bits in the `Bitboard` object left by an integer `n`.
 """
-(<<)(bb::Bitboard, n::Int) = Bitboard(bb.val << n)
+(<<)(bb::Bitboard, n::Integer) = Bitboard(bb.val << n)
 
 
 """
@@ -72,7 +86,7 @@ Shift the bits in the `Bitboard` object left by an integer `n`.
 
 Shift the bits in the `Bitboard` object right by an integer `n`.
 """
-(>>)(bb::Bitboard, n::Int) = Bitboard(bb.val >> n)
+(>>)(bb::Bitboard, n::Integer) = Bitboard(bb.val >> n)
 
 
 """
@@ -81,6 +95,7 @@ Shift the bits in the `Bitboard` object right by an integer `n`.
 The bitwise "exclusive or" between two `Bitboard` objects.
 """
 (⊻)(bb_1::Bitboard, bb_2::Bitboard) = Bitboard(bb_1.val ⊻ bb_2.val)
+(⊻)(bb::Bitboard, sqr::Integer) = bb ⊻ Bitboard(sqr)
 
 
 """
@@ -89,6 +104,42 @@ The bitwise "exclusive or" between two `Bitboard` objects.
 Determines if a given `Bitboard` contains any active squares
 """
 isempty(bb::Bitboard) = bb.val == zero(UInt)
+
+
+"""
+    count(bb::Bitboard)
+
+Count the number of filled squares in a `Bitboard` object.
+"""
+count(bb::Bitboard) = count_ones(bb.val)
+
+
+"""
+    isone(bb::Bitboard)
+
+Returns `true` if the `Bitboard` contains only one square.
+"""
+isone(bb::Bitboard) = count(bb) == 1
+
+
+"""
+    ismany(bb::Bitboard)
+
+Returns `true` if the `Bitboard` contains more than one square.
+"""
+ismany(bb::Bitboard) = count(bb) > 1
+
+
+# Used internally for iterating over bitboard squares
+function poplsb(bb::Bitboard)
+    return square(bb), Bitboard(bb.val & (bb.val - 1))
+end
+
+
+# Used internally for iterating over bitboard squares
+function iterate(bb::Bitboard, state::Bitboard = bb)
+    isempty(state) ? nothing : poplsb(state)
+end
 
 
 """
@@ -259,75 +310,89 @@ A `Bitboard` constant representing the promotion ranks of a chess board.
 const RANK_18 = RANK_1 | RANK_8
 
 
-# constants for all the squares in bitboard representation
-const H1_BB = Bitboard(UInt(1))
-const G1_BB = H1_BB << 1
-const F1_BB = H1_BB << 2
-const E1_BB = H1_BB << 3
-const D1_BB = H1_BB << 4
-const C1_BB = H1_BB << 5
-const B1_BB = H1_BB << 6
-const A1_BB = H1_BB << 7
+"""
+    RANK_27
 
-const H2_BB = H1_BB << 8
-const G2_BB = H1_BB << 9
-const F2_BB = H1_BB << 10
-const E2_BB = H1_BB << 11
-const D2_BB = H1_BB << 12
-const C2_BB = H1_BB << 13
-const B2_BB = H1_BB << 14
-const A2_BB = H1_BB << 15
+A `Bitboard` constant representing the starting pawn ranks of a chess board.
+"""
+const RANK_27 = RANK_2 | RANK_7
 
-const H3_BB = H1_BB << 16
-const G3_BB = H1_BB << 17
-const F3_BB = H1_BB << 18
-const E3_BB = H1_BB << 19
-const D3_BB = H1_BB << 20
-const C3_BB = H1_BB << 21
-const B3_BB = H1_BB << 22
-const A3_BB = H1_BB << 23
 
-const H4_BB = H1_BB << 24
-const G4_BB = H1_BB << 25
-const F4_BB = H1_BB << 26
-const E4_BB = H1_BB << 27
-const D4_BB = H1_BB << 28
-const C4_BB = H1_BB << 29
-const B4_BB = H1_BB << 30
-const A4_BB = H1_BB << 31
+"""
+    FILE
 
-const H5_BB = H1_BB << 32
-const G5_BB = H1_BB << 33
-const F5_BB = H1_BB << 34
-const E5_BB = H1_BB << 35
-const D5_BB = H1_BB << 36
-const C5_BB = H1_BB << 37
-const B5_BB = H1_BB << 38
-const A5_BB = H1_BB << 39
+A static vector containing all the `Bitboard` representations of the files of the board.
+"""
+const FILE = @SVector [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H]
 
-const H6_BB = H1_BB << 40
-const G6_BB = H1_BB << 41
-const F6_BB = H1_BB << 42
-const E6_BB = H1_BB << 43
-const D6_BB = H1_BB << 44
-const C6_BB = H1_BB << 45
-const B6_BB = H1_BB << 46
-const A6_BB = H1_BB << 47
 
-const H7_BB = H1_BB << 48
-const G7_BB = H1_BB << 49
-const F7_BB = H1_BB << 50
-const E7_BB = H1_BB << 51
-const D7_BB = H1_BB << 52
-const C7_BB = H1_BB << 53
-const B7_BB = H1_BB << 54
-const A7_BB = H1_BB << 55
+"""
+    RANK
 
-const H8_BB = H1_BB << 56
-const G8_BB = H1_BB << 57
-const F8_BB = H1_BB << 58
-const E8_BB = H1_BB << 59
-const D8_BB = H1_BB << 60
-const C8_BB = H1_BB << 61
-const B8_BB = H1_BB << 62
-const A8_BB = H1_BB << 63
+A static vector containing all the `Bitboard` representations of the ranks of the board.
+"""
+const RANK = @SVector [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8]
+
+
+"""
+    file(bb::Bitboard)
+    file(sqr::Int)
+
+Get the `Bitboard` representing the file of the given square.
+Input is given as either an `Integer` type, or a `Bitboard` - assuming it contains only one square.
+"""
+function file(sqr::Integer)
+    #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
+    @inbounds FILE[mod1(eltype(sqr)(65) - sqr, eltype(sqr)(8))]
+end
+file(bb::Bitboard) = file(square(bb))
+
+
+"""
+    rank(bb::Bitboard)
+    rank(sqr::Int)
+
+Get the `Bitboard` representing the rank of the given square.
+Input is given as either an `Integer` type, or a `Bitboard` - assuming it contains only one square.
+"""
+function rank(sqr::Integer)
+    #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
+    @inbounds RANK[fld1(sqr, eltype(sqr)(8))]
+end
+rank(bb::Bitboard) = rank(square(bb))
+
+
+"""
+    EMPTY
+
+A `Bitboard` constant representing an empty board.
+"""
+const EMPTY = Bitboard(UInt(0))
+
+
+"""
+    FULL
+
+A `Bitboard` constant representing a full board.
+"""
+const FULL = ~EMPTY
+
+
+# Custom show for bitboard types
+function Base.show(io::IO, bb::Bitboard)
+    println(io, "Bitboard:")
+    for row in 1:8
+        for col in 1:8
+            if col == 1
+                print(9 - row, " ")
+            end
+            sqr = FILE[col] & RANK[9 - row]
+            sym = !isempty(sqr & bb) ? 'x' : ' '
+            foreground = :red
+            background = isodd(row + col) ? :blue : :light_blue
+            print(Crayon(foreground = foreground, background = background), sym, " ")
+        end
+        print(Crayon(reset = true), "\n")
+    end
+    println("  A B C D E F G H")
+end

@@ -1,99 +1,123 @@
-# find the squares attacking a given square
-function squareAttackers(board::Board, sqr::Int)
-    enemies = getTheirPieces(board)
-    occupied = getOccupied(board)
-    queens = getTheirQueens(board)
-    return  @inbounds getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr]) |
-    (KNIGHT_MOVES[sqr] & getTheirKnights(board)) |
-    (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) |
-    (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens)) |
-    (KING_MOVES[sqr] & getTheirKing(board))
-end
-squareAttackers(board::Board, sqr_bb::UInt) = squareAttackers(board, getSquare(sqr_bb))
+"""
+    squareAttackers(board::Board, sqr::Integer)
 
-function kingAttackers(board::Board, sqr::Int)
-    enemies = getTheirPieces(board)
-    occupied = getOccupied(board)
-    queens = getTheirQueens(board)
-    return  @inbounds getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr]) |
-    (KNIGHT_MOVES[sqr] & getTheirKnights(board)) |
-    (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) |
-    (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens))
-end
-kingAttackers(board::Board, sqr_bb::UInt) = kingAttackers(board, getSquare(sqr_bb))
+Find all the enemy units that attack a given square, `sqr`.
+"""
+function squareAttackers(board::Board, sqr::Integer)
+    occ = occupied(board)
 
-# is a given square attacked? Bool.
-function isSquareAttacked(board::Board, sqr::Int)
-    enemies = getTheirPieces(board)
-    occupied = getOccupied(board)
-    queens = getTheirQueens(board)
-    if (getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr])) > zero(UInt)
-        return true
-    elseif (KNIGHT_MOVES[sqr] & getTheirKnights(board)) > zero(UInt)
-        return true
-    elseif (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) > zero(UInt)
-        return true
-    elseif (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens)) > zero(UInt)
-        return true
-    elseif (KING_MOVES[sqr] & getTheirKing(board)) > zero(UInt)
-        return true
-    end
+    ((pawns(board) & pawnAttacks(board.turn, sqr)) |
+    (knightMoves(sqr) & knights(board)) |
+    (bishopMoves(sqr, occ) & bishoplike(board)) |
+    (rookMoves(sqr, occ) & rooklike(board)) |
+    (kingMoves(sqr) & kings(board))) & enemy(board)
+end
+squareAttackers(board::Board, bb::Bitboard) = squareAttackers(board, square(bb))
+
+
+function squaresquareAttackers_through_king(board::Board, sqr::Integer)
+    occ = occupied(board)
+    occ &= ~(kings(board) & friendly(board))
+
+    ((pawns(board) & pawnAttacks(board.turn, sqr)) |
+    (knightMoves(sqr) & knights(board)) |
+    (bishopMoves(sqr, occ) & bishoplike(board)) |
+    (rookMoves(sqr, occ) & rooklike(board)) |
+    (kingMoves(sqr) & kings(board))) & enemy(board)
+end
+
+
+"""
+    isattacked(board::Board, sqr::Integer)
+
+Is the given square attacked?
+"""
+function isattacked(board::Board, sqr::Integer)
+    occ = occupied(board)
+    enemies = enemy(board)
+
+    !isempty(pawns(board) & enemies & pawnAttacks(board.turn, sqr)) && return true
+    !isempty(knightMoves(sqr) & knights(board) & enemies) && return true
+    !isempty(bishopMoves(sqr, occ) & bishoplike(board) & enemies) && return true
+    !isempty(rookMoves(sqr, occ) & rooklike(board) & enemies) && return true
+    !isempty(kingMoves(sqr) & kings(board) & enemies) && return true
     return false
 end
 
-# find the squares attacking the king!
-function checkers(board::Board)
-    kingAttackers(board, getOurKing(board))
-end
+function isattacked_through_king(board::Board, sqr::Integer)
+    occ = occupied(board)
+    occ &= ~(kings(board) & friendly(board))
+    enemies = enemy(board)
 
-# is the king attacked? Bool.
-isCheck(board::Board) = board.checkers > zero(UInt)
-
-function isKingAttacked(board::Board)
-    sqr = getSquare(getOurKing(board))
-    enemies = getTheirPieces(board)
-    occupied = getOccupied(board)
-    queens = getTheirQueens(board)
-    if (getTheirPawns(board) & ((board.turn == WHITE) ? PAWN_CAPTURES_WHITE[sqr] : PAWN_CAPTURES_BLACK[sqr])) > zero(UInt)
-        return true
-    elseif (KNIGHT_MOVES[sqr] & getTheirKnights(board)) > zero(UInt)
-        return true
-    elseif (bishopMoves(sqr, occupied) & (getTheirBishops(board) | queens)) > zero(UInt)
-        return true
-    elseif (rookMoves(sqr, occupied) & (getTheirRooks(board) | queens)) > zero(UInt)
-        return true
-    end
+    !isempty(pawns(board) & enemies & pawnAttacks(board.turn, sqr)) && return true
+    !isempty(knightMoves(sqr) & knights(board) & enemies) && return true
+    !isempty(bishopMoves(sqr, occ) & bishoplike(board) & enemies) && return true
+    !isempty(rookMoves(sqr, occ) & rooklike(board) & enemies) && return true
+    !isempty(kingMoves(sqr) & kings(board) & enemies) && return true
     return false
 end
 
-# generate a mask for the bits between two squares of a sliding attack
-function initBlockerMasks(blockermasks::Array{UInt, 2})
+
+"""
+    kingAttackers(board::Board, sqr::Integer)
+
+Find all the attackers of a given square, `sqr`.
+"""
+function kingAttackers(board::Board, sqr::Integer)
+    enemies = enemy(board)
+    occ = occupied(board)
+
+    ((pawns(board) & pawnAttacks(board.turn, sqr)) |
+    (knightMoves(sqr) & knights(board)) |
+    (bishopMoves(sqr, occ) & bishoplike(board)) |
+    (rookMoves(sqr, occ) & rooklike(board))) & enemies
+end
+kingAttackers(board::Board, bb::Bitboard) = kingAttackers(board, square(bb))
+kingAttackers(board::Board) = kingAttackers(board, square(kings(board) & friendly(board)))
+
+# function to precompte the masks for blocking squares of a sliding attack
+function initBlockerMasks(blockermasks::Array{Bitboard, 2})
     for sqr1 in 1:64
         for sqr2 in 1:64
-            if (rookMoves(sqr1, zero(UInt)) & getBitboard(sqr2)) > zero(UInt)
-                blockermasks[sqr1, sqr2] = rookMoves(sqr1, getBitboard(sqr2)) & rookMoves(sqr2, getBitboard(sqr1))
+            if !isempty(rookMoves(sqr1, EMPTY) & sqr2)
+                blockermasks[sqr1, sqr2] = rookMoves(sqr1, Bitboard(sqr2)) & rookMoves(sqr2, Bitboard(sqr1))
             end
-            if (bishopMoves(sqr1, zero(UInt)) & getBitboard(sqr2)) > zero(UInt)
-                blockermasks[sqr1, sqr2] = bishopMoves(sqr1, getBitboard(sqr2)) & bishopMoves(sqr2, getBitboard(sqr1))
+            if !isempty(bishopMoves(sqr1, EMPTY) & sqr2)
+                blockermasks[sqr1, sqr2] = bishopMoves(sqr1, Bitboard(sqr2)) & bishopMoves(sqr2, Bitboard(sqr1))
             end
         end
     end
     return blockermasks
 end
 
-# pre compute blocker masks.
-const BLOCKERMASKS = initBlockerMasks(zeros(UInt, (64,64)))
 
-function getPinned(board::Board)
-    king = getSquare(getOurKing(board))
-    occupied = getOccupied(board)
-    ourpieces = getOurPieces(board)
-    sliders = (bishopMoves(king, zero(UInt)) & (getTheirBishops(board) | getTheirQueens(board))) | (rookMoves(king, zero(UInt)) & (getTheirRooks(board) | getTheirQueens(board)))
-    pinned = zero(UInt64)
+# precomputed blocker masks.
+const BLOCKERMASKS = initBlockerMasks(fill(EMPTY, (64,64)))
+
+
+"""
+    blockers(sqr_1::Integer, sqr_2::Integer)
+
+Retrieve all the blocking squares between `sqr_1` and `sqr_2`, as a `Bitboard`.
+"""
+blockers(sqr_1::Integer, sqr_2::Integer) = @inbounds BLOCKERMASKS[sqr_1, sqr_2]
+
+
+"""
+    pins(board::Board)
+
+Retrieves all the pinned pieces on the board, as a `Bitboard`.
+"""
+function findpins(board::Board)
+    king = square(kings(board) & friendly(board))
+    occ = occupied(board)
+    sliders = (bishopMoves_empty(king) & bishoplike(board)) | (rookMoves_empty(king) & rooklike(board))
+    sliders &= enemy(board)
+    pinned = EMPTY
     for sqr in sliders
-        blockers = BLOCKERMASKS[sqr, king] & occupied
-        if (count_ones(blockers) == 1) && ((blockers & getOurPieces(board)) > zero(UInt64))
-            pinned |= blockers
+        blocking = blockers(sqr, king) & occ
+        if isone(blocking) && !isempty(blocking & friendly(board))
+            pinned |= blocking
         end
     end
     return pinned

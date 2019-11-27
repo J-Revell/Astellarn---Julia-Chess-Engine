@@ -2,48 +2,35 @@ module ChessProject
     using Crayons
     using StaticArrays
 
-    import Base.iterate, Base.push!, Base.length, Base.eltype, Base.size,
-    Base.IndexStyle, Base.getindex, Base.popfirst!, Base.splice!
+    import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.!
+    import Base.isempty, Base.isone
+    import Base.getindex, Base.setindex!, Base.push!
+    import Base.iterate, Base.length, Base.eltype, Base.size, Base.IndexStyle
+    import Base.show
 
-    # globally used constants
-    include("constants.jl")
+    include("bitboard.jl")
+    include("pieces.jl")
+    include("board.jl")
+    include("fen.jl")
 
-    # Files relating to the board
-    include("board2.jl")
-    include("boardQuery.jl")
-    include("displayBoard.jl")
-    include("FEN.jl")
-
-    # Load the files which build moves
-    # standard piece moves
-    include("pawnMoves.jl")
-    include("kingMoves.jl")
-    include("knightMoves.jl")
-    # sliding piece moves
+    include("pawns.jl")
+    include("kings.jl")
+    include("knights.jl")
     include("magic.jl")
-    include("slidingMoves.jl")
-    include("rookMoves.jl")
-    include("bishopMoves.jl")
-    include("queenMoves.jl")
+    include("rooks.jl")
+    include("bishops.jl")
+    include("queens.jl")
 
     include("attacks.jl")
-    include("moveBuilder2.jl")
 
-    include("play.jl")
-    include("moveMaker2.jl")
+    include("move.jl")
+    include("movegen.jl")
+
+    include("perft.jl")
 
     include("judge.jl")
+    include("monkey.jl")
 
-    include("perft2.jl")
+    include("play.jl")
 
-    include("monkeyAI.jl")
-
-
-    export @newgame, @move, @importfen
-
-    export Board, startBoard, displayBitboard, displayColorBoard, Move, MoveList, Undo, UndoStack
-
-    export gen_moves!, randMove!, move!, gen_moves
-
-    export isCheckmate, isStalemate, isDrawByMaterial, isLegal
-end # module
+end

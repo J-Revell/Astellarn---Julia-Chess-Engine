@@ -1,59 +1,47 @@
 # is the position legal
-function isLegal(board::Board)
-    switchTurn!(board)
-    bool = !isKingAttacked(board)
-    switchTurn!(board)
+function islegal(board::Board)
+    switchturn!(board)
+    bool = isempty(kingAttackers(board))
+    switchturn!(board)
     return bool
 end
 
-function isCheckmate(board::Board)
-    if isCheck(board)
-        ml = MoveList(50)
+function ischeckmate(board::Board)
+    if ischeck(board)
+        ml = MoveStack(50)
         gen_moves!(ml, board)
-        for move in ml
-            undo = Undo()
-            legal = move!(board, move, undo)
-            if legal
-                undomove!(board, move, undo)
-                return false
-            end
+        if length(ml) == 0
+            return true
+        else
+            return false
         end
-        return true
     else
         return false
     end
 end
 
-function isStalemate(board::Board)
-    if !isCheck(board)
-        ml = MoveList(100)
-        gen_moves!(ml, board)
-        for move in ml
-            undo = Undo()
-            legal = move!(board, move, undo)
-            if legal
-                undomove!(board, move, undo)
-                return false
-            end
-        end
-        return true
-    else
+function isstalemate(board::Board)
+    if ischeck(board)
         return false
+    else
+        ml = MoveStack(50)
+        gen_moves!(ml, board)
+        if length(ml) == 0
+            return true
+        else
+            return false
+        end
     end
 end
 
-function isDrawByMaterial(board::Board)
-    piece_count = count_ones(board.colors[WHITE]) + count_ones(board.colors[BLACK])
+function isdrawbymaterial(board::Board)
+    piece_count = count(board[WHITE]) + count(board[BLACK])
     if piece_count == 2
         return true
     elseif piece_count == 3
-        if board.pieces[BISHOP] > zero(UInt)
+        if count(board[BISHOP]) > 0
             return true
-        elseif board.pieces[KNIGHT] > zero(UInt)
-            return true
-        end
-    elseif piece_count == 4
-        if count_ones(board.pieces[KNIGHT]) == 2
+        elseif count(board[KNIGHT]) > 0
             return true
         end
     end

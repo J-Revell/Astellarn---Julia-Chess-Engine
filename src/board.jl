@@ -1,80 +1,285 @@
-# store the state of the chess board
+"""
+    Board
+
+A `DataType` representing the state of a chess board.
+"""
 mutable struct Board
-    squares::MVector{64,UInt8}
-    pieces::MVector{6,UInt64}
-    colors::MVector{2,UInt64}
-    checkers::UInt64
-    turn::UInt8
+    squares::MVector{64,Piece}
+    pieces::MVector{6,Bitboard}
+    colors::MVector{2,Bitboard}
+    checkers::Bitboard
+    pinned::Bitboard
+    turn::Color
     castling::UInt8
     enpass::UInt8
     movecount::UInt16
 end
 
-# empty board
-Board() = Board(
-    MVector{64,UInt8}(repeat([zero(UInt8)], 64)),
-    MVector{6,UInt64}(repeat([zero(UInt64)], 6)),
-    MVector{2,UInt64}(repeat([zero(UInt64)], 2)),
-    zero(UInt64),
-    WHITE,
-    zero(UInt8),
-    zero(UInt8),
-    zero(UInt16))
+function Board(squares::AbstractArray{Piece}, pieces::AbstractArray{Bitboard}, colors::AbstractArray{Bitboard},
+    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, movecount::UInt16)
 
-# define the start position
-startBoard() = Board(
-    [WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_KING, WHITE_QUEEN, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK,
-    WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN,
-    NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
-    NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
-    NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
-    NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
-    BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN,
-    BLACK_ROOK, BLACK_KNIGHT, BLACK_BISHOP, BLACK_KING, BLACK_QUEEN, BLACK_BISHOP, BLACK_KNIGHT, BLACK_ROOK],
-    [0x00ff00000000ff00,
-    0x4200000000000042,
-    0x2400000000000024,
-    0x8100000000000081,
-    0x1000000000000010,
-    0x0800000000000008],
-    [0x000000000000ffff,
-    0xffff000000000000],
-    zero(UInt64),
-    WHITE,
-    0x0f,
-    zero(UInt8),
-    zero(UInt16))
-
-# clear a square
-function clearSquare!(board::Board, sqr_bb::UInt64)
-    board.squares[getSquare(sqr_bb)] = NONE
-    board.colors .&= ~sqr_bb
-    board.pieces .&= ~sqr_bb
-    return
+    return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, movecount)
 end
-clearSquare!(board::Board, sqr::Int) = clearSquare!(board, getBitboard(sqr))
+Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16))
 
-# set the piece type on a square
-function setSquare!(board::Board, pieceType::UInt8, pieceColor::UInt8, sqr_bb::UInt64)
-    clearSquare!(board, sqr_bb)
-    board.squares[getSquare(sqr_bb)] = pieceType * UInt8(4) + pieceColor
-    board.colors[pieceColor] |= sqr_bb
-    board.pieces[pieceType] |= sqr_bb
-    return
-end
-function setSquare!(board::Board, pieceType::UInt8, pieceColor::UInt8, sqr::Int)
-    sqr_bb = getBitboard(sqr)
-    clearSquare!(board, sqr_bb)
-    board.squares[sqr] = pieceType * UInt8(4) + pieceColor
-    board.colors[pieceColor] |= sqr_bb
-    board.pieces[pieceType] |= sqr_bb
-end
 
-# switch turns
-function switchTurn!(board::Board)
-    if board.turn == WHITE
-        board.turn = BLACK
-    else
-        board.turn = WHITE
+getindex(board::Board, color::Color) = @inbounds board.colors[color.val]
+getindex(board::Board, type::PieceType) = @inbounds board.pieces[type.val]
+getindex(board::Board, piece::Piece) = @inbounds board[type(piece)] & board[color(piece)]
+getindex(board::Board, idx::Integer) = @inbounds board.squares[idx]
+
+setindex!(board::Board, bb::Bitboard, type::PieceType) = setindex!(board.pieces, bb, type.val)
+setindex!(board::Board, bb::Bitboard, color::Color) = setindex!(board.colors, bb, color.val)
+setindex!(board::Board, piece::Piece, idx::Integer) = setindex!(board.squares, piece, idx)
+
+
+"""
+    add!(board::Board, piece::Piece, bb::Bitboard)
+    add!(board::Board, piece::Piece, sqr::Integer)
+
+Add a `piece` to the `board` square given by an `Integer` `sqr`, or a `Bitboard` `bb`.
+"""
+function add!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
+    @inbounds board[type(piece)] |= bb
+    @inbounds board[color(piece)] |= bb
+    @inbounds board[sqr] = piece
+end
+add!(board::Board, piece::Piece, bb::Bitboard) = add!(board, piece, bb, square(bb))
+add!(board::Board, piece::Piece, sqr::Integer) = add!(board, piece, Bitboard(sqr), sqr)
+
+
+"""
+    remove!(board::Board, bb::Bitboard)
+    remove!(board::Board, sqr::Integer)
+
+Remove a `piece` from the `board` at the square given by an `Integer` `sqr`, or a `Bitboard` `bb`.
+"""
+function remove!(board::Board, bb::Bitboard, sqr::Integer)
+    piece = board.squares[sqr]
+    board[type(piece)] &= ~bb
+    board[color(piece)] &= ~bb
+    board.squares[sqr] = BLANK
+end
+remove!(board::Board, bb::Bitboard) = remove!(board, bb, square(bb))
+remove!(board::Board, sqr::Integer) = remove!(board, Bitboard(sqr), sqr)
+
+
+"""
+    addremove!(board::Board, piece::Piece, bb::Bitboard)
+    addremove!(board::Board, piece::Piece, sqr::Integer)
+
+Remove a `piece` from the `board` at the square given by an `Integer` `sqr`, or a `Bitboard` `bb`, and then add the given `piece` in its place.
+"""
+function addremove!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
+    captured = board.squares[sqr]
+    board[type(captured)] &= ~bb
+    board[color(captured)] &= ~bb
+    board[type(piece)] |= bb
+    board[color(piece)] |= bb
+    board[sqr] = piece
+end
+addremove!(board::Board, piece::Piece, bb::Bitboard) = addremove!(board, piece, bb, square(bb))
+addremove!(board::Board, piece::Piece, sqr::Integer) = addremove!(board, piece, Bitboard(sqr), sqr)
+
+
+"""
+    ischeck(board::Board)
+
+Returns `true` if the king is in check, `false` otherwise.
+"""
+ischeck(board::Board) = !isempty(board.checkers)
+
+
+"""
+    isdoublecheck(board::Board)
+
+Returns `true` if the king is in check, `false` otherwise.
+"""
+isdoublecheck(board::Board) = ismany(board.checkers)
+
+
+"""
+    switchturn(board::Board)
+
+Switches the `Color` of the side to move on a given `Board` object.
+"""
+switchturn!(board::Board) = board.turn = !board.turn
+
+
+"""
+    enemies(board::Board)
+
+Return the positions, as a `Bitboard`, of all the enemies on the board.
+"""
+enemy(board::Board) = @inbounds board[!board.turn]
+
+
+"""
+    friendly(board::Board)
+
+Return the positions, as a `Bitboard`, of all the friendly units on the board.
+"""
+friendly(board::Board) = @inbounds board[board.turn]
+
+
+"""
+    occupied(board::Board)
+
+Return the positions, as a `Bitboard`, of all the occupied squares on the board.
+"""
+occupied(board::Board) = @inbounds board[WHITE] | board[BLACK]
+
+
+"""
+    empty(board::Board)
+
+Return the positions, as a `Bitboard`, of all the empty squares on the board.
+"""
+empty(board::Board) = ~occupied(board)
+
+
+"""
+    SYMBOLS
+
+A constant holding the glyphs for each chess piece.
+"""
+const SYMBOLS = ['♙','♘','♗','♖','♕','♔'] .+ 6
+
+
+# custom show for board type
+function Base.show(io::IO, board::Board)
+    for row in 1:8
+        for col in 1:8
+            if col == 1
+                print(9 - row, " ")
+            end
+            sqr = square(FILE[col] & RANK[9 - row])
+            pcolor = color(board[sqr])
+            ptype = type(board[sqr])
+            sym = (ptype.val > zero(UInt8)) ? SYMBOLS[ptype.val] : ' '
+            foreground = (pcolor == WHITE) ? :white : :black
+            background = isodd(row + col) ? :blue : :light_blue
+            print(Crayon(foreground = foreground, background = background), sym, " ")
+            if (row == 1) && (col == 8) && (board.turn == WHITE)
+                print(Crayon(reset = true), " White to move...")
+            elseif (row == 1) && (col == 8) && (board.turn == BLACK)
+                print(Crayon(reset = true), " Black to move...")
+            end
+        end
+        print(Crayon(reset = true), "\n")
     end
+    println("  A B C D E F G H")
 end
+
+
+"""
+    pawns(board::Board)
+
+Get the location of all the pawns on the `board`, as a `Bitboard`.
+"""
+pawns(board::Board) = @inbounds board[PAWN]
+
+
+"""
+    knights(board::Board)
+
+Get the location of all the knights on the `board`, as a `Bitboard`.
+"""
+knights(board::Board) = @inbounds board[KNIGHT]
+
+
+"""
+    bishops(board::Board)
+
+Get the location of all the bishops on the `board`, as a `Bitboard`.
+"""
+bishops(board::Board) = @inbounds board[BISHOP]
+
+
+"""
+    rooks(board::Board)
+
+Get the location of all the rooks on the `board`, as a `Bitboard`.
+"""
+rooks(board::Board) = @inbounds board[ROOK]
+
+
+"""
+    queens(board::Board)
+
+Get the location of all the queens on the `board`, as a `Bitboard`.
+"""
+queens(board::Board) = @inbounds board[QUEEN]
+
+
+"""
+    kings(board::Board)
+
+Get the location of all the kings on the `board`, as a `Bitboard`.
+"""
+kings(board::Board) = @inbounds board[KING]
+
+
+"""
+    rooklike(board::Board)
+
+Get the location of all the rooks and queens on the `board`, as a `Bitboard`.
+"""
+rooklike(board::Board) = rooks(board) | queens(board)
+
+
+"""
+    bishoplike(board::Board)
+
+Get the location of all the bishops and queens on the `board`, as a `Bitboard`.
+"""
+bishoplike(board::Board) = bishops(board) | queens(board)
+
+
+"""
+    piece(board::Board, sqr::Integer)
+
+Get the `Piece` located at a square, `sqr`.
+"""
+piece(board::Board, sqr::Integer) = @inbounds board[sqr]
+
+
+"""
+    checkers(board::Board)
+
+Return the `Bitboard` of all the pieces giving check.
+"""
+checkers(board::Board) = board.checkers
+
+
+"""
+    pinned(board::Board)
+
+Return the `Bitboard` of all the pieces that are pinned.
+"""
+pinned(board::Board) = board.pinned
+
+
+# Castling as follows
+# white kingside UInt8(1) << 1 (color val)
+# black kingside UInt8(1) << 2 (color val)
+# white queenside UInt8(1) << 3 (color val + 2)
+# black queenside UInt8(1) << 4 (color val + 2)
+"""
+    cancastlekingside(board::Board, color::Color)
+    cancastlekingside(board::Board)
+
+Return a `Bool` which denotes if the player of `color` can castle kingside.
+"""
+cancastlekingside(board::Board, color::Color) = isone((board.castling >> color.val) & 1)
+cancastlekingside(board::Board) = cancastlekingside(board, board.turn)
+
+
+"""
+    cancastlequeenside(board::Board, color::Color)
+    cancastlequeenside(board::Board)
+
+Return a `Bool` which denotes if the player of `color` can castle queenside. If no color is given, it assumes the `color` of the current turn.
+"""
+cancastlequeenside(board::Board, color::Color) = isone((board.castling >> (color.val + 2)) & 1)
+cancastlequeenside(board::Board) = cancastlequeenside(board, board.turn)
