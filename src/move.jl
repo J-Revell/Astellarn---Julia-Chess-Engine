@@ -269,27 +269,30 @@ function apply_enpass!(board::Board, move::Move)
     sqr_from = from(move)
     sqr_to = to(move)
 
-    cap_sqr = Bitboard(sqr_to - 24 + (board.turn.val << 4))
+    cap_sqr = sqr_to - 24 + (board.turn.val << 4)
+    cap_bb = Bitboard(cap_sqr)
 
     bb_from = Bitboard(sqr_from)
     bb_to = Bitboard(sqr_to)
 
-    @inbounds board[PAWN] ⊻= bb_from ⊻ bb_to ⊻ cap_sqr
+    @inbounds board[PAWN] ⊻= bb_from ⊻ bb_to ⊻ cap_bb
     @inbounds board[board.turn] ⊻= bb_from ⊻ bb_to
-    @inbounds board[!board.turn] ⊻= cap_sqr
+    @inbounds board[!board.turn] ⊻= cap_bb
 
     # First set the square to
     @inbounds board[sqr_to] = piece(board, sqr_from)
     # Then clear the square from
     @inbounds board[sqr_from] = BLANK
     # Then clear the captured square
-    @inbounds board[sqr_to - 24 + (board.turn.val << 4)] = BLANK
+    @inbounds board[cap_sqr] = BLANK
 
+    p_from = makepiece(PAWN, board.turn)
+    p_capt = makepiece(PAWN, !board.turn)
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_from, sqr_to)
-    board.hash ⊻= zobkey(makepiece(PAWN, !board.turn), cap_sqr)
+    board.hash ⊻= zobkey(p_capt, cap_sqr)
 
-    return makepiece(PAWN, !board.turn)
+    return p_capt
 end
 
 
@@ -375,6 +378,7 @@ function apply_promo!(board::Board, move::Move)
         board.hash ⊻= zobkey(p_to, sqr_to)
     end
 
+    p_from = makepiece(PAWN, board.turn)
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_promo, sqr_to)
 
@@ -428,18 +432,19 @@ function undo_enpass!(board::Board, move::Move, undo::Undo)
     sqr_from = from(move)
     sqr_to = to(move)
 
-    cap_sqr = Bitboard(sqr_to - 24 + (board.turn.val << 4))
+    cap_sqr = sqr_to - 24 + (board.turn.val << 4)
+    cap_bb = Bitboard(cap_sqr)
 
     bb_from = Bitboard(sqr_from)
     bb_to = Bitboard(sqr_to)
 
-    @inbounds board[PAWN] ⊻= bb_from ⊻ bb_to ⊻ cap_sqr
+    @inbounds board[PAWN] ⊻= bb_from ⊻ bb_to ⊻ cap_bb
     @inbounds board[board.turn] ⊻= bb_from ⊻ bb_to
-    @inbounds board[!board.turn] ⊻= cap_sqr
+    @inbounds board[!board.turn] ⊻= cap_bb
 
     @inbounds board[sqr_from] = piece(board, sqr_to)
     @inbounds board[sqr_to] = BLANK
-    @inbounds board[sqr_to - 24 + (board.turn.val << 4)] = undo.captured
+    @inbounds board[cap_sqr] = undo.captured
 end
 
 
