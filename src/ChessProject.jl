@@ -40,6 +40,8 @@ module ChessProject
     export pawns, kings, bishops, knights, rooks, queens, enemy, friendly, occupied, empty, rooklike, bishoplike
     export checkers, pinned, cancastlekingside, cancastlequeenside
     export ischeck, islegal, ischeckmate, isstalemate, isdrawbymaterial
-    export monkey!
+    export monkey!, perft
+
+    export WHITE, BLACK
 
 end
