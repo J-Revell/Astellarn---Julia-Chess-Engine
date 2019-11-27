@@ -13,14 +13,15 @@ mutable struct Board
     castling::UInt8
     enpass::UInt8
     movecount::UInt16
+    hash::UInt64
 end
 
 function Board(squares::AbstractArray{Piece}, pieces::AbstractArray{Bitboard}, colors::AbstractArray{Bitboard},
-    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, movecount::UInt16)
+    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, movecount::UInt16, hash::UInt64)
 
-    return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, movecount)
+    return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, movecount, hash)
 end
-Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16))
+Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt64))
 
 
 getindex(board::Board, color::Color) = @inbounds board.colors[color.val]
@@ -43,6 +44,7 @@ function add!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
     @inbounds board[type(piece)] |= bb
     @inbounds board[color(piece)] |= bb
     @inbounds board[sqr] = piece
+    board.hash ⊻= zobkey(piece, sqr)
 end
 add!(board::Board, piece::Piece, bb::Bitboard) = add!(board, piece, bb, square(bb))
 add!(board::Board, piece::Piece, sqr::Integer) = add!(board, piece, Bitboard(sqr), sqr)
@@ -59,6 +61,7 @@ function remove!(board::Board, bb::Bitboard, sqr::Integer)
     board[type(piece)] &= ~bb
     board[color(piece)] &= ~bb
     board.squares[sqr] = BLANK
+    board.hash ⊻= zobkey(piece, sqr)
 end
 remove!(board::Board, bb::Bitboard) = remove!(board, bb, square(bb))
 remove!(board::Board, sqr::Integer) = remove!(board, Bitboard(sqr), sqr)
@@ -77,6 +80,8 @@ function addremove!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
     board[type(piece)] |= bb
     board[color(piece)] |= bb
     board[sqr] = piece
+    board.hash ⊻= zobkey(captured, sqr)
+    board.hash ⊻= zobkey(piece, sqr)
 end
 addremove!(board::Board, piece::Piece, bb::Bitboard) = addremove!(board, piece, bb, square(bb))
 addremove!(board::Board, piece::Piece, sqr::Integer) = addremove!(board, piece, Bitboard(sqr), sqr)
@@ -261,17 +266,17 @@ pinned(board::Board) = board.pinned
 
 
 # Castling as follows
-# white kingside UInt8(1) << 1 (color val)
-# black kingside UInt8(1) << 2 (color val)
-# white queenside UInt8(1) << 3 (color val + 2)
-# black queenside UInt8(1) << 4 (color val + 2)
+# white kingside UInt8(1) << 0 (color val - 1)
+# black kingside UInt8(1) << 1 (color val - 1)
+# white queenside UInt8(1) << 2 (color val + 1)
+# black queenside UInt8(1) << 3(color val + 1)
 """
     cancastlekingside(board::Board, color::Color)
     cancastlekingside(board::Board)
 
 Return a `Bool` which denotes if the player of `color` can castle kingside.
 """
-cancastlekingside(board::Board, color::Color) = isone((board.castling >> color.val) & 1)
+cancastlekingside(board::Board, color::Color) = isone((board.castling >> (color.val - 1)) & 1)
 cancastlekingside(board::Board) = cancastlekingside(board, board.turn)
 
 
@@ -281,5 +286,5 @@ cancastlekingside(board::Board) = cancastlekingside(board, board.turn)
 
 Return a `Bool` which denotes if the player of `color` can castle queenside. If no color is given, it assumes the `color` of the current turn.
 """
-cancastlequeenside(board::Board, color::Color) = isone((board.castling >> (color.val + 2)) & 1)
+cancastlequeenside(board::Board, color::Color) = isone((board.castling >> (color.val + 1)) & 1)
 cancastlequeenside(board::Board) = cancastlequeenside(board, board.turn)

@@ -35,6 +35,7 @@ function importfen(fen::String)
         board.turn = WHITE
     else
         board.turn = BLACK
+        board.hash ⊻= zobturnkey()
     end
 
     # fix castling rights
@@ -42,7 +43,8 @@ function importfen(fen::String)
     for char in castling
         i = findfirst(isequal(char), "KkQq")
         if i !== nothing
-            board.castling |= UInt8(1) << i
+            board.castling |= UInt8(1) << (i - 1)
+            board.hash ⊻= zobookey(UInt8(1) << (i - 1))
         end
     end
 
@@ -51,6 +53,7 @@ function importfen(fen::String)
     if !isequal(enpass, "-")
         sqr = LABEL_TO_SQUARE[enpass]
         board.enpass = sqr
+        board.hash ⊻= zobepkey(sqr)
     end
 
     board.pinned = findpins(board)

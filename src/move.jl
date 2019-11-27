@@ -15,20 +15,22 @@ end
 Update the castling rights of the `board`, given a move is played from `sqr_from` to `sqr_to`.
 """
 function updatecastling!(board::Board, sqr_from::Integer, sqr_to::Integer)
+    board.hash ⊻= board.castling
     @inbounds board.castling &= CASTLING_RIGHT[sqr_from]
     @inbounds board.castling &= CASTLING_RIGHT[sqr_to]
+    board.hash ⊻= board.castling
 end
 
 
 # Used for internally changing the castling rights when a move is played.
-const CASTLING_RIGHT = @SVector [~0x02, ~0x00, ~0x00, ~0x0a, ~0x00, ~0x00, ~0x00, ~0x08,
+const CASTLING_RIGHT = @SVector [~0x01, ~0x00, ~0x00, ~0x05, ~0x00, ~0x00, ~0x00, ~0x04,
                                 ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00,
                                 ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00,
                                 ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00,
                                 ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00,
                                 ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00,
                                 ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00, ~0x00,
-                                ~0x04, ~0x00, ~0x00, ~0x14, ~0x00, ~0x00, ~0x00, ~0x10]
+                                ~0x02, ~0x00, ~0x00, ~0x0a, ~0x00, ~0x00, ~0x00, ~0x08]
 
 
 
@@ -134,6 +136,7 @@ struct Undo
     castling::UInt8
     enpass::UInt8
     captured::Piece
+    hash::UInt64
 end
 
 
@@ -182,6 +185,12 @@ function apply_move!(board::Board, move::Move)
     undo_pinned = board.pinned
     undo_castling = board.castling
     undo_enpass = board.enpass
+    undo_hash = board.hash
+
+    # before we update the enpass
+    if board.enpass !== zero(UInt8)
+        board.hash ⊻= zobepkey(board.enpass)
+    end
 
     # Apply the moves according to the appropriate flag
     if (flag(move) == __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
@@ -195,12 +204,13 @@ function apply_move!(board::Board, move::Move)
     end
 
     # Finishing calculations, for the next turn
-
+    board.hash ⊻= zobturnkey()
     switchturn!(board)
+
     board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
-    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured)
+    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_hash)
 end
 
 
@@ -217,6 +227,7 @@ function apply_normal!(board::Board, move::Move)
 
     if flag(move) == __DOUBLE_PAWN
         board.enpass = UInt8(square(blockers(sqr_from, sqr_to)))
+        board.hash ⊻= zobepkey(sqr_from)
     else
         board.enpass = zero(board.enpass)
     end
@@ -237,7 +248,11 @@ function apply_normal!(board::Board, move::Move)
     if p_to !== BLANK
         @inbounds board[type(p_to)] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
+        board.hash ⊻= zobkey(p_to, sqr_to)
     end
+
+    board.hash ⊻= zobkey(p_from, sqr_from)
+    board.hash ⊻= zobkey(p_from, sqr_to)
 
     return p_to
 end
@@ -269,6 +284,10 @@ function apply_enpass!(board::Board, move::Move)
     @inbounds board[sqr_from] = BLANK
     # Then clear the captured square
     @inbounds board[sqr_to - 24 + (board.turn.val << 4)] = BLANK
+
+    board.hash ⊻= zobkey(p_from, sqr_from)
+    board.hash ⊻= zobkey(p_from, sqr_to)
+    board.hash ⊻= zobkey(makepiece(PAWN, !board.turn), cap_sqr)
 
     return makepiece(PAWN, !board.turn)
 end
@@ -307,8 +326,16 @@ function apply_castle!(board::Board, move::Move)
 
     @inbounds board[k_from] = BLANK
     @inbounds board[r_from] = BLANK
-    @inbounds board[k_to] = makepiece(KING, board.turn)
-    @inbounds board[r_to] = makepiece(ROOK, board.turn)
+
+    _king = makepiece(KING, board.turn)
+    _rook = makepiece(ROOK, board.turn)
+    @inbounds board[k_to] = _king
+    @inbounds board[r_to] = _rook
+
+    board.hash ⊻= zobkey(_king, k_from)
+    board.hash ⊻= zobkey(_king, k_to)
+    board.hash ⊻= zobkey(_rook, r_from)
+    board.hash ⊻= zobkey(_rook, r_to)
 
     return BLANK
 end
@@ -338,12 +365,18 @@ function apply_promo!(board::Board, move::Move)
     @inbounds board[board.turn] ⊻= bb_from ⊻ bb_to
 
     @inbounds board[sqr_from] = BLANK
-    @inbounds board[sqr_to] = makepiece(ptype_promo, board.turn)
+
+    p_promo = makepiece(ptype_promo, board.turn)
+    @inbounds board[sqr_to] = p_promo
 
     if p_to !== BLANK
         @inbounds board[type(p_to)] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
+        board.hash ⊻= zobkey(p_to, sqr_to)
     end
+
+    board.hash ⊻= zobkey(p_from, sqr_from)
+    board.hash ⊻= zobkey(p_promo, sqr_to)
 
     return p_to
 end
@@ -355,6 +388,7 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.enpass = undo.enpass
     board.castling = undo.castling
     board.movecount = one(UInt16)
+    board.hash = undo.hash
     switchturn!(board)
     if (flag(move) == __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
         undo_normal!(board, move, undo)

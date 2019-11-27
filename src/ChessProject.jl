@@ -10,6 +10,9 @@ module ChessProject
 
     include("bitboard.jl")
     include("pieces.jl")
+
+    include("zobrist.jl")
+    
     include("board.jl")
     include("fen.jl")
 
