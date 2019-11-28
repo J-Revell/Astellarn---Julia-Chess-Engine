@@ -1,29 +1,41 @@
 function build_pawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = (pawns(board) & friendly(board)) & (~pinned(board) | file(kings(board) & friendly(board)))
 
-    # Single pawn advances
+    if board.turn == WHITE
+        shift1 = 8
+        shift2 = 16
+        double = RANK_4
+    else
+        shift1=-8
+        shift2=-16
+        double=RANK_5
+    end
 
-    shift = 24 - board.turn.val << 4
-    dests = (pwns << shift) & empty(board) & ~RANK_18
+    # Single pawn advances
+    dests = (pwns << shift1) & empty(board) & ~RANK_18
     for dest in (dests & targets)
-        push!(movestack, Move(dest - shift, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest - shift1, dest, __NORMAL_MOVE))
     end
 
     # Double pawn advances
-
-    doubledests = (dests << shift) & targets & (RANK_3 << (8 * board.turn.val))
+    doubledests = (dests << shift1) & targets & double
     for dest in doubledests
-        push!(movestack, Move(dest - 2shift, dest, __DOUBLE_PAWN))
+        push!(movestack, Move(dest - shift2, dest, __DOUBLE_PAWN))
     end
-    return
 end
 
 function build_free_pawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & ~pinned(board)
+    if board.turn == WHITE
+        shift_l = 9
+        shift_r = 7
+    else
+        shift_l= -7
+        shift_r= -9
+    end
 
     # "Left" pawn captures
 
-    shift_l = 25 - board.turn.val << 4
     dests = (pwns << shift_l) & targets & ~RANK_18 & ~FILE_H
     for dest in dests
         push!(movestack, Move(dest - shift_l, dest, __NORMAL_MOVE))
@@ -31,7 +43,6 @@ function build_free_pawn_captures!(movestack::MoveStack, board::Board, targets::
 
     # "Right" pawn captures
 
-    shift_r = 23 - board.turn.val << 4
     dests = (pwns << shift_r) & targets & ~RANK_18 & ~FILE_A
     for dest in dests
         push!(movestack, Move(dest - shift_r, dest, __NORMAL_MOVE))
@@ -64,25 +75,31 @@ end
 
 function build_pawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
-
-    # Pawn advance promos
-    shift = 24 - board.turn.val << 4
+    if board.turn == WHITE
+        shift = 8
+    else
+        shift = -8
+    end
     dests = (pwns << shift) & targets & RANK_18
     build_promo_internal!(movestack, dests, shift)
 end
 
 function build_free_pawn_capture_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & ~pinned(board)
-
+    if board.turn == WHITE
+        shift_l = 9
+        shift_r = 7
+    else
+        shift_l= -7
+        shift_r= -9
+    end
     # "Left" pawn captures + promotions
-    shift = 25 - board.turn.val << 4
-    dests = (pwns << shift) & targets & RANK_18 & ~FILE_H
-    build_promo_internal!(movestack, dests, shift)
+    dests = (pwns << shift_l) & targets & RANK_18 & ~FILE_H
+    build_promo_internal!(movestack, dests, shift_l)
 
     # "Right" pawn captures + promotions
-    shift = 23 - board.turn.val << 4
-    dests = (pwns << shift) & targets & RANK_18 & ~FILE_A
-    build_promo_internal!(movestack, dests, shift)
+    dests = (pwns << shift_r) & targets & RANK_18 & ~FILE_A
+    build_promo_internal!(movestack, dests, shift_r)
 end
 
 function build_pinned_pawn_captures_and_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -125,16 +142,19 @@ function build_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboa
 end
 
 function build_free_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
+    occ = occupied(board)
     for bishop in (bishoplike(board) & friendly(board) & ~pinned(board))
-        push_normal!(movestack, bishop, bishopMoves(bishop, occupied(board)) & targets)
+        push_normal!(movestack, bishop, bishopMoves(bishop, occ) & targets)
     end
 end
 
 function build_pinned_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     king = square(kings(board) & friendly(board))
+    occ = occupied(board)
     for bishop in (bishoplike(board) & friendly(board) & pinned(board))
-        for move_to in (bishopMoves(bishop, occupied(board)) & targets)
-            if !isempty(Bitboard(move_to) & blockers(king, bishop)) || !isempty(Bitboard(bishop) & blockers(king, move_to))
+        block_1 = blockers(king, bishop)
+        for move_to in (bishopMoves(bishop, occ) & targets)
+            if !isempty(Bitboard(move_to) & block_1) || !isempty(Bitboard(bishop) & blockers(king, move_to))
                 push!(movestack, Move(bishop, move_to, __NORMAL_MOVE))
             end
         end
@@ -149,16 +169,19 @@ function build_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard
 end
 
 function build_free_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
+    occ = occupied(board)
     for rook in (rooklike(board) & friendly(board) & ~pinned(board))
-        push_normal!(movestack, rook, rookMoves(rook, occupied(board)) & targets)
+        push_normal!(movestack, rook, rookMoves(rook, occ) & targets)
     end
 end
 
 function build_pinned_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     king = square(kings(board) & friendly(board))
+    occ = occupied(board)
     for rook in (rooklike(board) & friendly(board) & pinned(board))
-        for move_to in (rookMoves(rook, occupied(board)) & targets)
-            if !isempty(Bitboard(move_to) & blockers(king, rook)) || !isempty(Bitboard(rook) & blockers(king, move_to))
+        block_1 = blockers(king, rook)
+        for move_to in (rookMoves(rook, occ) & targets)
+            if !isempty(Bitboard(move_to) & block_1) || !isempty(Bitboard(rook) & blockers(king, move_to))
                 push!(movestack, Move(rook, move_to, __NORMAL_MOVE))
             end
         end
