@@ -56,8 +56,8 @@ function importfen(fen::String)
         board.hash ⊻= zobepkey(sqr)
     end
 
-    board.halfmovecount = parse(Int, get(parts, 5, 0))
-    board.movecount = parse(Int, get(parts, 6, 1))
+    board.halfmovecount = parse(Int, get(parts, 5, "0"))
+    board.movecount = parse(Int, get(parts, 6, "1"))
 
 
     board.pinned = findpins(board)
