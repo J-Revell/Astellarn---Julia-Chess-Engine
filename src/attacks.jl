@@ -75,6 +75,7 @@ end
 kingAttackers(board::Board, bb::Bitboard) = kingAttackers(board, square(bb))
 kingAttackers(board::Board) = kingAttackers(board, square(kings(board) & friendly(board)))
 
+
 # function to precompte the masks for blocking squares of a sliding attack
 function initBlockerMasks(blockermasks::Array{Bitboard, 2})
     for sqr1 in 1:64

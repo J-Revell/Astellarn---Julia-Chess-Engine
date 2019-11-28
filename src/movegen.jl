@@ -4,6 +4,7 @@ function build_pawn_advances!(movestack::MoveStack, board::Board, targets::Bitbo
     else
         build_bpawn_advances!(movestack, board, targets)
     end
+    return
 end
 
 function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -20,6 +21,7 @@ function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
     for dest in doubledests
         push!(movestack, Move(dest - 16, dest, __DOUBLE_PAWN))
     end
+    return
 end
 
 function build_bpawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -36,6 +38,7 @@ function build_bpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
     for dest in doubledests
         push!(movestack, Move(dest + 16, dest, __DOUBLE_PAWN))
     end
+    return
 end
 
 
@@ -45,6 +48,7 @@ function build_free_pawn_captures!(movestack::MoveStack, board::Board, targets::
     else
         build_free_bpawn_captures!(movestack, board, targets)
     end
+    return
 end
 
 function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -66,7 +70,7 @@ function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets:
         push!(movestack, Move(dest - 7, dest, __NORMAL_MOVE))
     end
     build_promo_internal!(movestack, dests & RANK_8, 7)
-
+    return
 end
 
 function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -87,7 +91,7 @@ function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets:
         push!(movestack, Move(dest + 9, dest, __NORMAL_MOVE))
     end
     build_promo_internal!(movestack, dests & RANK_1, -9)
-
+    return
 end
 
 
@@ -104,6 +108,7 @@ function build_enpass_moves!(movestack::MoveStack, board::Board)
             end
         end
     end
+    return
 end
 
 
@@ -113,18 +118,21 @@ function build_pawn_advance_promos!(movestack::MoveStack, board::Board, targets:
     else
         build_bpawn_advance_promos!(movestack, board, targets)
     end
+    return
 end
 
 function build_wpawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
     dests = (pwns << 8) & targets & RANK_8
     build_promo_internal!(movestack, dests, 8)
+    return
 end
 
 function build_bpawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
     dests = (pwns >> 8) & targets & RANK_1
     build_promo_internal!(movestack, dests, -8)
+    return
 end
 
 function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Integer)
@@ -134,6 +142,7 @@ function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Int
         push!(movestack, Move(dest - shift, dest, __ROOK_PROMO))
         push!(movestack, Move(dest - shift, dest, __QUEEN_PROMO))
     end
+    return
 end
 
 
@@ -154,12 +163,14 @@ function build_pinned_pawn_captures_and_promos!(movestack::MoveStack, board::Boa
             end
         end
     end
+    return
 end
 
 function push_normal!(movestack::MoveStack, sqr_from::Integer, dests::Bitboard)
     for dest in dests
         push!(movestack, Move(sqr_from, dest, __NORMAL_MOVE))
     end
+    return
 end
 
 # internal function to build knight moves
@@ -167,6 +178,7 @@ function build_knight_moves!(movestack::MoveStack, board::Board, targets::Bitboa
     for knight in (knights(board) & friendly(board) & ~pinned(board))
         push_normal!(movestack, knight, knightMoves(knight) & targets)
     end
+    return
 end
 
 
@@ -174,6 +186,7 @@ end
 function build_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     build_free_bishop_moves!(movestack, board, targets)
     build_pinned_bishop_moves!(movestack, board, targets)
+    return
 end
 
 function build_free_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -181,6 +194,7 @@ function build_free_bishop_moves!(movestack::MoveStack, board::Board, targets::B
     for bishop in (bishoplike(board) & friendly(board) & ~pinned(board))
         push_normal!(movestack, bishop, bishopMoves(bishop, occ) & targets)
     end
+    return
 end
 
 function build_pinned_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -194,6 +208,7 @@ function build_pinned_bishop_moves!(movestack::MoveStack, board::Board, targets:
             end
         end
     end
+    return
 end
 
 
@@ -201,6 +216,7 @@ end
 function build_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     build_free_rook_moves!(movestack, board, targets)
     build_pinned_rook_moves!(movestack, board, targets)
+    return
 end
 
 function build_free_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -208,6 +224,7 @@ function build_free_rook_moves!(movestack::MoveStack, board::Board, targets::Bit
     for rook in (rooklike(board) & friendly(board) & ~pinned(board))
         push_normal!(movestack, rook, rookMoves(rook, occ) & targets)
     end
+    return
 end
 
 function build_pinned_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -221,6 +238,7 @@ function build_pinned_rook_moves!(movestack::MoveStack, board::Board, targets::B
             end
         end
     end
+    return
 end
 
 
@@ -232,6 +250,7 @@ function build_king_moves!(movestack::MoveStack, board::Board, targets::Bitboard
             push!(movestack, Move(king, move_to, __NORMAL_MOVE))
         end
     end
+    return
 end
 
 function build_castling!(movestack::MoveStack, board::Board)
@@ -241,6 +260,7 @@ function build_castling!(movestack::MoveStack, board::Board)
     if cancastlequeenside(board)
         build_queenside_castling!(movestack, board)
     end
+    return
 end
 
 function build_kingside_castling!(movestack::MoveStack, board::Board)
@@ -249,6 +269,7 @@ function build_kingside_castling!(movestack::MoveStack, board::Board)
     if isempty(occupied(board) & blockers(king, rook)) && !isattacked(board, king - 1) && !isattacked(board, king - 2)
         push!(movestack, Move(king, king - 2, __KING_CASTLE))
     end
+    return
 end
 
 function build_queenside_castling!(movestack, board)
@@ -257,6 +278,7 @@ function build_queenside_castling!(movestack, board)
     if isempty(occupied(board) & blockers(king, rook)) && !isattacked(board, king + 1) && !isattacked(board, king + 2)
         push!(movestack, Move(king, king + 2, __QUEEN_CASTLE))
     end
+    return
 end
 
 
@@ -272,7 +294,13 @@ function gen_quiet_moves!(movestack::MoveStack, board::Board)
         return
     end
     if ischeck(board)
-        targets = blockers(square(kings(board) & friendly(board)), square(checkers(board)))
+        if isempty(checkers(board) & knights(board))
+            targets = blockers(square(kings(board) & friendly(board)), square(checkers(board)))
+        else
+            # if a knight gives check, only *quiet* move is for king to step away
+            build_king_moves!(movestack, board, empty_bb)
+            return
+        end
     else
         build_castling!(movestack, board)
         targets = empty_bb
@@ -282,6 +310,7 @@ function gen_quiet_moves!(movestack::MoveStack, board::Board)
     build_knight_moves!(movestack, board, targets)
     build_bishop_moves!(movestack, board, targets)
     build_rook_moves!(movestack, board, targets)
+    return
 end
 
 
@@ -310,6 +339,7 @@ function gen_noisy_moves!(movestack::MoveStack, board::Board)
     build_knight_moves!(movestack, board, targets)
     build_bishop_moves!(movestack, board, targets)
     build_rook_moves!(movestack, board, targets)
+    return
 end
 
 
@@ -321,4 +351,5 @@ Generate all the possible moves in the position.
 function gen_moves!(movestack::MoveStack, board::Board)
     gen_quiet_moves!(movestack, board)
     gen_noisy_moves!(movestack, board)
+    return
 end

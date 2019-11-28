@@ -426,6 +426,7 @@ function undo_normal!(board::Board, move::Move, undo::Undo)
         @inbounds board[type(p_to)] ⊻= bb_from
         @inbounds board[!board.turn] ⊻= bb_from
     end
+    return
 end
 
 
@@ -446,6 +447,7 @@ function undo_enpass!(board::Board, move::Move, undo::Undo)
     @inbounds board[sqr_from] = piece(board, sqr_to)
     @inbounds board[sqr_to] = BLANK
     @inbounds board[cap_sqr] = undo.captured
+    return
 end
 
 
@@ -475,6 +477,7 @@ function undo_castle!(board::Board, move::Move, undo::Undo)
     @inbounds board[r_from] = makepiece(ROOK, board.turn)
     @inbounds board[k_to] = BLANK
     @inbounds board[r_to] = BLANK
+    return
 end
 
 
@@ -499,4 +502,5 @@ function undo_promo!(board::Board, move::Move, undo::Undo)
         @inbounds board[type(p_to)] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
     end
+    return
 end
