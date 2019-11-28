@@ -6,10 +6,10 @@
 struct Magic
     mask::Bitboard
     num::Bitboard
-    shift::Int32
-    offset::Int32
+    shift::UInt8
+    #offset::Int32
 end
-Magic(mask::UInt64, num::UInt64, shift::Integer, offset::Integer) = Magic(Bitboard(mask), Bitboard(num), shift, offset)
+Magic(mask::UInt64, num::UInt64, shift::Integer, offset::Integer) = Magic(Bitboard(mask), Bitboard(num), shift)#, offset)
 
 
 const ROOK_MAGICS = @SVector [Magic(0x000101010101017e, 0x008000400020801a, 52, 0), Magic(0x000202020202027c, 0x0840004020001003, 53, 4096),

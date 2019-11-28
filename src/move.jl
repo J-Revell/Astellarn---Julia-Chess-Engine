@@ -53,7 +53,7 @@ Move() = Move(zero(UInt16))
 Encode a move, giving the from & to squares, alongside the promotion flag.
 """
 function Move(move_from::Integer, move_to::Integer, move_flag::Integer)
-    Move(UInt16(move_from - one(move_from)) | (UInt16(move_to - one(move_from)) << 6) | (UInt16(move_flag) << 12))
+    Move((move_from - one(move_from)) | ((move_to - one(move_from)) << 6) | ((move_flag) << 12))
 end
 
 
@@ -403,6 +403,7 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     else
         undo_promo!(board, move, undo)
     end
+    return
 end
 
 

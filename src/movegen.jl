@@ -1,53 +1,88 @@
 function build_pawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
-    pwns = (pawns(board) & friendly(board)) & (~pinned(board) | file(kings(board) & friendly(board)))
-
     if board.turn == WHITE
-        shift1 = 8
-        shift2 = 16
-        double = RANK_4
+        build_wpawn_advances!(movestack, board, targets)
     else
-        shift1=-8
-        shift2=-16
-        double=RANK_5
-    end
-
-    # Single pawn advances
-    dests = (pwns << shift1) & empty(board) & ~RANK_18
-    for dest in (dests & targets)
-        push!(movestack, Move(dest - shift1, dest, __NORMAL_MOVE))
-    end
-
-    # Double pawn advances
-    doubledests = (dests << shift1) & targets & double
-    for dest in doubledests
-        push!(movestack, Move(dest - shift2, dest, __DOUBLE_PAWN))
+        build_bpawn_advances!(movestack, board, targets)
     end
 end
 
-function build_free_pawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
-    pwns = pawns(board) & friendly(board) & ~pinned(board)
-    if board.turn == WHITE
-        shift_l = 9
-        shift_r = 7
-    else
-        shift_l= -7
-        shift_r= -9
+function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
+    pwns = (pawns(board) & friendly(board)) & (~pinned(board) | file(kings(board) & friendly(board)))
+
+    # Single pawn advances
+    dests = (pwns << 8) & empty(board) & ~RANK_8
+    for dest in (dests & targets)
+        push!(movestack, Move(dest - 8, dest, __NORMAL_MOVE))
     end
+
+    # Double pawn advances
+    doubledests = (dests << 8) & targets & RANK_4
+    for dest in doubledests
+        push!(movestack, Move(dest - 16, dest, __DOUBLE_PAWN))
+    end
+end
+
+function build_bpawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
+    pwns = (pawns(board) & friendly(board)) & (~pinned(board) | file(kings(board) & friendly(board)))
+
+    # Single pawn advances
+    dests = (pwns >> 8) & empty(board) & ~RANK_1
+    for dest in (dests & targets)
+        push!(movestack, Move(dest + 8, dest, __NORMAL_MOVE))
+    end
+
+    # Double pawn advances
+    doubledests = (dests >> 8) & targets & RANK_5
+    for dest in doubledests
+        push!(movestack, Move(dest + 16, dest, __DOUBLE_PAWN))
+    end
+end
+
+
+function build_free_pawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
+    if board.turn == WHITE
+        build_free_wpawn_captures!(movestack, board, targets)
+    else
+        build_free_bpawn_captures!(movestack, board, targets)
+    end
+end
+
+function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
+    pwns = pawns(board) & friendly(board) & ~pinned(board)
 
     # "Left" pawn captures
 
-    dests = (pwns << shift_l) & targets & ~RANK_18 & ~FILE_H
+    dests = (pwns << 9) & targets & ~RANK_8 & ~FILE_H
     for dest in dests
-        push!(movestack, Move(dest - shift_l, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest - 9, dest, __NORMAL_MOVE))
     end
 
     # "Right" pawn captures
 
-    dests = (pwns << shift_r) & targets & ~RANK_18 & ~FILE_A
+    dests = (pwns << 7) & targets & ~RANK_8 & ~FILE_A
     for dest in dests
-        push!(movestack, Move(dest - shift_r, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest - 7, dest, __NORMAL_MOVE))
     end
 end
+
+function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
+    pwns = pawns(board) & friendly(board) & ~pinned(board)
+
+    # "Left" pawn captures
+
+    dests = (pwns >> 7) & targets & ~RANK_1 & ~FILE_H
+    for dest in dests
+        push!(movestack, Move(dest + 7, dest, __NORMAL_MOVE))
+    end
+
+    # "Right" pawn captures
+
+    dests = (pwns >> 9) & targets & ~RANK_1 & ~FILE_A
+    for dest in dests
+        push!(movestack, Move(dest + 9, dest, __NORMAL_MOVE))
+    end
+end
+
 
 function build_enpass_moves!(movestack::MoveStack, board::Board)
     ep_sqr = board.enpass
@@ -64,6 +99,27 @@ function build_enpass_moves!(movestack::MoveStack, board::Board)
     end
 end
 
+
+function build_pawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
+    if board.turn == WHITE
+        build_wpawn_advance_promos!(movestack, board, targets)
+    else
+        build_bpawn_advance_promos!(movestack, board, targets)
+    end
+end
+
+function build_wpawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
+    pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
+    dests = (pwns << 8) & targets & RANK_8
+    build_promo_internal!(movestack, dests, 8)
+end
+
+function build_bpawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
+    pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
+    dests = (pwns >> 8) & targets & RANK_1
+    build_promo_internal!(movestack, dests, -8)
+end
+
 function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Integer)
     for dest in dests
         push!(movestack, Move(dest - shift, dest, __KNIGHT_PROMO))
@@ -73,16 +129,6 @@ function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Int
     end
 end
 
-function build_pawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
-    pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
-    if board.turn == WHITE
-        shift = 8
-    else
-        shift = -8
-    end
-    dests = (pwns << shift) & targets & RANK_18
-    build_promo_internal!(movestack, dests, shift)
-end
 
 function build_free_pawn_capture_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & ~pinned(board)

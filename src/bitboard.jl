@@ -39,9 +39,13 @@ end
 
 Returns the `Bitboard` representing the square given by an integer `sqr`.
 """
+# function Bitboard(sqr::Integer)
+#     #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
+#     Bitboard(one(UInt) << (sqr - one(eltype(sqr))))
+# end
 function Bitboard(sqr::Integer)
     #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
-    Bitboard(one(UInt) << (sqr - one(eltype(sqr))))
+    Bitboard(one(UInt) << (sqr - one(sqr)))
 end
 
 
@@ -103,7 +107,7 @@ The bitwise "exclusive or" between two `Bitboard` objects.
 
 Determines if a given `Bitboard` contains any active squares
 """
-isempty(bb::Bitboard) = bb.val == zero(UInt)
+isempty(bb::Bitboard) = bb.val === zero(UInt)
 
 
 """
@@ -119,7 +123,7 @@ count(bb::Bitboard) = count_ones(bb.val)
 
 Returns `true` if the `Bitboard` contains only one square.
 """
-isone(bb::Bitboard) = count(bb) == 1
+isone(bb::Bitboard) = count(bb) === 1
 
 
 """
@@ -132,7 +136,7 @@ ismany(bb::Bitboard) = count(bb) > 1
 
 # Used internally for iterating over bitboard squares
 function poplsb(bb::Bitboard)
-    return square(bb), Bitboard(bb.val & (bb.val - 1))
+    return square(bb), Bitboard(bb.val & (bb.val - one(bb.val)))
 end
 
 
@@ -343,7 +347,7 @@ Input is given as either an `Integer` type, or a `Bitboard` - assuming it contai
 """
 function file(sqr::Integer)
     #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
-    @inbounds FILE[mod1(eltype(sqr)(65) - sqr, eltype(sqr)(8))]
+    @inbounds FILE[mod1(65 - sqr, 8)]
 end
 file(bb::Bitboard) = file(square(bb))
 
@@ -357,7 +361,7 @@ Input is given as either an `Integer` type, or a `Bitboard` - assuming it contai
 """
 function rank(sqr::Integer)
     #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
-    @inbounds RANK[fld1(sqr, eltype(sqr)(8))]
+    @inbounds RANK[fld1(sqr, 8)]
 end
 rank(bb::Bitboard) = rank(square(bb))
 
