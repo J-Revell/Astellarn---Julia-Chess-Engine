@@ -12,16 +12,17 @@ mutable struct Board
     turn::Color
     castling::UInt8
     enpass::UInt8
+    halfmovecount::UInt16
     movecount::UInt16
     hash::UInt64
 end
 
 function Board(squares::AbstractArray{Piece}, pieces::AbstractArray{Bitboard}, colors::AbstractArray{Bitboard},
-    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, movecount::UInt16, hash::UInt64)
+    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, halfmovecount::UInt16, movecount::UInt16, hash::UInt64)
 
-    return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, movecount, hash)
+    return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, halfmovecount, movecount, hash)
 end
-Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt64))
+Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16), zero(UInt64))
 
 
 getindex(board::Board, color::Color) = @inbounds board.colors[color.val]

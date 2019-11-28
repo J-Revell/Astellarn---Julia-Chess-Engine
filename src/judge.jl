@@ -47,3 +47,11 @@ function isdrawbymaterial(board::Board)
     end
     return false
 end
+
+function is50moverule(board::Board)
+    if board.halfmovecount > 99
+        return true
+    else
+        return false
+    end
+end

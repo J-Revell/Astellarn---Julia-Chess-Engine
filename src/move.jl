@@ -137,6 +137,7 @@ struct Undo
     enpass::UInt8
     captured::Piece
     hash::UInt64
+    halfmovecount::UInt16
 end
 
 
@@ -186,6 +187,7 @@ function apply_move!(board::Board, move::Move)
     undo_castling = board.castling
     undo_enpass = board.enpass
     undo_hash = board.hash
+    undo_halfmovecount = board.halfmovecount
 
     # before we update the enpass
     if board.enpass !== zero(UInt8)
@@ -210,7 +212,7 @@ function apply_move!(board::Board, move::Move)
     board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
-    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_hash)
+    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_hash, undo_halfmovecount)
 end
 
 
@@ -249,6 +251,12 @@ function apply_normal!(board::Board, move::Move)
         @inbounds board[type(p_to)] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
         board.hash ⊻= zobkey(p_to, sqr_to)
+    end
+
+    if (type(p_from) == PAWN) || (p_to !== BLANK)
+        board.halfmovecount = 0
+    else
+        board.halfmovecount += 1
     end
 
     board.hash ⊻= zobkey(p_from, sqr_from)
@@ -291,6 +299,8 @@ function apply_enpass!(board::Board, move::Move)
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_from, sqr_to)
     board.hash ⊻= zobkey(p_capt, cap_sqr)
+
+    board.halfmovecount = 0
 
     return p_capt
 end
@@ -340,6 +350,8 @@ function apply_castle!(board::Board, move::Move)
     board.hash ⊻= zobkey(_rook, r_from)
     board.hash ⊻= zobkey(_rook, r_to)
 
+    board.halfmovecount += 1
+
     return BLANK
 end
 
@@ -382,6 +394,8 @@ function apply_promo!(board::Board, move::Move)
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_promo, sqr_to)
 
+    board.halfmovecount = 0
+
     return p_to
 end
 
@@ -391,6 +405,7 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.pinned = undo.pinned
     board.enpass = undo.enpass
     board.castling = undo.castling
+    board.halfmovecount = undo.halfmovecount
     board.movecount = one(UInt16)
     board.hash = undo.hash
     switchturn!(board)
