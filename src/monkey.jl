@@ -19,5 +19,5 @@ function monkey!(board::Board)
         end
     end
     apply_move!(board, rand(ml))
-    b
+    board
 end
