@@ -52,17 +52,21 @@ function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets:
 
     # "Left" pawn captures
 
-    dests = (pwns << 9) & targets & ~RANK_8 & ~FILE_H
-    for dest in dests
+    dests = (pwns << 9) & targets & ~FILE_H
+    for dest in (dests & ~RANK_8)
         push!(movestack, Move(dest - 9, dest, __NORMAL_MOVE))
     end
+    build_promo_internal!(movestack, dests & RANK_8, 9)
+
 
     # "Right" pawn captures
 
-    dests = (pwns << 7) & targets & ~RANK_8 & ~FILE_A
-    for dest in dests
+    dests = (pwns << 7) & targets & ~FILE_A
+    for dest in (dests & ~RANK_8)
         push!(movestack, Move(dest - 7, dest, __NORMAL_MOVE))
     end
+    build_promo_internal!(movestack, dests & RANK_8, 7)
+
 end
 
 function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -70,17 +74,20 @@ function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets:
 
     # "Left" pawn captures
 
-    dests = (pwns >> 7) & targets & ~RANK_1 & ~FILE_H
-    for dest in dests
+    dests = (pwns >> 7) & targets & ~FILE_H
+    for dest in (dests & ~RANK_1)
         push!(movestack, Move(dest + 7, dest, __NORMAL_MOVE))
     end
+    build_promo_internal!(movestack, dests & RANK_1, -7)
 
     # "Right" pawn captures
 
-    dests = (pwns >> 9) & targets & ~RANK_1 & ~FILE_A
-    for dest in dests
+    dests = (pwns >> 9) & targets & ~FILE_A
+    for dest in (dests & ~RANK_1)
         push!(movestack, Move(dest + 9, dest, __NORMAL_MOVE))
     end
+    build_promo_internal!(movestack, dests & RANK_1, -9)
+
 end
 
 
@@ -129,24 +136,6 @@ function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Int
     end
 end
 
-
-function build_free_pawn_capture_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
-    pwns = pawns(board) & friendly(board) & ~pinned(board)
-    if board.turn == WHITE
-        shift_l = 9
-        shift_r = 7
-    else
-        shift_l= -7
-        shift_r= -9
-    end
-    # "Left" pawn captures + promotions
-    dests = (pwns << shift_l) & targets & RANK_18 & ~FILE_H
-    build_promo_internal!(movestack, dests, shift_l)
-
-    # "Right" pawn captures + promotions
-    dests = (pwns << shift_r) & targets & RANK_18 & ~FILE_A
-    build_promo_internal!(movestack, dests, shift_r)
-end
 
 function build_pinned_pawn_captures_and_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & pinned(board)
@@ -315,7 +304,6 @@ function gen_noisy_moves!(movestack::MoveStack, board::Board)
         build_pawn_advance_promos!(movestack, board, empty(board))
     end
     build_free_pawn_captures!(movestack, board, targets)
-    build_free_pawn_capture_promos!(movestack, board, targets)
     build_pinned_pawn_captures_and_promos!(movestack, board, targets)
     build_enpass_moves!(movestack, board)
     build_king_moves!(movestack, board, enemies)
