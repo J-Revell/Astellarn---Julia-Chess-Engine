@@ -118,6 +118,12 @@ macro board()
     global _globalboard = Board()
 end
 
+
+"""
+    @newgame
+
+Create a new game from the starting position (accessible if needed as the `global` object `_globalboard`). Moves can be made using the @move macro.
+"""
 macro newgame()
     fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     global _globalboard = importfen(fen)
