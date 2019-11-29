@@ -56,6 +56,7 @@ function owl!(board::Board, depth::Int)
     apply_move!(board, move)
     board
 end
+owl!(board) = owl!(board, 3)
 
 
 # play a match beween AI 1 and AI 2.
