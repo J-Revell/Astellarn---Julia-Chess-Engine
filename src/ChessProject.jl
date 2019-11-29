@@ -12,7 +12,7 @@ module ChessProject
     include("pieces.jl")
 
     include("zobrist.jl")
-    
+
     include("board.jl")
     include("fen.jl")
 
@@ -32,9 +32,13 @@ module ChessProject
     include("perft.jl")
 
     include("judge.jl")
-    include("monkey.jl")
 
+    include("evaluate.jl")
+    include("search.jl")
+    
+    include("AI.jl")
     include("play.jl")
+
 
     export Bitboard, Board, Piece, PieceType, Color, Magic, Move, Undo, MoveStack, UndoStack
     export @newgame, @move, @random

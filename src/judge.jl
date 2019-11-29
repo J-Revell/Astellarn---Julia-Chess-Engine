@@ -20,16 +20,25 @@ function ischeckmate(board::Board)
     end
 end
 
+function isdraw(board::Board)
+    isstalemate(board) || isdrawbymaterial(board) || is50moverule(board)
+end
+
 function isstalemate(board::Board)
     if ischeck(board)
         return false
     else
-        ml = MoveStack(50)
-        gen_moves!(ml, board)
-        if length(ml) == 0
-            return true
-        else
+        ml = MoveStack(100)
+        gen_quiet_moves!(ml, board)
+        if !(length(ml) == 0)
             return false
+        end
+        clear!(ml)
+        gen_noisy_moves!(ml, board)
+        if !(length(ml) == 0)
+            return false
+        else
+            return true
         end
     end
 end
