@@ -1,5 +1,5 @@
-# ChessProject
-A simple chess project to satisfy my own curiosity, and learn about board representation, engine principles, and algorithms! Written in 100% Julia.
+# Astellarn
+Astellarn is a simple chess project to satisfy my own curiosity, and learn about board representation, engine principles, and algorithms! Written in 100% Julia.
 
 ## Example usage:
 `@newgame` starts a new global instance of the chess board from the starting position.
@@ -41,3 +41,4 @@ Random moves may be played using the "monkeyAI" via the `@random` macro.
 * Lc0 (https://github.com/LeelaChessZero)
 * Chess programming wiki (https://www.chessprogramming.org)
 * Stockfish (https://github.com/official-stockfish/Stockfish)
+* Tord Romstad's chess library (https://github.com/romstad/Chess.jl)
