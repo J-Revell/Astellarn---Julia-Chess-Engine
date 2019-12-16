@@ -20,6 +20,17 @@ const BISHOP_EVAL_TABLE = @SVector [
     -10, -5, 0, 0, 0, 0, -5, -10
     ]
 
+const ROOK_EVAL_TABLE = @SVector [
+    0,  0,  0,  5,  5,  0,  0,  0,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+     5, 10, 10, 10, 10, 10, 10,  5,
+     0,  0,  0,  0,  0,  0,  0,  0
+    ]
+
 const KNIGHT_EVAL_TABLE = @SVector [
     -50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  5,  5,  0,-20,-40,
@@ -29,6 +40,17 @@ const KNIGHT_EVAL_TABLE = @SVector [
     -20,  0, 10, 15, 15, 10,  0,-20,
     -40,-20,  0,  0,  0,  0,-20,-40,
     -50,-40,-30,-30,-30,-30,-40,-50
+    ]
+
+const QUEEN_EVAL_TABLE = @SVector [
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  5,  0,  0,  0,  0,-10,
+    -10,  5,  5,  5,  5,  5,  0,-10,
+      0,  0,  5,  5,  5,  5,  0, -5,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
     ]
 
 
@@ -72,6 +94,18 @@ function evaluate(board::Board)
     end
     for bishop in b_bishops
         position_eval -= BISHOP_EVAL_TABLE[65-bishop]
+    end
+    for rook in w_rooks
+        position_eval += ROOK_EVAL_TABLE[rook]
+    end
+    for rook in b_rooks
+        position_eval -= ROOK_EVAL_TABLE[65-rook]
+    end
+    for queen in w_queens
+        position_eval += QUEEN_EVAL_TABLE[queen]
+    end
+    for queen in b_queens
+        position_eval -= QUEEN_EVAL_TABLE[65-queen]
     end
     for king in w_king
         position_eval += KING_EVAL_TABLE[king]

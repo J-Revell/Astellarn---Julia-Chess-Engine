@@ -132,3 +132,7 @@ end
 macro random()
     monkey!(_globalboard)
 end
+
+macro engine()
+    engine!(_globalboard)
+end

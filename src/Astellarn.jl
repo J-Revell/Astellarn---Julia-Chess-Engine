@@ -41,13 +41,13 @@ module Astellarn
 
 
     export Bitboard, Board, Piece, PieceType, Color, Magic, Move, Undo, MoveStack, UndoStack
-    export @newgame, @move, @random
+    export @newgame, @move, @random, @engine
 
     export importfen
     export pawns, kings, bishops, knights, rooks, queens, enemy, friendly, occupied, empty, rooklike, bishoplike
     export checkers, pinned, cancastlekingside, cancastlequeenside
     export ischeck, islegal, ischeckmate, isstalemate, isdrawbymaterial
-    export monkey!, perft
+    export monkey!, perft, engine!
 
     export WHITE, BLACK
 
