@@ -1,6 +1,6 @@
-name = "ChessProject"
+name = "Astellarn"
 uuid = "f591c62c-242e-4069-a3ea-9f76b695a940"
-authors = ["Jeremy <j.d.revell1@ncl.ac.uk>"]
+authors = ["Jeremy Revell"]
 version = "0.1.0"
 
 [deps]

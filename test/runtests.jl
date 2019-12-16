@@ -1,4 +1,4 @@
-using ChessProject
+using Astellarn
 using Test
 
 # First test perft on known positions for common bugs
