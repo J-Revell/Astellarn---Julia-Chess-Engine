@@ -136,3 +136,7 @@ end
 macro engine()
     engine!(_globalboard)
 end
+
+macro engine(depth::Int)
+    engine!(_globalboard, depth)
+end

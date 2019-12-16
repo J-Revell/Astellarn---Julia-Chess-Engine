@@ -53,6 +53,33 @@ const QUEEN_EVAL_TABLE = @SVector [
     -20,-10,-10, -5, -5,-10,-10,-20
     ]
 
+const PVALS = @SVector [100, 300, 300, 500, 900, 2500]
+
+
+
+function static_exchange_evaluator(board::Board, move::Move)
+    from_bb = from(move)
+    to_bb = to(move)
+
+    from_piece = piece(board, from_bb)
+    to_piece = piece(board, to_bb)
+
+    occ = occupied(board) & ~from_bb
+
+    attackers = (pawns(board) & pawnAttacks(board.turn, sqr)) |
+    (pawns(board) & pawnAttacks(!board.turn, sqr)) |
+    (knightMoves(sqr) & knights(board)) |
+    (bishopMoves(sqr, occ) & bishoplike(board)) |
+    (rookMoves(sqr, occ) & rooklike(board)) |
+    (kingMoves(sqr) & kings(board))
+
+    attackers &= occ
+
+    if isempty(attackers & enemies(board))
+        to_piece == BLANK ? 0 : PVALS[type(to_piece)]
+    end
+end
+
 
 """
     evaluate(board)
