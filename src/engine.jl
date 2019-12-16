@@ -29,12 +29,11 @@ end
 
 
 """
-    owl!(board, depth)
+    engine!(board, depth)
 
-The owl looks ahead a move using alpha-beta pruning plus quiescence, alongside a naive evaluation. The owl is wiser than the monkey!
-Care should be taken in selecting the depth, as too high will take a long time.
+Looks ahead using alpha-beta pruning plus quiescence, alongside a naive evaluation. Selects a move.
 """
-function owl!(board::Board, depth::Int)
+function engine!(board::Board, depth::Int)
     if isdrawbymaterial(board)
         return :DRAW
     end
@@ -56,7 +55,7 @@ function owl!(board::Board, depth::Int)
     apply_move!(board, move)
     board
 end
-owl!(board) = owl!(board, 3)
+engine!(board) = engine!(board, 3)
 
 
 # play a match beween AI 1 and AI 2.

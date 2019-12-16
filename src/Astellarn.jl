@@ -1,4 +1,4 @@
-module ChessProject
+module Astellarn
     using Crayons
     using StaticArrays
 
@@ -35,8 +35,8 @@ module ChessProject
 
     include("evaluate.jl")
     include("search.jl")
-    
-    include("AI.jl")
+
+    include("engine.jl")
     include("play.jl")
 
 
