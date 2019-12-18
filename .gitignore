@@ -6,3 +6,4 @@ src/moveBuilder2.jl
 src/perft2.jl
 src/dev/
 src/rewrite/
+src/Fathon/src/apps/fathom.linux
