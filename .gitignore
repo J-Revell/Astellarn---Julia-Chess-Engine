@@ -1,9 +1,3 @@
 benchmarks/
 src/MCTS/
-src/board2.jl
-src/moveMaker2.jl
-src/moveBuilder2.jl
-src/perft2.jl
-src/dev/
-src/rewrite/
 src/Fathon/src/apps/fathom.linux
