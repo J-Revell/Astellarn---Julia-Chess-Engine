@@ -1,5 +1,7 @@
 # Astellarn
-Astellarn is a simple chess project to satisfy my own curiosity, and learn about board representation, engine principles, and algorithms! Written in 100% Julia.
+Astellarn is a simple chess project to satisfy my own curiosity, and learn about board representation, engine principles, and algorithms!
+
+Written in Julia, with Syzygy tablebase support via calls to Fathom.
 
 ## Features:
 
