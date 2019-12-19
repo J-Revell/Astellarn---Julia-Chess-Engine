@@ -17,6 +17,8 @@ Written in Julia, with Syzygy tablebase support via calls to Fathom.
 * Quiescence search.
 * Static exchange evaluation.
 * Piece square tables.
+* Delta-pruning.
+* (In development) Syzygy tablebase probing via Fathom.
 
 ### Debugging:
 * perft (https://www.chessprogramming.org/Perft)
@@ -47,6 +49,7 @@ Random moves may be played using the "monkey" AI via the `@random` macro. Engine
   - Implemented core alpha-beta search.
   - Implemented quiescence search.
   - Implemented static exchange evaluation.
+  - Added delta-pruning for quiescence search.
 * 21 Nov 2019: 
   - Internals now support full legal move generation including all castling, promotions, and enpassant. 
   - Internals support making moves, and undoing moves. 
