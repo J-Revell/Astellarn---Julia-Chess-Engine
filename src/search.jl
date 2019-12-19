@@ -2,6 +2,8 @@
 #     moves::MoveStack
 # end
 
+const Q_FUTILE_THRESH = 200
+
 
 # https://www.chessprogramming.org/Quiescence_Search
 """
@@ -11,14 +13,23 @@ Quiescence search function. Under development.
 """
 function qsearch(board::Board, α::Int, β::Int, depth::Int)
     eval = evaluate(board)
+
+    # eval pruning
     if eval >= β
         return β
     elseif eval > α
         α = eval
     end
     if depth == 0
-        return α
+        return eval # used to be α
     end
+
+    # delta pruning
+    margin = α - eval - Q_FUTILE_THRESH
+    if optimistic_move_estimator(board) < margin
+        return eval
+    end
+
     moves = MoveStack(50)
     gen_noisy_moves!(moves, board)
     for move in moves
@@ -198,4 +209,27 @@ function static_exchange_evaluator(board::Board, move::Move)
     else
         return true
     end
+end
+
+
+# delta pruning
+function optimistic_move_estimator(board::Board)
+    # assume pawn at minimum
+    value = PVALS[1]
+
+    # find highest val targets
+    for i in 5:-1:2
+        piecetype = PieceType(i)
+        if !isempty(board[board.turn] & board[piecetype])
+            value = PVALS[i]
+            break
+        end
+    end
+
+    # promo checks
+    if !isempty(board[PAWN] & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2))
+        value += PVALS[5] - PVALS[1]
+    end
+
+    return value
 end
