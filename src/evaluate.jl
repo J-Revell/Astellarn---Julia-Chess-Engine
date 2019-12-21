@@ -88,6 +88,8 @@ function evaluate(board::Board)
 
     pval = 100 ; nval = 300; bval = 300; rval = 500; qval = 900; kval = 2500
 
+    position_eval = 0
+
     # could use matrix operations for this
     material_eval = pval*count(w_pawns) + nval*count(w_knights) + bval*count(w_bishops) + rval*count(w_rooks) + qval*count(w_queens) + kval*count(w_king)
     material_eval -= (pval*count(b_pawns) + nval*count(b_knights) + bval*count(b_bishops) + rval*count(b_rooks) + qval*count(b_queens) + kval*count(b_king))
