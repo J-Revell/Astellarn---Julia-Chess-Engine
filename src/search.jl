@@ -14,36 +14,40 @@ Quiescence search function. Under development.
 function qsearch(board::Board, α::Int, β::Int, depth::Int)
     eval = evaluate(board)
 
+    nodes = 1
+
     # eval pruning
     if eval >= β
-        return β
+        return β, nodes
     elseif eval > α
         α = eval
     end
     if depth == 0
-        return eval # used to be α
+        return eval, nodes # used to be α
     end
 
     # delta pruning
     margin = α - eval - Q_FUTILE_THRESH
     if optimistic_move_estimator(board) < margin
-        return eval
+        return eval, nodes
     end
 
     moves = MoveStack(50)
     gen_noisy_moves!(moves, board)
     for move in moves
         u = apply_move!(board, move)
-        eval = -qsearch(board, -β, -α, depth - 1)
+        eval, new_nodes = qsearch(board, -β, -α, depth - 1)
+        eval = -eval
         undo_move!(board, move, u)
+        nodes += new_nodes
         if eval >= β
-            return β
+            return β, nodes
         end
         if eval > α
             α = eval
         end
     end
-    return α
+    return α, nodes
 end
 
 
@@ -59,7 +63,8 @@ end
 
 function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
     if depth == 0
-        return qsearch(board, α, β, 4), Move(), 1 # temporary max depth of 4 on quiescence search
+        q_eval, nodes = qsearch(board, α, β, 4)
+        return q_eval, Move(), nodes # temporary max depth of 4 on quiescence search
     end
     moves = movestack[ply + 1]
     gen_moves!(moves, board)
