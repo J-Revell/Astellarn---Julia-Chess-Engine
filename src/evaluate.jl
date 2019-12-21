@@ -82,7 +82,9 @@ function evaluate(board::Board)
     eval += evaluate_queens(board)
     eval += evaluate_kings(board)
 
-    eval += evaluate_pins(board)
+    # eval += evaluate_pins(board)
+    #
+    # eval += evaluate_space(board)
 
     if board.turn == WHITE
         return eval
@@ -231,11 +233,49 @@ function evaluate_pins(board::Board)
     board.turn = !board.turn
 
     if board.turn == WHITE
-        eval -= count(board.pinned) * 15
-        eval += count(opp_pinned) * 15
+        eval -= count(board.pinned) * 10
+        eval += count(opp_pinned) * 10
     else
-        eval += count(board.pinned) * 15
-        eval -= count(opp_pinned) * 15
+        eval += count(board.pinned) * 10
+        eval -= count(opp_pinned) * 10
+    end
+
+    eval
+end
+
+
+function evaluate_space(board::Board)
+    eval = 0
+
+    w_filter = RANK_2 | RANK_3 | RANK_4
+    b_filter = RANK_5 | RANK_6 | RANK_7
+
+    # remove pawns
+    non_pawn = FULL & ~board[PAWN]
+
+    # find space squares
+    w_sqrs = w_filter & non_pawn
+    b_sqrs = b_filter & non_pawn
+
+    # check for attacks
+    if board.turn == WHITE
+        for sqr in w_sqrs
+            !isattacked(board, sqr) && (eval += 3)
+        end
+        board.turn = !board.turn
+        for sqr in b_sqrs
+            !isattacked(board, sqr) && (eval -= 3)
+        end
+        board.turn = !board.turn
+    else
+        board.turn = !board.turn
+        for sqr in w_sqrs
+            !isattacked(board, sqr) && (eval += 3)
+        end
+        board.turn = !board.turn
+        for sqr in b_sqrs
+            !isattacked(board, sqr) && (eval -= 3)
+        end
     end
 
     eval
