@@ -138,5 +138,5 @@ macro engine()
 end
 
 macro engine(depth::Int)
-    engine!(_globalboard, depth)
+    engine!(_globalboard, ab_depth = depth)
 end

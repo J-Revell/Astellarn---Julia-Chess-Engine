@@ -4,6 +4,9 @@
 const FATHOM_PATH = "./Fathom/src/apps/fathom.linux"
 
 
+const TB_RESULT_FAILED = 0xFFFFFFFF
+
+
 # constants defined in fathom
 const TB_LOSS = 0
 const TB_BLESSED_LOSS = 1
@@ -32,25 +35,26 @@ const TB_RESULT_DTZ_SHIFT = 20
 
 
 function TB_GET_WDL(res::UInt32)
-    (res & TB_RESULT_WDL_MASK) >> TB_RESULT_WDL_SHIFT
+    Int((res & TB_RESULT_WDL_MASK) >> TB_RESULT_WDL_SHIFT)
 end
 
 
 function TB_GET_TO(res::UInt32)
-    (res & TB_RESULT_TO_MASK) >> TB_RESULT_TO_SHIFT
+    Int(((res & TB_RESULT_TO_MASK) >> TB_RESULT_TO_SHIFT) + 1)
 end
 
 
 function TB_GET_FROM(res::UInt32)
-    (res & TB_RESULT_FROM_MASK) >> TB_RESULT_FROM_SHIFT
+    Int(((res & TB_RESULT_FROM_MASK) >> TB_RESULT_FROM_SHIFT) + 1)
 end
 
 
 function TB_GET_PROMOTES(res::UInt32)
-    (res & TB_RESULT_PROMOTES_MASK) >> TB_RESULT_PROMOTES_SHIFT
+    Int((res & TB_RESULT_PROMOTES_MASK) >> TB_RESULT_PROMOTES_SHIFT)
 end
 
 
+# check output of this function
 function TB_GET_EP(res::UInt32)
     (res & TB_RESULT_EP_MASK) >> TB_RESULT_EP_SHIFT
 end
@@ -79,8 +83,7 @@ end
 
 
 function tb_probe_root(board::Board)
-    result = Ref{UInt32}(0)
-    return ccall((:tb_probe_root_impl, FATHOM_PATH), Cuint, (UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt32, UInt32, UInt8, Ref{UInt32}, ),
+    ccall((:tb_probe_root_impl, FATHOM_PATH), Cuint, (UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt32, UInt32, UInt8, UInt32, ),
         board[WHITE].val, board[BLACK].val, board[KING].val, board[QUEEN].val, board[ROOK].val, board[BISHOP].val, board[KNIGHT].val, board[PAWN].val,
-        0, 0, board.turn == WHITE ? 1 : 0, result)
+        0, 0, board.turn == WHITE ? 1 : 0, 0)
 end

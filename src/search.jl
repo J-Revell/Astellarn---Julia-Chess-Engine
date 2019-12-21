@@ -5,6 +5,29 @@
 const Q_FUTILE_THRESH = 200
 
 
+function find_best_move(board::Board; ab_depth::Int = 3)
+    if (count(occupied(board)) <= 5)
+        res = tb_probe_root(board)
+        if res !== TB_RESULT_FAILED
+            eval = TB_GET_WDL(res)
+            move_from = TB_GET_FROM(res)
+            move_to = TB_GET_TO(res)
+            promotion = TB_GET_PROMOTES(res)
+            if promotion !== TB_PROMOTES_NONE
+                (promotion == TB_PROMOTES_QUEEN) && (return eval, Move(move_from, move_to, __QUEEN_PROMO), 1)
+                (promotion == TB_PROMOTES_ROOK) && (return eval, Move(move_from, move_to, __ROOK_PROMO), 1)
+                (promotion == TB_PROMOTES_BISHOP) && (return eval, Move(move_from, move_to, __BISHOP_PROMO), 1)
+                (promotion == TB_PROMOTES_KNIGHT) && (return eval, Move(move_from, move_to, __KNIGHT_PROMO), 1)
+            else
+                return eval, Move(move_from, move_to, __NORMAL_MOVE), 1
+            end
+        end
+    else
+        return absearch(board, -100000, 100000, ab_depth)
+    end
+end
+
+
 # https://www.chessprogramming.org/Quiescence_Search
 """
     qsearch()
@@ -16,7 +39,7 @@ function qsearch(board::Board, α::Int, β::Int, depth::Int)
     if isdrawbymaterial(board) || is50moverule(board)
         return 0, 1
     end
-    
+
     eval = evaluate(board)
 
     nodes = 1
