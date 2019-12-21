@@ -63,8 +63,8 @@ end
 
 function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
     if depth == 0
-        q_eval, nodes = qsearch(board, α, β, 4)
-        return q_eval, Move(), nodes # temporary max depth of 4 on quiescence search
+        q_eval, nodes = qsearch(board, α, β, 4) # temporary max depth of 4 on quiescence search
+        return q_eval, Move(), nodes
     end
     moves = movestack[ply + 1]
     gen_moves!(moves, board)
@@ -79,7 +79,7 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
 
         u = apply_move!(board, move)
         eval, cand, n = run_absearch(board, -β, -α, depth - 1, ply + 1, movestack)
-        eval *= -1
+        eval = -eval
         undo_move!(board, move, u)
         nodes += n
         if eval >= β
@@ -92,6 +92,7 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     end
     if length(moves) == 0
         if ischeck(board)
+            # subtract depth to give an indication of the "fastest" mate
             α = -10000-depth
         else
             α = 0
