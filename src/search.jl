@@ -12,6 +12,11 @@ const Q_FUTILE_THRESH = 200
 Quiescence search function. Under development.
 """
 function qsearch(board::Board, α::Int, β::Int, depth::Int)
+    # draw checks
+    if isdrawbymaterial(board) || is50moverule(board)
+        return 0, 1
+    end
+    
     eval = evaluate(board)
 
     nodes = 1
@@ -61,9 +66,9 @@ function absearch(board::Board, α::Int, β::Int, depth::Int)
     run_absearch(board, α, β, depth, 0, movestack)
 end
 
-function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
+function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack}; qdepth::Int = 4)
     if depth == 0
-        q_eval, nodes = qsearch(board, α, β, 4) # temporary max depth of 4 on quiescence search
+        q_eval, nodes = qsearch(board, α, β, qdepth) # temporary max depth of 4 on quiescence search
         return q_eval, Move(), nodes
     end
     moves = movestack[ply + 1]
