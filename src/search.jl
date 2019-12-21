@@ -210,6 +210,7 @@ function static_exchange_evaluator(board::Board, move::Move)
         end
 
     end
+    # if it's your turn, you lost the SEE loop
     if board.turn == color
         return false
     else
