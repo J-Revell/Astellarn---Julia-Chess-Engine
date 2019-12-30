@@ -63,6 +63,8 @@ function importfen(fen::String)
     board.pinned = findpins(board)
     board.checkers = kingAttackers(board)
 
+    board.history = [board.hash]
+
     board
 end
 

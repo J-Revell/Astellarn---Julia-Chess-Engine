@@ -129,6 +129,9 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     if is50moverule(board)
         α = 0
     end
+    if isrepetition(board)
+        α = 0
+    end
     clear!(moves)
     return α, best_move, nodes
 end

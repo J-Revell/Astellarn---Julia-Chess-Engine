@@ -67,7 +67,10 @@ end
 
 function isrepetition(board::Board)
     reps = 0
-    for i in (board.movecount - 1):-2:(board.movecount - board.halfmovecount)
+    if board.halfmovecount < 8
+        return false
+    end
+    for i in (board.movecount):-2:(board.movecount - board.halfmovecount)
         if (board.hash == board.history[i])
             reps += 1
         end
