@@ -160,7 +160,7 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     if length(moves) == 0
         if ischeck(board)
             # subtract depth to give an indication of the "fastest" mate
-            α = -MATE-depth
+            α = -MATE + ply
         else
             α = 0
         end
