@@ -2,10 +2,28 @@
 #     moves::MoveStack
 # end
 
+const MAX_PLY = 100
+
 const Q_FUTILE_THRESH = 200
+
+const QSEARCH_DEPTH = 4
+
+const RAZOR_DEPTH = 1
+const RAZOR_MARGIN = 330
+
+const BETA_PRUNE_DEPTH = 8
+const BETA_PRUNE_MARGIN = 85
+
+const SEE_PRUNE_DEPTH = 8
 
 const MATE = 50000
 
+
+"""
+    find_best_move()
+
+Probe the tablebase if appropriate, or perform the absearch routine.
+"""
 function find_best_move(board::Board; ab_depth::Int = 3)
     if (count(occupied(board)) <= 5)
         res = tb_probe_root(board)
@@ -42,17 +60,21 @@ function qsearch(board::Board, α::Int, β::Int, depth::Int)
     end
 
     eval = evaluate(board)
+    best = eval
 
     nodes = 1
 
+    # max depth cutoff
+    if depth == 0
+        return eval, nodes
+    end
+
     # eval pruning
-    if eval >= β
-        return β, nodes
-    elseif eval > α
+    if eval > α
         α = eval
     end
-    if depth == 0
-        return eval, nodes # used to be α
+    if α >= β
+        return eval, nodes
     end
 
     # delta pruning
@@ -63,20 +85,30 @@ function qsearch(board::Board, α::Int, β::Int, depth::Int)
 
     moves = MoveStack(50)
     gen_noisy_moves!(moves, board)
+
+    # iterate through moves
     for move in moves
         u = apply_move!(board, move)
         eval, new_nodes = qsearch(board, -β, -α, depth - 1)
         eval = -eval
         undo_move!(board, move, u)
         nodes += new_nodes
-        if eval >= β
-            return β, nodes
+
+        # check for improvements
+        if eval > best
+            best = eval
+            if eval > α
+                α = best
+            end
         end
-        if eval > α
-            α = eval
+
+        # fail high?
+        if α >= β
+            return best, nodes
         end
+
     end
-    return α, nodes
+    return best, nodes
 end
 
 
@@ -96,13 +128,16 @@ end
 
 Internals of `absearch()` routine.
 """
-function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack}; qdepth::Int = 4)
+function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
     # is this the root node?
     isroot = ply == 0
 
+    # is this a pvnode
+    pvnode = β > α + 1
+
     # enter quiescence search
-    if (depth == 0) #&& isempty(board.checkers)
-        q_eval, nodes = qsearch(board, α, β, qdepth) # temporary max depth of 4 on quiescence search
+    if (depth <= 0) #&& !ischeck(board)
+        q_eval, nodes = qsearch(board, α, β, QSEARCH_DEPTH) # temporary max depth of 4 on quiescence search
         return q_eval, Move(), nodes
     end
 
@@ -111,10 +146,10 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
         if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
             return 0, Move(), 1
         end
-        # if depth == 0
-        #     eval = evaluate(board)
-        #     return eval, Move(), 1
-        # end
+        if ply >= MAX_PLY
+            eval = evaluate(board)
+            return eval, Move(), 1
+        end
 
         # mate pruning
         if α > -MATE + ply
@@ -132,6 +167,20 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
         end
     end
 
+    # set eval
+    eval = evaluate(board)
+
+    #razoring
+    if !pvnode && !ischeck(board) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
+        q_eval, nodes = qsearch(board, α, β, QSEARCH_DEPTH)
+        return q_eval, Move(), nodes
+    end
+
+    # beta pruning
+    if !pvnode && !ischeck(board) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
+        return eval, Move(), 1
+    end
+
     moves = movestack[ply + 1]
     gen_moves!(moves, board)
     nodes = 0
@@ -140,7 +189,10 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     for move in moves
 
         #discard bad SEE moves
-        if (static_exchange_evaluator(board, move) == false) && (best_move !== Move())
+        if depth > SEE_PRUNE_DEPTH
+            println(depth)
+        end
+        if (static_exchange_evaluator(board, move) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
             continue
         end
 
