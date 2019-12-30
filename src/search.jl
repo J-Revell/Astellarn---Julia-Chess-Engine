@@ -135,6 +135,9 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     # is this a pvnode
     pvnode = β > α + 1
 
+    # default best val
+    best = -MATE
+
     # enter quiescence search
     if (depth <= 0) #&& !ischeck(board)
         q_eval, nodes = qsearch(board, α, β, QSEARCH_DEPTH) # temporary max depth of 4 on quiescence search
@@ -189,9 +192,6 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     for move in moves
 
         #discard bad SEE moves
-        if depth > SEE_PRUNE_DEPTH
-            println(depth)
-        end
         if (static_exchange_evaluator(board, move) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
             continue
         end
@@ -201,24 +201,33 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
         eval = -eval
         undo_move!(board, move, u)
         nodes += n
-        if eval >= β
-            clear!(moves)
-            return β, best_move, nodes
-        elseif eval > α
-            α = eval
-            best_move = move
+
+        # improvement?
+        if eval > best
+            best = eval
+            if eval > α
+                α = eval
+                best_move = move
+
+                # fail high?
+                if α > β
+                    break
+                end
+            end
         end
+
     end
+
     if length(moves) == 0
         if ischeck(board)
-            # subtract depth to give an indication of the "fastest" mate
+            # add depth to give an indication of the "fastest" mate
             α = -MATE + ply
         else
             α = 0
         end
     end
     clear!(moves)
-    return α, best_move, nodes
+    return best, best_move, nodes
 end
 
 
