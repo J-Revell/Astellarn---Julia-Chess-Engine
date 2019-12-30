@@ -137,8 +137,9 @@ struct Undo
     castling::UInt8
     enpass::UInt8
     captured::Piece
-    hash::UInt64
     halfmovecount::UInt16
+    hash::UInt64
+    history::Vector{UInt64}
 end
 
 
@@ -187,8 +188,9 @@ function apply_move!(board::Board, move::Move)
     undo_pinned = board.pinned
     undo_castling = board.castling
     undo_enpass = board.enpass
-    undo_hash = board.hash
     undo_halfmovecount = board.halfmovecount
+    undo_hash = board.hash
+    undo_history = board.history
 
     # before we update the enpass
     if board.enpass !== zero(UInt8)
@@ -210,10 +212,11 @@ function apply_move!(board::Board, move::Move)
     board.hash ⊻= zobturnkey()
     switchturn!(board)
 
+    push!(board.history, board.hash)
     board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
-    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_hash, undo_halfmovecount)
+    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_halfmovecount, undo_hash, undo_history)
 end
 
 
@@ -409,6 +412,7 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.halfmovecount = undo.halfmovecount
     board.movecount = one(UInt16)
     board.hash = undo.hash
+    board.history = undo.history
     switchturn!(board)
     if (flag(move) == __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
         undo_normal!(board, move, undo)
