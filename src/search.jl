@@ -42,7 +42,8 @@ function find_best_move(board::Board; ab_depth::Int = 3)
             end
         end
     else
-        return absearch(board, -100000, 100000, ab_depth)
+        ttable = TT_Table()
+        return absearch(board, ttable, -100000, 100000, ab_depth)
     end
 end
 
@@ -117,9 +118,9 @@ end
 
 Naive αβ search. Implements qsearch, SEE eval pruning.
 """
-function absearch(board::Board, α::Int, β::Int, depth::Int)
+function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int)
     movestack = [MoveStack(200) for i in 1:depth]
-    run_absearch(board, α, β, depth, 0, movestack)
+    run_absearch(board, ttable, α, β, depth, 0, movestack)
 end
 
 
@@ -128,12 +129,15 @@ end
 
 Internals of `absearch()` routine.
 """
-function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
+function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
+    # init vales
+    init_α = α
+
     # is this the root node?
     isroot = ply == 0
 
     # is this a pvnode
-    pvnode = β > α + 1
+    pvnode = β == α + 1
 
     # default best val
     best = -MATE
@@ -170,6 +174,18 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
         end
     end
 
+    # probe the transposition table
+    if hasTTentry(ttable, board.hash)
+        tt_entry = getTTentry(ttable, board.hash)
+        if (tt_entry.depth >= depth) && (depth == 0 || !pvnode)
+            if (tt_entry.bound == BOUND_EXACT) ||
+                ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
+                ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
+                return tt_entry.eval, tt_entry.move, 1
+            end
+        end
+    end
+
     # set eval
     eval = evaluate(board)
 
@@ -197,7 +213,7 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
         end
 
         u = apply_move!(board, move)
-        eval, cand, n = run_absearch(board, -β, -α, depth - 1, ply + 1, movestack)
+        eval, cand, n = run_absearch(board, ttable, -β, -α, depth - 1, ply + 1, movestack)
         eval = -eval
         undo_move!(board, move, u)
         nodes += n
@@ -227,6 +243,13 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
         end
     end
     clear!(moves)
+
+    if isroot == false
+        tt_bound = best >= β ? BOUND_LOWER : (best > init_α ? BOUND_EXACT : BOUND_UPPER)
+        tt_entry = TT_Entry(eval, best_move, depth, tt_bound)
+        setTTentry!(ttable, board.hash, tt_entry)
+    end
+
     return best, best_move, nodes
 end
 

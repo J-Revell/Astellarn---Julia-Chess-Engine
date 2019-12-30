@@ -35,6 +35,8 @@ module Astellarn
 
     include("evaluate.jl")
     include("syzygy.jl")
+    include("transposition.jl")
+
     include("search.jl")
 
     include("engine.jl")
