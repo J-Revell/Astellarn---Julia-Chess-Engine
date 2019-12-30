@@ -408,7 +408,7 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.enpass = undo.enpass
     board.castling = undo.castling
     board.halfmovecount = undo.halfmovecount
-    board.movecount = one(UInt16)
+    board.movecount -= one(UInt16)
     board.hash = undo.hash
     pop!(board.history)
     switchturn!(board)
