@@ -4,6 +4,7 @@
 
 const Q_FUTILE_THRESH = 200
 
+const MATE = 50000
 
 function find_best_move(board::Board; ab_depth::Int = 3)
     if (count(occupied(board)) <= 5)
@@ -82,26 +83,64 @@ end
 """
     absearch()
 
-Naive αβ search. Under development.
+Naive αβ search. Implements qsearch, SEE eval pruning.
 """
 function absearch(board::Board, α::Int, β::Int, depth::Int)
     movestack = [MoveStack(200) for i in 1:depth]
     run_absearch(board, α, β, depth, 0, movestack)
 end
 
+
+"""
+    run_absearch()
+
+Internals of `absearch()` routine.
+"""
 function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack}; qdepth::Int = 4)
-    if depth == 0
+    # is this the root node?
+    isroot = ply == 0
+
+    # enter quiescence search
+    if (depth == 0) #&& isempty(board.checkers)
         q_eval, nodes = qsearch(board, α, β, qdepth) # temporary max depth of 4 on quiescence search
         return q_eval, Move(), nodes
     end
+
+    # early exit conditions
+    if isroot == false
+        if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
+            return 0, Move(), 1
+        end
+        # if depth == 0
+        #     eval = evaluate(board)
+        #     return eval, Move(), 1
+        # end
+
+        # mate pruning
+        if α > -MATE + ply
+            mate_α = α
+        else
+            mate_α = -MATE + ply
+        end
+        if β < MATE - ply - 1
+            mate_β = β
+        else
+            mate_β = MATE - ply - 1
+        end
+        if mate_α >= mate_β
+            return mate_α, Move(), 1
+        end
+    end
+
     moves = movestack[ply + 1]
     gen_moves!(moves, board)
     nodes = 0
     best_move = Move()
+
     for move in moves
 
         #discard bad SEE moves
-        if !static_exchange_evaluator(board, move) && (best_move !== Move())
+        if (static_exchange_evaluator(board, move) == false) && (best_move !== Move())
             continue
         end
 
@@ -121,23 +160,21 @@ function run_absearch(board::Board, α::Int, β::Int, depth::Int, ply::Int, move
     if length(moves) == 0
         if ischeck(board)
             # subtract depth to give an indication of the "fastest" mate
-            α = -10000-depth
+            α = -MATE-depth
         else
             α = 0
         end
-    end
-    if is50moverule(board)
-        α = 0
-    end
-    if isrepetition(board)
-        α = 0
     end
     clear!(moves)
     return α, best_move, nodes
 end
 
 
-# returns true if move passes SEE criteria
+"""
+    static_exchange_evaluator(board::Board, move::Move)
+
+Returns true if a move passes a static exchange criteria, false otherwise.
+"""
 function static_exchange_evaluator(board::Board, move::Move)
     from_sqr = Int(from(move))
     to_sqr = Int(to(move))
@@ -258,14 +295,14 @@ function optimistic_move_estimator(board::Board)
     # find highest val targets
     for i in 5:-1:2
         piecetype = PieceType(i)
-        if !isempty(board[board.turn] & board[piecetype])
+        if isempty(board[board.turn] & board[piecetype]) == false
             value = PVALS[i]
             break
         end
     end
 
     # promo checks
-    if !isempty(board[PAWN] & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2))
+    if isempty(board[PAWN] & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2)) == false
         value += PVALS[5] - PVALS[1]
     end
 
