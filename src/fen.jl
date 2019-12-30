@@ -57,13 +57,15 @@ function importfen(fen::String)
     end
 
     board.halfmovecount = parse(Int, get(parts, 5, "0"))
-    board.movecount = parse(Int, get(parts, 6, "1"))
-
+    board.movecount = parse(Int, get(parts, 6, "1")) * 2
+    if board.turn == WHITE
+        board.movecount -= 1
+    end
 
     board.pinned = findpins(board)
     board.checkers = kingAttackers(board)
 
-    board.history = [board.hash]
+    board.history = [repeat([zero(UInt64)], board.movecount - 1); board.hash]
 
     board
 end

@@ -54,7 +54,7 @@ end
 
 Quiescence search function. Under development.
 """
-function qsearch(board::Board, α::Int, β::Int, depth::Int)
+function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)
     # draw checks
     if isdrawbymaterial(board) || is50moverule(board)
         return 0, 1
@@ -68,6 +68,16 @@ function qsearch(board::Board, α::Int, β::Int, depth::Int)
     # max depth cutoff
     if depth == 0
         return eval, nodes
+    end
+
+    # probe the transposition table
+    if hasTTentry(ttable, board.hash)
+        tt_entry = getTTentry(ttable, board.hash)
+        if (tt_entry.bound == BOUND_EXACT) ||
+            ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
+            ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
+            return tt_entry.eval, 1
+        end
     end
 
     # eval pruning
@@ -90,7 +100,7 @@ function qsearch(board::Board, α::Int, β::Int, depth::Int)
     # iterate through moves
     for move in moves
         u = apply_move!(board, move)
-        eval, new_nodes = qsearch(board, -β, -α, depth - 1)
+        eval, new_nodes = qsearch(board, ttable, -β, -α, depth - 1, ply + 1)
         eval = -eval
         undo_move!(board, move, u)
         nodes += new_nodes
@@ -144,7 +154,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     # enter quiescence search
     if (depth <= 0) #&& !ischeck(board)
-        q_eval, nodes = qsearch(board, α, β, QSEARCH_DEPTH) # temporary max depth of 4 on quiescence search
+        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0) # temporary max depth of 4 on quiescence search
         return q_eval, Move(), nodes
     end
 
@@ -191,7 +201,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     #razoring
     if !pvnode && !ischeck(board) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
-        q_eval, nodes = qsearch(board, α, β, QSEARCH_DEPTH)
+        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
         return q_eval, Move(), nodes
     end
 
