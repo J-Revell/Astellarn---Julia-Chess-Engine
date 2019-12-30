@@ -21,7 +21,7 @@ function ischeckmate(board::Board)
 end
 
 function isdraw(board::Board)
-    isstalemate(board) || isdrawbymaterial(board) || is50moverule(board)
+    isstalemate(board) || isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
 end
 
 function isstalemate(board::Board)
@@ -63,4 +63,17 @@ function is50moverule(board::Board)
     else
         return false
     end
+end
+
+function isrepetition(board::Board)
+    reps = 0
+    for i in (board.movecount - 1):-2:(board.movecount - board.halfmovecount)
+        if (board.hash == board.history[i])
+            reps += 1
+        end
+        if reps == 3
+            return true
+        end
+    end
+    return false
 end
