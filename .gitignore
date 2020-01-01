@@ -1,3 +1,4 @@
 benchmarks/
 src/MCTS/
 src/Fathom/src/apps/fathom.linux
+src/Fathom/src/tbprobe.so

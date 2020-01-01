@@ -1,8 +1,6 @@
 # wrappers of the fathom c library
 # currently only Linux support for Astellarn
-
-const FATHOM_PATH = "./Fathom/src/apps/fathom.linux"
-
+const FATHOM_PATH = (@__DIR__) * "/Fathom/src/tbprobe.so"
 
 const TB_RESULT_FAILED = 0xFFFFFFFF
 
@@ -56,12 +54,12 @@ end
 
 # check output of this function
 function TB_GET_EP(res::UInt32)
-    (res & TB_RESULT_EP_MASK) >> TB_RESULT_EP_SHIFT
+    Int(((res & TB_RESULT_EP_MASK) >> TB_RESULT_EP_SHIFT) + 1)
 end
 
 
 function TB_GET_DTZ(res::UInt32)
-    (res & TB_RESULT_DTZ_MASK) >> TB_RESULT_DTZ_SHIFT
+    Int((res & TB_RESULT_DTZ_MASK) >> TB_RESULT_DTZ_SHIFT)
 end
 
 
@@ -71,19 +69,35 @@ end
 
 
 function tb_free()
-    ccall((:tb_free, FATHOM_PATH), Cvoid, ())
+    return ccall((:tb_free, FATHOM_PATH), Cvoid, ())
 end
 
 
+# We can't call static inline function :tb_probe_wdl, so we use :tb_probe_wdl_impl as a workaround.
+# Because of the above, care is taken to ensure we conform to syzygy rules.
 function tb_probe_wdl(board::Board)
-    return ccall((:tb_probe_wdl_impl, FATHOM_PATH), Cuint, (UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt32, UInt8,),
-        board[WHITE].val, board[BLACK].val, board[KING].val, board[QUEEN].val, board[ROOK].val, board[BISHOP].val, board[KNIGHT].val, board[PAWN].val,
-        0, board.turn == WHITE ? 1 : 0)
+    if iszero(board.enpass) ==  false
+        return TB_RESULT_FAILED
+    elseif iszero(board.castling) == false
+        return TB_RESULT_FAILED
+    elseif iszero(board.halfmovecount) == false
+        return TB_RESULT_FAILED
+    else
+        return ccall((:tb_probe_wdl_impl, FATHOM_PATH), Cuint, (UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt32, UInt8,),
+            board[WHITE].val, board[BLACK].val, board[KING].val, board[QUEEN].val, board[ROOK].val, board[BISHOP].val, board[KNIGHT].val, board[PAWN].val,
+            0, board.turn == WHITE ? 1 : 0)
+    end
 end
 
 
+# We can't call static inline function :tb_probe_root, so we use :tb_probe_root_impl as a workaround.
+# Because of the above, care is taken to ensure we conform to syzygy rules.
 function tb_probe_root(board::Board)
-    ccall((:tb_probe_root_impl, FATHOM_PATH), Cuint, (UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt32, UInt32, UInt8, UInt32, ),
-        board[WHITE].val, board[BLACK].val, board[KING].val, board[QUEEN].val, board[ROOK].val, board[BISHOP].val, board[KNIGHT].val, board[PAWN].val,
-        0, 0, board.turn == WHITE ? 1 : 0, 0)
+    if iszero(board.castling) == false
+        return TB_RESULT_FAILED
+    else
+        return ccall((:tb_probe_root_impl, FATHOM_PATH), Cuint, (UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt32, UInt32, UInt8, UInt32, ),
+            board[WHITE].val, board[BLACK].val, board[KING].val, board[QUEEN].val, board[ROOK].val, board[BISHOP].val, board[KNIGHT].val, board[PAWN].val,
+            0, 0, board.turn == WHITE ? 1 : 0, 0)
+    end
 end

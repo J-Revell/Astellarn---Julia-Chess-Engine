@@ -16,7 +16,7 @@ const BETA_PRUNE_MARGIN = 85
 
 const SEE_PRUNE_DEPTH = 8
 
-const MATE = 50000
+const MATE = 32000
 
 
 """
@@ -193,6 +193,22 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
                 ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
                 return tt_entry.eval, tt_entry.move, 1
             end
+        end
+    end
+
+    # probe the syzygy tablebase
+    # to-do, add entries to the transposition table
+    if (count(occupied(board)) <= 5)
+        res = tb_probe_wdl(board)
+        if res !== TB_RESULT_FAILED
+            if iszero(res)
+                eval = -MATE
+            elseif 1 <= res <= 3 # blessed / cursed loss and wins are draws
+                eval = 0
+            else
+                eval = MATE
+            end
+            return eval, Move(), 1
         end
     end
 
