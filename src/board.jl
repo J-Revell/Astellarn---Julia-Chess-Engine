@@ -291,3 +291,128 @@ Return a `Bool` which denotes if the player of `color` can castle queenside. If 
 """
 cancastlequeenside(board::Board, color::Color) = isone((board.castling >> (color.val + 1)) & 1)
 cancastlequeenside(board::Board) = cancastlequeenside(board, board.turn)
+
+
+# is the position legal
+"""
+    islegal(board::Board)
+
+A safety check to see if the position on the board is legal. Returns `true` if legal. 
+"""
+function islegal(board::Board)
+    switchturn!(board)
+    bool = isempty(kingAttackers(board))
+    switchturn!(board)
+    return bool
+end
+
+
+"""
+    isdraw(board::Board)
+
+Detects checkmate. Returns `true` if checkmated.
+"""
+function ischeckmate(board::Board)
+    if ischeck(board)
+        ml = MoveStack(50)
+        gen_moves!(ml, board)
+        if length(ml) == 0
+            return true
+        else
+            return false
+        end
+    else
+        return false
+    end
+end
+
+
+"""
+    isdraw(board::Board)
+
+Detects draws by stalemate, insufficient material, 50 move rule, and 3-fold repetition. Returns `true` if drawn.
+"""
+function isdraw(board::Board)
+    isstalemate(board) || isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
+end
+
+
+"""
+    isstalemate(board::Board)
+
+Detects stalemate draws. Returns `true` if drawn.
+"""
+function isstalemate(board::Board)
+    if ischeck(board)
+        return false
+    else
+        ml = MoveStack(100)
+        gen_quiet_moves!(ml, board)
+        if !(length(ml) == 0)
+            return false
+        end
+        clear!(ml)
+        gen_noisy_moves!(ml, board)
+        if !(length(ml) == 0)
+            return false
+        else
+            return true
+        end
+    end
+end
+
+
+"""
+    isdrawbymaterial(board::Board)
+
+Detects draws by insufficient material. Returns `true` if the position is drawn.
+"""
+function isdrawbymaterial(board::Board)
+    piece_count = count(board[WHITE]) + count(board[BLACK])
+    if piece_count == 2
+        return true
+    elseif piece_count == 3
+        if count(board[BISHOP]) > 0
+            return true
+        elseif count(board[KNIGHT]) > 0
+            return true
+        end
+    end
+    return false
+end
+
+
+"""
+    is50moverule(board::Board)
+
+Detects draws by the 50 move rule. Returns `true` if the position is drawn.
+"""
+function is50moverule(board::Board)
+    if board.halfmovecount > 99
+        return true
+    else
+        return false
+    end
+end
+
+
+"""
+    isrepetition(board::Board)
+
+Detects 3-fold repetition by analysing the hash history. Returns `true` if the position is drawn.
+"""
+function isrepetition(board::Board)
+    reps = 0
+    if board.halfmovecount < 8
+        return false
+    end
+    for i in (board.movecount):-2:(board.movecount - board.halfmovecount)
+        if (board.hash == board.history[i])
+            reps += 1
+        end
+        if reps == 3
+            return true
+        end
+    end
+    return false
+end

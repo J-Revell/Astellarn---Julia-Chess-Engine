@@ -147,7 +147,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     isroot = ply == 0
 
     # is this a pvnode
-    pvnode = β == α + 1
+    pvnode = β !== α + 1
 
     # default best val
     best = -MATE
@@ -262,7 +262,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
                 best_move = move
 
                 # fail high?
-                if α > β
+                if α >= β
                     break
                 end
             end

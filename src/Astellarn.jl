@@ -1,3 +1,5 @@
+#!/home/jeremy/julia/julia
+
 module Astellarn
     using Crayons
     using StaticArrays
@@ -31,8 +33,6 @@ module Astellarn
 
     include("perft.jl")
 
-    include("judge.jl")
-
     include("evaluate.jl")
     include("syzygy.jl")
     include("transposition.jl")
@@ -41,6 +41,7 @@ module Astellarn
 
     include("engine.jl")
     include("play.jl")
+    include("uci.jl")
 
 
     export Bitboard, Board, Piece, PieceType, Color, Magic, Move, Undo, MoveStack, UndoStack
@@ -54,4 +55,9 @@ module Astellarn
 
     export WHITE, BLACK
 
+    export main
+
 end
+
+using .Astellarn
+main()
