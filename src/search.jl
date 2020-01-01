@@ -154,7 +154,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     # enter quiescence search
     if (depth <= 0) #&& !ischeck(board)
-        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0) 
+        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
         return q_eval, Move(), nodes
     end
 
@@ -202,13 +202,23 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         res = tb_probe_wdl(board)
         if res !== TB_RESULT_FAILED
             if iszero(res)
-                eval = -MATE
+                eval = -MATE + MAX_PLY + ply + 1
+                tt_bound = BOUND_UPPER
             elseif 1 <= res <= 3 # blessed / cursed loss and wins are draws
                 eval = 0
+                tt_bound = BOUND_EXACT
             else
-                eval = MATE
+                eval = MATE - MAX_PLY - ply - 1
+                tt_bound = BOUND_LOWER
             end
-            return eval, Move(), 1
+            # add to transposition table
+            tt_entry = TT_Entry(eval, Move(), MAX_PLY - 1, tt_bound)
+            if (tt_entry.bound == BOUND_EXACT) ||
+                ((tt_entry.bound == BOUND_LOWER) && (eval >= β)) ||
+                ((tt_entry.bound == BOUND_UPPER) && (eval <= α))
+                setTTentry!(ttable, board.hash, tt_entry)
+                return eval, Move(), 1
+            end
         end
     end
 
