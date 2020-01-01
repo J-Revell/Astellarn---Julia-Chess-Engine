@@ -101,3 +101,6 @@ function tb_probe_root(board::Board)
             0, 0, board.turn == WHITE ? 1 : 0, 0)
     end
 end
+
+
+tb_init(SYZYGY_PATH)
