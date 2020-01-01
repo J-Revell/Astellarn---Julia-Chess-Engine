@@ -51,7 +51,7 @@ function main()
         splitlines = split(line)
         # additional options currently unsupported
         if splitlines[1] == "go"
-            eval, move, nodes = find_best_move(board, ab_depth = 5)
+            eval, move, nodes = find_best_move(board, ab_depth = 4)
             ucistring = movetostring(move)
             print(io, "info nodes ", nodes, " score cp ", eval, "\n")
             print(io, "bestmove ", ucistring, "\n")

@@ -1,5 +1,3 @@
-#!/home/jeremy/julia/julia
-
 module Astellarn
     using Crayons
     using StaticArrays
@@ -55,9 +53,8 @@ module Astellarn
 
     export WHITE, BLACK
 
+    export tb_init
+
     export main
 
 end
-
-using .Astellarn
-main()
