@@ -1,4 +1,4 @@
-Fathom
+Fathom (custom version)
 ======
 
 Fathom is a stand-alone Syzygy tablebase probing tool.  The aims of Fathom
@@ -95,6 +95,7 @@ License
 (C) 2013-2015 Ronald de Man (original code)
 (C) 2015 basil (new modifications)
 (C) 2016-2019 Jon Dart (additional modifications)
+(C) 2019-2020 Jeremy Revell (custom modifications)
 
 This version of Fathom is released under the MIT License:
 

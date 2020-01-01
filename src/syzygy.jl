@@ -1,6 +1,6 @@
 # wrappers of the fathom c library
 # currently only Linux support for Astellarn
-const FATHOM_PATH = (@__DIR__) * "/Fathom/src/tbprobe.so"
+const FATHOM_PATH = (@__DIR__) * "../deps/tbprobe.so"
 
 const TB_RESULT_FAILED = 0xFFFFFFFF
 
