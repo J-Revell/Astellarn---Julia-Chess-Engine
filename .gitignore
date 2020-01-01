@@ -2,3 +2,4 @@ benchmarks/
 src/AstellarnEngine.jl
 deps/tbprobe.so
 deps/config.jl
+deps/build.log
