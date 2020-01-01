@@ -87,11 +87,13 @@ function user_move!(board::Board, castling::Expr)
     return
 end
 
+
 function verify_move(board::Board, move::Move)
     ml = MoveStack(200)
     gen_moves!(ml, board)
     in(move, ml)
 end
+
 
 # edit the global board
 macro move(sqr1::Symbol, sqr2::Symbol)
@@ -114,6 +116,12 @@ macro move(castling::Expr)
     _globalboard
 end
 
+
+"""
+    @board
+
+Create a new blank 'board' obect, accessible as the `global` object `_globalboard`.
+"""
 macro board()
     global _globalboard = Board()
 end
@@ -129,14 +137,32 @@ macro newgame()
     global _globalboard = importfen(fen)
 end
 
+
+"""
+    @random
+
+Play a random legal move on the global board.
+"""
 macro random()
     monkey!(_globalboard)
 end
 
+
+"""
+    @random
+
+Play the best engine move on the global board.
+"""
 macro engine()
     engine!(_globalboard)
 end
 
+
+"""
+    @engine n
+
+Play the best engine move on the global board, evaluated at a depth 'n::Int'.
+"""
 macro engine(depth::Int)
     engine!(_globalboard, ab_depth = depth)
 end

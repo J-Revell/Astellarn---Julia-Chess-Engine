@@ -154,7 +154,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     # enter quiescence search
     if (depth <= 0) #&& !ischeck(board)
-        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0) # temporary max depth of 4 on quiescence search
+        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0) 
         return q_eval, Move(), nodes
     end
 
