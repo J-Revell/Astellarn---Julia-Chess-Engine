@@ -7,6 +7,8 @@ module Astellarn
     import Base.getindex, Base.setindex!, Base.push!
     import Base.iterate, Base.length, Base.eltype, Base.size, Base.IndexStyle
     import Base.show
+    
+    include("../deps/config.jl")
 
     include("bitboard.jl")
     include("pieces.jl")
