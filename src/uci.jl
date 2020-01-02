@@ -70,6 +70,8 @@ end
 
 
 function uci_go(board::board, splitlines::Vector{SubString{String}})
+    ab_depth = 3 #temporary default value
+
     # extract depth
     for i in eachindex(splitlines)
         if splitlines[i] == "depth"
@@ -79,7 +81,7 @@ function uci_go(board::board, splitlines::Vector{SubString{String}})
     end
     eval, move, nodes = find_best_move(board, ab_depth = ab_depth)
     ucistring = movetostring(move)
-    print(io, "info nodes ", nodes, " score cp ", eval, "\n")
+    print(io, "info nodes ", nodes, " score cp ", eval, " depth ", ab_depth, "\n")
     print(io, "bestmove ", ucistring, "\n")
 end
 
