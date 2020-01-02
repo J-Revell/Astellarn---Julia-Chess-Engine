@@ -1,6 +1,9 @@
 module Astellarn
+    const ASTELLARN_VERSION = "v0.1.1"
+
     using Crayons
     using StaticArrays
+    using Printf
 
     import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.!
     import Base.isempty, Base.isone

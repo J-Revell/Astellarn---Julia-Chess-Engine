@@ -39,6 +39,9 @@ function main()
             uci_isready(io)
             continue
 
+        elseif line == "ucinewgame"
+            uci_newgame!(board)
+
         elseif line == "quit"
             break
         end
@@ -51,6 +54,9 @@ function main()
 
         elseif splitlines[1] == "position"
             uci_position!(board, splitlines)
+
+        elseif splitlines[1] == "perft"
+            uci_perft(io, board, splitlines)
         end
         # additional options currently unsupported
     end
@@ -59,13 +65,32 @@ end
 
 
 function uci_engine(io::IO)
-    print(io, "id name Astellarn\n")
+    print(io, "id name Astellarn ", ASTELLARN_VERSION, "\n")
     print(io, "id author Jeremy Revell\n")
     print(io, "uciok\n")
 end
 
+
 function uci_isready(io::IO)
     print(io, "readyok\n")
+end
+
+
+function uci_newgame!(board::Board)
+    copy!(board, importfen(START_FEN))
+end
+
+
+function uci_perft(io::IO, board::Board, splitlines::Vector{SubString{String}})
+    depth = parse(Int, splitlines[2])
+    time_start = time()
+    nodes = perft(board, depth)
+    time_stop = time()
+    elapsed = time_stop - time_start
+    @printf(io, "Total time (ms) : %d\n", elapsed*1000)
+    @printf(io, "Nodes searched : %d\n", nodes)
+    nps = nodes/elapsed
+    @printf(io, "Nodes/second :  %d\n", nps)
 end
 
 
