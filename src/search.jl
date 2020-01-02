@@ -17,6 +17,8 @@ const BETA_PRUNE_MARGIN = 85
 const SEE_PRUNE_DEPTH = 8
 const SEE_MARGIN = -50
 
+const WINDOW_DEPTH = 3
+
 const MATE = 32000
 
 
@@ -26,10 +28,18 @@ const MATE = 32000
 Probe the tablebase if appropriate, or perform the absearch routine.
 """
 function find_best_move(board::Board; ab_depth::Int = 3)
+    # probe the tablebase
     if (count(occupied(board)) <= 5)
         res = tb_probe_root(board)
         if res !== TB_RESULT_FAILED
-            eval = TB_GET_WDL(res)
+            _eval = TB_GET_WDL(res)
+            if iszero(_eval)
+                eval = -MATE
+            elseif 1 <= _eval <= 3 # blessed / cursed loss and wins are draws
+                eval = 0
+            else
+                eval = MATE
+            end
             move_from = TB_GET_FROM(res)
             move_to = TB_GET_TO(res)
             promotion = TB_GET_PROMOTES(res)
@@ -42,9 +52,56 @@ function find_best_move(board::Board; ab_depth::Int = 3)
                 return eval, Move(move_from, move_to, __NORMAL_MOVE), 1
             end
         end
+
+    # else we do a search
     else
         ttable = TT_Table()
-        return absearch(board, ttable, -100000, 100000, ab_depth)
+        return iterative_deepening(board, ttable, ab_depth)
+    end
+end
+
+
+function iterative_deepening(board::Board, ttable::TT_Table, max_depth::Int)
+    eval = 0
+    move = Move()
+    nodes = 0
+    for depth in 1:max_depth
+        eval, move, nodes = aspiration_window(board, ttable, depth, eval)
+    end
+    return eval, move, nodes
+end
+
+
+function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int)
+    α = -MATE
+    β = MATE
+    δ = 50
+
+    if depth >= WINDOW_DEPTH
+        α = max(-MATE, eval - δ)
+        β = min(MATE, eval + δ)
+    end
+
+    while true
+        eval, move, nodes = absearch(board, ttable, α, β, depth)
+
+        # inside an aspiration window
+        if eval > α && eval < β
+            return eval, move, nodes
+        end
+
+        # fail low
+        if eval <= α
+            β = fld(α + β, 2)
+            α = max(-MATE, α - δ)
+
+        # fail high
+        elseif eval >= β
+            β = min(MATE, β + δ)
+        end
+
+        # expand window
+        δ += fld(δ, 2)
     end
 end
 
@@ -130,7 +187,7 @@ end
 Naive αβ search. Implements qsearch, SEE eval pruning.
 """
 function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int)
-    movestack = [MoveStack(200) for i in 1:depth]
+    movestack = [MoveStack(200) for i in 0:depth+5]
     run_absearch(board, ttable, α, β, depth, 0, movestack)
 end
 
@@ -153,8 +210,14 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     # default best val
     best = -MATE + ply
 
+    # default tt_eval
+    tt_eval = -2MATE
+
+    # ensure +ve depth
+    depth = max(0, depth)
+
     # enter quiescence search
-    if (depth <= 0) #&& !ischeck(board)
+    if (depth <= 0) && !ischeck(board)
         q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
         return q_eval, Move(), nodes
     end
@@ -188,11 +251,12 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     # probe the transposition table
     if hasTTentry(ttable, board.hash)
         tt_entry = getTTentry(ttable, board.hash)
+        tt_eval = tt_entry.eval
         if (tt_entry.depth >= depth) && (depth == 0 || !pvnode)
             if (tt_entry.bound == BOUND_EXACT) ||
                 ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
-                return tt_entry.eval, tt_entry.move, 1
+                return tt_eval, tt_entry.move, 1
             end
         end
     end
@@ -200,31 +264,42 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     # probe the syzygy tablebase
     # to-do, add entries to the transposition table
     if (count(occupied(board)) <= 5)
-        res = tb_probe_wdl(board)
-        if res !== TB_RESULT_FAILED
-            if iszero(res)
-                _eval = -MATE + MAX_PLY + ply + 1
+        _eval = tb_probe_wdl(board)
+        if _eval !== TB_RESULT_FAILED
+
+            # is the tablebase losing
+            if iszero(_eval)
+                eval = -MATE + MAX_PLY + ply + 1
                 tt_bound = BOUND_UPPER
-            elseif 1 <= res <= 3 # blessed / cursed loss and wins are draws
-                _eval = 0
+
+            # is the tablebase a draw, blessed / cursed loss and wins are draws
+            elseif 1 <= _eval <= 3
+                eval = 0
                 tt_bound = BOUND_EXACT
+
+            # the tablebase is a win
             else
-                _eval = MATE - MAX_PLY - ply - 1
+                eval = MATE - MAX_PLY - ply - 1
                 tt_bound = BOUND_LOWER
             end
+
             # add to transposition table
-            tt_entry = TT_Entry(_eval, Move(), MAX_PLY - 1, tt_bound)
+            tt_entry = TT_Entry(eval, Move(), MAX_PLY - 1, tt_bound)
             if (tt_entry.bound == BOUND_EXACT) ||
-                ((tt_entry.bound == BOUND_LOWER) && (_eval >= β)) ||
-                ((tt_entry.bound == BOUND_UPPER) && (_eval <= α))
+                ((tt_entry.bound == BOUND_LOWER) && (eval >= β)) ||
+                ((tt_entry.bound == BOUND_UPPER) && (eval <= α))
                 setTTentry!(ttable, board.hash, tt_entry)
-                return _eval, Move(), 1
+                return eval, Move(), 1
             end
         end
     end
 
-    # set eval
-    eval = evaluate(board)
+    # set the eval
+    if tt_eval !== -2MATE
+        eval = tt_eval
+    else
+        eval = evaluate(board)
+    end
 
     #razoring
     if !pvnode && !ischeck(board) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
@@ -250,16 +325,16 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         end
 
         u = apply_move!(board, move)
-        eval, cand, n = run_absearch(board, ttable, -β, -α, depth - 1, ply + 1, movestack)
-        eval = -eval
+        cand_eval, cand_pv, cand_nodes = run_absearch(board, ttable, -β, -α, depth - 1, ply + 1, movestack)
+        cand_eval = -cand_eval
         undo_move!(board, move, u)
-        nodes += n
+        nodes += cand_nodes
 
         # improvement?
-        if eval > best
-            best = eval
-            if eval > α
-                α = eval
+        if cand_eval > best
+            best = cand_eval
+            if cand_eval > α
+                α = cand_eval
                 best_move = move
 
                 # fail high?
