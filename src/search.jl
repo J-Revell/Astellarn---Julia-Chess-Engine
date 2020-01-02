@@ -15,6 +15,7 @@ const BETA_PRUNE_DEPTH = 8
 const BETA_PRUNE_MARGIN = 85
 
 const SEE_PRUNE_DEPTH = 8
+const SEE_MARGIN = -50
 
 const MATE = 32000
 
@@ -150,7 +151,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     pvnode = β !== α + 1
 
     # default best val
-    best = -MATE
+    best = -MATE + ply
 
     # enter quiescence search
     if (depth <= 0) #&& !ischeck(board)
@@ -202,22 +203,22 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         res = tb_probe_wdl(board)
         if res !== TB_RESULT_FAILED
             if iszero(res)
-                eval = -MATE + MAX_PLY + ply + 1
+                _eval = -MATE + MAX_PLY + ply + 1
                 tt_bound = BOUND_UPPER
             elseif 1 <= res <= 3 # blessed / cursed loss and wins are draws
-                eval = 0
+                _eval = 0
                 tt_bound = BOUND_EXACT
             else
-                eval = MATE - MAX_PLY - ply - 1
+                _eval = MATE - MAX_PLY - ply - 1
                 tt_bound = BOUND_LOWER
             end
             # add to transposition table
-            tt_entry = TT_Entry(eval, Move(), MAX_PLY - 1, tt_bound)
+            tt_entry = TT_Entry(_eval, Move(), MAX_PLY - 1, tt_bound)
             if (tt_entry.bound == BOUND_EXACT) ||
-                ((tt_entry.bound == BOUND_LOWER) && (eval >= β)) ||
-                ((tt_entry.bound == BOUND_UPPER) && (eval <= α))
+                ((tt_entry.bound == BOUND_LOWER) && (_eval >= β)) ||
+                ((tt_entry.bound == BOUND_UPPER) && (_eval <= α))
                 setTTentry!(ttable, board.hash, tt_entry)
-                return eval, Move(), 1
+                return _eval, Move(), 1
             end
         end
     end
@@ -244,7 +245,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     for move in moves
 
         #discard bad SEE moves
-        if (static_exchange_evaluator(board, move) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
+        if (static_exchange_evaluator(board, move, SEE_MARGIN * depth) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
             continue
         end
 
@@ -295,7 +296,7 @@ end
 
 Returns true if a move passes a static exchange criteria, false otherwise.
 """
-function static_exchange_evaluator(board::Board, move::Move)
+function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     from_sqr = Int(from(move))
     to_sqr = Int(to(move))
 
@@ -327,7 +328,7 @@ function static_exchange_evaluator(board::Board, move::Move)
 
     color = !board.turn
 
-    balance = 20
+    balance = -threshold
 
     if to_piece !== BLANK
         balance += PVALS[type(to_piece).val]
