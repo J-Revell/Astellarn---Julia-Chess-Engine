@@ -33,13 +33,13 @@ Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMP
 Copy the contents of `board_2` to `board_1`.
 """
 function copy!(board_1::Board, board_2::Board)
-    copy!(board_1.squares, board_2.squares)
-    copy!(board_1.pieces, board_2.pieces)
-    copy!(board_1.colors, board_2.colors)
+    copyto!(board_1.squares, board_2.squares)
+    copyto!(board_1.pieces, board_2.pieces)
+    copyto!(board_1.colors, board_2.colors)
     board_1.checkers = board_2.checkers
     board_1.pinned = board_2.pinned
     board_1.turn = board_2.turn
-    board_1.castling = board_2.turn
+    board_1.castling = board_2.castling
     board_1.enpass = board_2.enpass
     board_1.halfmovecount = board_2.halfmovecount
     board_1.movecount = board_2.movecount

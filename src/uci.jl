@@ -46,7 +46,7 @@ function main()
         splitlines = split(line)
 
         if splitlines[1] == "go"
-            uci_go(board, splitlines)
+            uci_go(io, board, splitlines)
             continue
 
         elseif splitlines[1] == "position"
@@ -69,13 +69,13 @@ function uci_isready(io::IO)
 end
 
 
-function uci_go(board::Board, splitlines::Vector{SubString{String}})
+function uci_go(io::IO, board::Board, splitlines::Vector{SubString{String}})
     ab_depth = 3 #temporary default value
 
     # extract depth
     for i in eachindex(splitlines)
         if splitlines[i] == "depth"
-            ab_depth = splitlines[i + 1]
+            ab_depth = parse(Int, splitlines[i + 1])
             break
         end
     end
