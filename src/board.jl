@@ -27,6 +27,27 @@ end
 Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16), zero(UInt64), UInt64[])
 
 
+"""
+    copy!(board_1::Board, board_2::Board)
+
+Copy the contents of `board_2` to `board_1`.
+"""
+function copy!(board_1::Board, board_2::Board)
+    deepcopy!(board_1.squares, board_2.squares)
+    deepcopy!(board_1.pieces, board_2.pieces)
+    deepcopy!(board_1.colors, board_2.colors)
+    board_1.checkers = board_2.checkers
+    board_1.pinned = board_2.pinned
+    board_1.turn = board_2.turn
+    board_1.castling = board_2.turn
+    board_1.enpass = board_2.enpass
+    board_1.halfmovecount = board_2.halfmovecount
+    board_1.movecount = board_2.movecount
+    board_1.hash = board_2.hash
+    deepcopy!(board_1.history, board_2.history)
+end
+
+
 getindex(board::Board, color::Color) = @inbounds board.colors[color.val]
 getindex(board::Board, type::PieceType) = @inbounds board.pieces[type.val]
 getindex(board::Board, piece::Piece) = @inbounds board[type(piece)] & board[color(piece)]
@@ -297,7 +318,7 @@ cancastlequeenside(board::Board) = cancastlequeenside(board, board.turn)
 """
     islegal(board::Board)
 
-A safety check to see if the position on the board is legal. Returns `true` if legal. 
+A safety check to see if the position on the board is legal. Returns `true` if legal.
 """
 function islegal(board::Board)
     switchturn!(board)

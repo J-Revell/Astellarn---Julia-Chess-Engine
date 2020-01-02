@@ -24,8 +24,7 @@ end
 
 function main()
     # by default, load starting position
-    startfen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    board = importfen(startfen)
+    board = importfen(START_FEN)
 
     # main UCI loop
     while true
@@ -33,15 +32,11 @@ function main()
         io = stdout
 
         if line == "uci"
-            print(io, "id name Astellarn\n")
-            print(io, "id author Jeremy Revell\n")
-            print(io, "uciok\n")
-            flush(io)
+            uci_engine(io)
             continue
 
         elseif line == "isready"
-            print(io, "readyok\n")
-            flush(io)
+            uci_isready(io)
             continue
 
         elseif line == "quit"
@@ -49,40 +44,69 @@ function main()
         end
 
         splitlines = split(line)
-        # additional options currently unsupported
+
         if splitlines[1] == "go"
-            eval, move, nodes = find_best_move(board, ab_depth = 4)
-            ucistring = movetostring(move)
-            print(io, "info nodes ", nodes, " score cp ", eval, "\n")
-            print(io, "bestmove ", ucistring, "\n")
-            flush(io)
+            uci_go(board, splitlines)
             continue
 
         elseif splitlines[1] == "position"
+            uci_position!(board, splitlines)
+        end
+        # additional options currently unsupported
+    end
+    return
+end
 
-            if splitlines[2] == "startpos"
-                board = importfen(startfen)
 
-            elseif splitlines[2] == "fen"
-                fen = join(splitlines[3:8], " ")
-                board = importfen(fen)
-            end
+function uci_engine(io::IOStream)
+    print(io, "id name Astellarn\n")
+    print(io, "id author Jeremy Revell\n")
+    print(io, "uciok\n")
+end
 
-            makemoves = false
-            for i in eachindex(splitlines)
-                if splitlines[i] == "moves"
-                    makemoves = true
-                    continue
-                end
-                if makemoves == true
-                    movestack = MoveStack(200)
-                    gen_moves!(movestack, board)
-                    for move in movestack
-                        if movetostring(move) == splitlines[i]
-                            apply_move!(board, move)
-                            break
-                        end
-                    end
+function uci_isready(io::IOStream)
+    print(io, "readyok\n")
+end
+
+
+function uci_go(board::board, splitlines::Vector{SubString{String}})
+    # extract depth
+    for i in eachindex(splitlines)
+        if splitlines[i] == "depth"
+            ab_depth = splitlines[i + 1]
+            break
+        end
+    end
+    eval, move, nodes = find_best_move(board, ab_depth = ab_depth)
+    ucistring = movetostring(move)
+    print(io, "info nodes ", nodes, " score cp ", eval, "\n")
+    print(io, "bestmove ", ucistring, "\n")
+end
+
+
+function uci_position!(board::Board, splitlines::Vector{SubString{String}})
+    # import a given FEN string
+    if splitlines[2] == "startpos"
+        copy!(board, importfen(START_FEN))
+    elseif splitlines[2] == "fen"
+        fen = join(splitlines[3:8], " ")
+        copy!(board, importfen(fen))
+    end
+
+    # make the given moves, if any
+    makemoves = false
+    for i in eachindex(splitlines)
+        if splitlines[i] == "moves"
+            makemoves = true
+            continue
+        end
+        if makemoves == true
+            movestack = MoveStack(200)
+            gen_moves!(movestack, board)
+            for move in movestack
+                if movetostring(move) == splitlines[i]
+                    apply_move!(board, move)
+                    break
                 end
             end
         end

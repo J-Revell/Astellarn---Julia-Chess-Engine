@@ -1,6 +1,8 @@
 const LABELLED_SQUARES = [*(args...) for args in Base.product("hgfedcba","12345678")]
 const LABEL_TO_SQUARE = Dict(reshape(LABELLED_SQUARES, 64) .=> 1:64)
 
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 
 """
     importfen(fen::String)
