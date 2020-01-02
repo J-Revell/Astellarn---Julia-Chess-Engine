@@ -69,7 +69,7 @@ function uci_isready(io::IOStream)
 end
 
 
-function uci_go(board::board, splitlines::Vector{SubString{String}})
+function uci_go(board::Board, splitlines::Vector{SubString{String}})
     ab_depth = 3 #temporary default value
 
     # extract depth
