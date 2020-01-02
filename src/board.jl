@@ -33,9 +33,9 @@ Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMP
 Copy the contents of `board_2` to `board_1`.
 """
 function copy!(board_1::Board, board_2::Board)
-    deepcopy!(board_1.squares, board_2.squares)
-    deepcopy!(board_1.pieces, board_2.pieces)
-    deepcopy!(board_1.colors, board_2.colors)
+    copy!(board_1.squares, board_2.squares)
+    copy!(board_1.pieces, board_2.pieces)
+    copy!(board_1.colors, board_2.colors)
     board_1.checkers = board_2.checkers
     board_1.pinned = board_2.pinned
     board_1.turn = board_2.turn
@@ -44,7 +44,7 @@ function copy!(board_1::Board, board_2::Board)
     board_1.halfmovecount = board_2.halfmovecount
     board_1.movecount = board_2.movecount
     board_1.hash = board_2.hash
-    deepcopy!(board_1.history, board_2.history)
+    copy!(board_1.history, board_2.history)
 end
 
 

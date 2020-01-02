@@ -58,13 +58,13 @@ function main()
 end
 
 
-function uci_engine(io::IOStream)
+function uci_engine(io::IO)
     print(io, "id name Astellarn\n")
     print(io, "id author Jeremy Revell\n")
     print(io, "uciok\n")
 end
 
-function uci_isready(io::IOStream)
+function uci_isready(io::IO)
     print(io, "readyok\n")
 end
 
