@@ -162,7 +162,12 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, p
     end
 
     moves = MoveStack(50)
-    gen_noisy_moves!(moves, board)
+    if ischeck(board)
+        # we need evasions
+        gen_moves!(moves, board)
+    else
+        gen_noisy_moves!(moves, board)
+    end
 
     # iterate through moves
     for move in moves
@@ -228,7 +233,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     end
 
     # enter quiescence search
-    if iszero(depth) && !ischeck(board)
+    if iszero(depth) #&& !ischeck(board)
         q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
         return q_eval, Move(), nodes
     end
@@ -338,7 +343,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         u = apply_move!(board, move)
 
         # do we need an extension?
-        if ischeck(board) 
+        if ischeck(board)
             newdepth = depth + 1
         else
             newdepth = depth
@@ -393,6 +398,7 @@ end
 
 Returns true if a move passes a static exchange criteria, false otherwise.
 """
+# should we think about pins?
 function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     from_sqr = Int(from(move))
     to_sqr = Int(to(move))
