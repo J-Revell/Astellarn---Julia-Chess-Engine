@@ -131,9 +131,10 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, p
     if hasTTentry(ttable, board.hash)
         tt_entry = getTTentry(ttable, board.hash)
         tt_eval = tt_entry.eval
+        tt_value = ttvalue(tt_entry, ply)
         if (tt_entry.bound == BOUND_EXACT) ||
-            ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
-            ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
+            ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
+            ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
             return tt_entry.eval, 1
         end
     end
@@ -269,11 +270,12 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     if hasTTentry(ttable, board.hash)
         tt_entry = getTTentry(ttable, board.hash)
         tt_eval = tt_entry.eval
+        tt_value = ttvalue(tt_entry, ply)
         tt_move = tt_entry.move
         if (tt_entry.depth >= depth) && (depth == 0 || !pvnode)
             if (tt_entry.bound == BOUND_EXACT) ||
-                ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
-                ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
+                ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
+                ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
                 return tt_eval, tt_move, 1
             end
         end
@@ -341,6 +343,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     while true
         move = selectmove!(moveorder, board, tt_move)
+
         if move == Move()
             break
         end

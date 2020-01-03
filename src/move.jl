@@ -95,7 +95,7 @@ flag(move::Move) = move.val >> 12
 Sanity checks to see if a move makes sense. Returns `true` if so.
 """
 # function is not complete
-function move_is_psuedo_legal(board::Board, move::Move)
+function move_is_pseudo_legal(board::Board, move::Move)
     if move == Move()
         return false
     end
@@ -121,6 +121,17 @@ function move_is_psuedo_legal(board::Board, move::Move)
         return false
     end
 
+    # before we check piece cases, handle checks
+    if isdoublecheck(board) && (ptype_from !== KING)
+        return false
+    end
+
+    if ischeck(board)
+        if !((ptype_from == KING) || isone(Bitboard(sqr_to) & board.checkers) || isone(Bitboard(sqr_to) & blockers(sqr_to, square(kings(board) & friendly(board)))))
+            return false
+        end
+    end
+
     if ptype_from == KNIGHT
         return (move_flag == __NORMAL_MOVE) && !isempty(knightMoves(sqr_from) & Bitboard(sqr_to))
     end
@@ -128,15 +139,11 @@ function move_is_psuedo_legal(board::Board, move::Move)
     occ = occupied(board)
 
     if ptype_from == BISHOP
-        return (move_flag == __NORMAL_MOVE) && isone(bishopMoves(sqr_from, occ) & Bitboard(sqr_to))
-    end
-
-    if ptype_from == ROOK
-        return (move_flag == __NORMAL_MOVE) && isone(rookMoves(sqr_from, occ) & Bitboard(sqr_to))
-    end
-
-    if ptype_from == QUEEN
-        return (move_flag == __NORMAL_MOVE) && isone(queenMoves(sqr_from, occ) & Bitboard(sqr_to))
+        return (move_flag == __NORMAL_MOVE) && isone(bishopMoves(Int(sqr_from), occ) & Bitboard(sqr_to))
+    elseif ptype_from == ROOK
+        return (move_flag == __NORMAL_MOVE) && isone(rookMoves(Int(sqr_from), occ) & Bitboard(sqr_to))
+    elseif ptype_from == QUEEN
+        return (move_flag == __NORMAL_MOVE) && isone(queenMoves(Int(sqr_from), occ) & Bitboard(sqr_to))
     end
 
     if ptype_from == PAWN
@@ -163,7 +170,19 @@ function move_is_psuedo_legal(board::Board, move::Move)
         return isone(Bitboard(sqr_to) & ~RANK_18 & ((pawn_attacks & enemy(board)) | advance))
     end
 
-    return true
+    if ptype_from == KING
+        if move_flag == __NORMAL_MOVE
+            return isone(kingMoves(sqr_from) & sqr_to & ~friendly(board))
+        elseif ischeck(board)
+            return false
+        elseif move_flag == __KING_CASTLE
+            return cancastlekingside(board)
+        elseif move_flag == __QUEEN_CASTLE
+            return cancastlequeenside(board)
+        end
+    end
+
+    return false
 end
 
 

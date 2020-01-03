@@ -59,7 +59,7 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
         if tt_move !== Move()
             moveorder.stage = STAGE_GEN_NOISY
             # robust check for hash nonsense (collisions)
-            if move_is_psuedo_legal(board, tt_move)
+            if move_is_pseudo_legal(board, tt_move)
                 return tt_move
             end
         else
