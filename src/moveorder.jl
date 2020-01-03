@@ -1,7 +1,8 @@
+const STAGE_INIT = 0
 const STAGE_TABLE = 1
-const STAGE_GEN_NOISY = 2
+#const STAGE_GEN_NOISY = 2
 const STAGE_NOISY = 3
-const STAGE_GEN_QUIET = 4
+#const STAGE_GEN_QUIET = 4
 const STAGE_QUIET = 5
 const STAGE_DONE = 6
 
@@ -13,11 +14,11 @@ mutable struct MoveOrder
     noisy_size::Int
     quiet_size::Int
 end
-MoveOrder() = MoveOrder(STAGE_TABLE, MoveStack(150), zeros(Int, 150), 0, 0)
+MoveOrder() = MoveOrder(STAGE_INIT, MoveStack(150), zeros(Int, 150), 0, 0)
 
 
 function clear!(moveorder::MoveOrder)
-    moveorder.stage = STAGE_TABLE
+    moveorder.stage = STAGE_INIT
     clear!(moveorder.movestack)
     moveorder.values .= zeros(Int, 150)
     moveorder.noisy_size = 0
@@ -54,25 +55,29 @@ end
 
 
 function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
-    # first pick ttable move
-    if moveorder.stage == STAGE_TABLE
-        if tt_move !== Move()
-            moveorder.stage = STAGE_GEN_NOISY
-            # robust check for hash nonsense (collisions)
-            if move_is_pseudo_legal(board, tt_move)
-                return tt_move
-            end
-        else
-            moveorder.stage = STAGE_GEN_NOISY
-        end
-    end
-
-    # generate noisy moves
-    if moveorder.stage == STAGE_GEN_NOISY
+    if moveorder.stage == STAGE_INIT
         gen_noisy_moves!(moveorder.movestack, board)
         # TO-DO insert move score here
         moveorder.noisy_size = moveorder.movestack.idx
-        moveorder.stage = STAGE_NOISY
+
+        gen_quiet_moves!(moveorder.movestack, board)
+        # TO-DO insert move score here
+        moveorder.quiet_size = moveorder.movestack.idx - moveorder.noisy_size
+
+        moveorder.stage = STAGE_TABLE
+    end
+
+    # first pick ttable move
+    if moveorder.stage == STAGE_TABLE
+        if tt_move !== Move()
+            moveorder.stage = STAGE_NOISY
+            # robust check for hash nonsense (collisions)
+            if tt_move ∈ moveorder.movestack
+                return tt_move
+            end
+        else
+            moveorder.stage = STAGE_NOISY
+        end
     end
 
     # pick noisy moves
@@ -82,16 +87,8 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
             move = popmove!(moveorder, idx)
             return move
         else
-            moveorder.stage = STAGE_GEN_QUIET
+            moveorder.stage = STAGE_QUIET
         end
-    end
-
-    # generate quiet moves
-    if moveorder.stage == STAGE_GEN_QUIET
-        gen_quiet_moves!(moveorder.movestack, board)
-        # TO-DO insert move score here
-        moveorder.quiet_size = moveorder.movestack.idx - moveorder.noisy_size
-        moveorder.stage = STAGE_QUIET
     end
 
     # pick quiet moves
