@@ -44,6 +44,7 @@ function isattacked(board::Board, sqr::Integer)
     return false
 end
 
+
 function isattacked_through_king(board::Board, sqr::Integer)
     occ = occupied(board)
     occ &= ~(kings(board) & friendly(board))

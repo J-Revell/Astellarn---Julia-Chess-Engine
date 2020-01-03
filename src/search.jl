@@ -17,7 +17,7 @@ const BETA_PRUNE_MARGIN = 85
 const SEE_PRUNE_DEPTH = 8
 const SEE_MARGIN = -50
 
-const WINDOW_DEPTH = 3
+const WINDOW_DEPTH = 4
 
 const MATE = 32000
 
@@ -86,9 +86,10 @@ function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int
         eval, move, nodes = absearch(board, ttable, α, β, depth)
 
         # inside an aspiration window
-        if eval > α && eval < β
+        if α < eval < β
             return eval, move, nodes
         end
+        println(eval)
 
         # fail low
         if eval <= α
@@ -113,30 +114,38 @@ end
 Quiescence search function. Under development.
 """
 function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)
+    # default val
+    tt_eval = -2MATE
+    nodes = 1
+
     # draw checks
     if isdrawbymaterial(board) || is50moverule(board)
-        return 0, 1
+        return 0, nodes
     end
-
-    eval = evaluate(board)
-    best = eval
-
-    nodes = 1
 
     # max depth cutoff
     if depth == 0
-        return eval, nodes
+        return evaluate(board), nodes
     end
 
     # probe the transposition table
     if hasTTentry(ttable, board.hash)
         tt_entry = getTTentry(ttable, board.hash)
+        tt_eval = tt_entry.eval
         if (tt_entry.bound == BOUND_EXACT) ||
             ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
             ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
             return tt_entry.eval, 1
         end
     end
+
+    if tt_eval !== -2MATE
+        eval = tt_eval
+    else
+        eval = evaluate(board)
+    end
+
+    best = eval
 
     # eval pruning
     if eval > α
@@ -187,7 +196,7 @@ end
 Naive αβ search. Implements qsearch, SEE eval pruning.
 """
 function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int)
-    movestack = [MoveStack(200) for i in 0:depth+5]
+    movestack = [MoveStack(200) for i in 0:depth+10]
     run_absearch(board, ttable, α, β, depth, 0, movestack)
 end
 
@@ -208,16 +217,18 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     pvnode = β !== α + 1
 
     # default best val
-    best = -MATE + ply
+    best = -MATE #+ ply
 
     # default tt_eval
     tt_eval = -2MATE
 
     # ensure +ve depth
-    depth = max(0, depth)
+    if depth < 0
+        depth = 0
+    end
 
     # enter quiescence search
-    if (depth <= 0) && !ischeck(board)
+    if iszero(depth) && !ischeck(board)
         q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
         return q_eval, Move(), nodes
     end
@@ -319,14 +330,25 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     for move in moves
 
-        #discard bad SEE moves
+        # discard bad SEE moves
         if (static_exchange_evaluator(board, move, SEE_MARGIN * depth) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
             continue
         end
 
         u = apply_move!(board, move)
-        cand_eval, cand_pv, cand_nodes = run_absearch(board, ttable, -β, -α, depth - 1, ply + 1, movestack)
+
+        # do we need an extension?
+        if ischeck(board) 
+            newdepth = depth + 1
+        else
+            newdepth = depth
+        end
+
+        # perform search
+        cand_eval, cand_pv, cand_nodes = run_absearch(board, ttable, -β, -α, newdepth - 1, ply + 1, movestack)
         cand_eval = -cand_eval
+
+        # revert move and count nodes
         undo_move!(board, move, u)
         nodes += cand_nodes
 
@@ -349,9 +371,9 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     if length(moves) == 0
         if ischeck(board)
             # add depth to give an indication of the "fastest" mate
-            α = -MATE + ply
+            best = -MATE + ply
         else
-            α = 0
+            best = 0
         end
     end
     clear!(moves)
@@ -388,8 +410,8 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         occ ⊻= Bitboard(board.enpass)
     end
 
-    attackers = (pawns(board) & pawnAttacks(board.turn, to_sqr)) |
-    (pawns(board) & pawnAttacks(!board.turn, to_sqr)) |
+    attackers = (pawns(board) & pawnAttacks(!board.turn, to_sqr) & friendly(board)) |
+    (pawns(board) & pawnAttacks(board.turn, to_sqr) & enemy(board)) |
     (knightMoves(to_sqr) & knights(board)) |
     (bishopMoves(to_sqr, occ) & bishoplike(board)) |
     (rookMoves(to_sqr, occ) & rooklike(board)) |
