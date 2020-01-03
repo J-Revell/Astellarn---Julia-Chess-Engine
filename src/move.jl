@@ -90,6 +90,84 @@ flag(move::Move) = move.val >> 12
 
 
 """
+    move_is_psuedo_legal(board::Board, move::Move)
+
+Sanity checks to see if a move makes sense. Returns `true` if so.
+"""
+# function is not complete
+function move_is_psuedo_legal(board::Board, move::Move)
+    if move == Move()
+        return false
+    end
+
+    # load square details
+    sqr_from = from(move)
+    sqr_to = to(move)
+
+    # are we moving the right colour?
+    if color(board[sqr_from]) !== board.turn
+        return false
+    end
+
+    # are we moving to a square of our own colour?
+    if color(board[sqr_to]) == board.turn
+        return false
+    end
+
+    ptype_from = type(board[sqr_from])
+    move_flag = flag(move)
+
+    if ptype_from == VOID
+        return false
+    end
+
+    if ptype_from == KNIGHT
+        return (move_flag == __NORMAL_MOVE) && !isempty(knightMoves(sqr_from) & Bitboard(sqr_to))
+    end
+
+    occ = occupied(board)
+
+    if ptype_from == BISHOP
+        return (move_flag == __NORMAL_MOVE) && isone(bishopMoves(sqr_from, occ) & Bitboard(sqr_to))
+    end
+
+    if ptype_from == ROOK
+        return (move_flag == __NORMAL_MOVE) && isone(rookMoves(sqr_from, occ) & Bitboard(sqr_to))
+    end
+
+    if ptype_from == QUEEN
+        return (move_flag == __NORMAL_MOVE) && isone(queenMoves(sqr_from, occ) & Bitboard(sqr_to))
+    end
+
+    if ptype_from == PAWN
+        # pawns can't castle
+        if (move_flag == __KING_CASTLE) || (move_flag == __QUEEN_CASTLE)
+            return false
+        end
+
+        pawn_attacks = pawnAttacks(board.turn, sqr_from)
+
+        # check enpass
+        if (move_flag == __ENPASS)
+            return (board.enpass == sqr_to) && isone(Bitboard(sqr_to) & pawn_attacks)
+        end
+
+        advance = pawnAdvance(Bitboard(sqr_from), empty(board), board.turn)
+
+        if (move_flag > __ENPASS)
+            return isone(RANK_27 & Bitboard(sqr_from)) && isone(Bitboard(sqr_to) & RANK_18 & ((pawn_attacks & enemy(board)) | advance))
+        end
+
+        advance |= pawnDoubleAdvance(Bitboard(sqr_from), empty(board), board.turn)
+
+        return isone(Bitboard(sqr_to) & ~RANK_18 & ((pawn_attacks & enemy(board)) | advance))
+    end
+
+    return true
+end
+
+
+"""
     MoveStack
 
 `DataType` for storing lists of moves.

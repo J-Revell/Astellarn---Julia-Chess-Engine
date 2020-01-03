@@ -104,9 +104,13 @@ function uci_go(io::IO, board::Board, splitlines::Vector{SubString{String}})
             break
         end
     end
+    time_start = time()
     eval, move, nodes = find_best_move(board, ab_depth = ab_depth)
+    time_stop = time()
+    elapsed = time_stop - time_start
+    nps = nodes/elapsed
     ucistring = movetostring(move)
-    print(io, "info nodes ", nodes, " score cp ", eval, " depth ", ab_depth, "\n")
+    @printf(io, "info nodes %d nps %d score cp %d depth %d\n", nodes, nps, eval, ab_depth)
     print(io, "bestmove ", ucistring, "\n")
 end
 

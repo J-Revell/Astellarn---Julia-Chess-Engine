@@ -14,9 +14,9 @@ Constant containing precomputed bishop moves for all occupancy configurations.
 """
 const BISHOP_TABLE = SVector{64}(initSlidingTable(Vector{Vector{Bitboard}}(undef, 64), BISHOP_MAGICS, BISHOP_MOVE_FUNCTIONS))
 
-bishopMoves(sqr::Int, occupied::Bitboard) = @inbounds BISHOP_TABLE[sqr][subindex(occupied, BISHOP_MAGICS[sqr])]
+bishopMoves(sqr::Integer, occupied::Bitboard) = @inbounds BISHOP_TABLE[sqr][subindex(occupied, BISHOP_MAGICS[sqr])]
 bishopMoves(bb::Bitboard, occupied::Bitboard) = bishopMoves(square(bb), occupied)
 
 const BISHOP_MOVES_EMPTY = @SVector [bishopMoves(i, EMPTY) for i in 1:64]
 
-bishopMoves_empty(sqr::Int) = @inbounds BISHOP_MOVES_EMPTY[sqr]
+bishopMoves_empty(sqr::Integer) = @inbounds BISHOP_MOVES_EMPTY[sqr]

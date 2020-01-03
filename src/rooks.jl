@@ -19,4 +19,4 @@ rookMoves(bb::Bitboard, occupied::Bitboard) = rookMoves(square(bb), occupied)
 
 const ROOK_MOVES_EMPTY = @SVector [rookMoves(i, EMPTY) for i in 1:64]
 
-rookMoves_empty(sqr::Int) = @inbounds ROOK_MOVES_EMPTY[sqr]
+rookMoves_empty(sqr::Integer) = @inbounds ROOK_MOVES_EMPTY[sqr]

@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.1"
+    const ASTELLARN_VERSION = "v0.1.3"
 
     using Crayons
     using StaticArrays
@@ -41,6 +41,7 @@ module Astellarn
     include("syzygy.jl")
     include("transposition.jl")
 
+    include("moveorder.jl")
     include("search.jl")
 
     include("engine.jl")

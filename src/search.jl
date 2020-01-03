@@ -89,7 +89,6 @@ function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int
         if α < eval < β
             return eval, move, nodes
         end
-        println(eval)
 
         # fail low
         if eval <= α
@@ -201,8 +200,9 @@ end
 Naive αβ search. Implements qsearch, SEE eval pruning.
 """
 function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int)
-    movestack = [MoveStack(200) for i in 0:depth+10]
-    run_absearch(board, ttable, α, β, depth, 0, movestack)
+    #movestack = [MoveStack(200) for i in 0:depth+10]
+    moveorders = [MoveOrder() for i in 0:depth+10]
+    run_absearch(board, ttable, α, β, depth, 0, moveorders)#, movestack)
 end
 
 
@@ -211,7 +211,7 @@ end
 
 Internals of `absearch()` routine.
 """
-function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, movestack::Vector{MoveStack})
+function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, moveorders::Vector{MoveOrder})#, movestack::Vector{MoveStack})
     # init vales
     init_α = α
 
@@ -224,8 +224,9 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     # default best val
     best = -MATE #+ ply
 
-    # default tt_eval
+    # default tt_eval, tt_move
     tt_eval = -2MATE
+    tt_move = Move()
 
     # ensure +ve depth
     if depth < 0
@@ -268,11 +269,12 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     if hasTTentry(ttable, board.hash)
         tt_entry = getTTentry(ttable, board.hash)
         tt_eval = tt_entry.eval
+        tt_move = tt_entry.move
         if (tt_entry.depth >= depth) && (depth == 0 || !pvnode)
             if (tt_entry.bound == BOUND_EXACT) ||
                 ((tt_entry.bound == BOUND_LOWER) && (ttvalue(tt_entry, ply) >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (ttvalue(tt_entry, ply) <= α))
-                return tt_eval, tt_entry.move, 1
+                return tt_eval, tt_move, 1
             end
         end
     end
@@ -328,12 +330,21 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         return eval, Move(), 1
     end
 
-    moves = movestack[ply + 1]
-    gen_moves!(moves, board)
+    #moves = movestack[ply + 1]
+    moveorder = moveorders[ply + 1]
+    #gen_moves!(moves, board)
     nodes = 0
     best_move = Move()
 
-    for move in moves
+    #mo = MoveOrder()
+    played = 0
+
+    while true
+        move = selectmove!(moveorder, board, tt_move)
+        if move == Move()
+            break
+        end
+        played += 1
 
         # discard bad SEE moves
         if (static_exchange_evaluator(board, move, SEE_MARGIN * depth) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
@@ -350,7 +361,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         end
 
         # perform search
-        cand_eval, cand_pv, cand_nodes = run_absearch(board, ttable, -β, -α, newdepth - 1, ply + 1, movestack)
+        cand_eval, cand_pv, cand_nodes = run_absearch(board, ttable, -β, -α, newdepth - 1, ply + 1, moveorders)#, movestack)
         cand_eval = -cand_eval
 
         # revert move and count nodes
@@ -373,7 +384,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     end
 
-    if length(moves) == 0
+    if iszero(played)
         if ischeck(board)
             # add depth to give an indication of the "fastest" mate
             best = -MATE + ply
@@ -381,7 +392,8 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
             best = 0
         end
     end
-    clear!(moves)
+    #clear!(moves)
+    clear!(moveorder)
 
     if isroot == false
         tt_bound = best >= β ? BOUND_LOWER : (best > init_α ? BOUND_EXACT : BOUND_UPPER)
