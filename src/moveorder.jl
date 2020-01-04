@@ -29,7 +29,7 @@ function clear!(moveorder::MoveOrder)
     moveorder.type = NORMAL_TYPE
     moveorder.stage = STAGE_INIT
     clear!(moveorder.movestack)
-    #moveorder.values .= zeros(Int, 150)
+    #moveorder.values .= zeros(Int, 150) # not needed if idxs are reset
     moveorder.noisy_size = 0
     moveorder.quiet_size = 0
 end

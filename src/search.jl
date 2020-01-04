@@ -1,8 +1,4 @@
-# mutable struct MoveGenerator
-#     moves::MoveStack
-# end
-
-const MAX_PLY = 15
+const MAX_PLY = 10
 
 const Q_FUTILE_THRESH = 200
 
@@ -63,17 +59,18 @@ end
 
 function iterative_deepening(board::Board, ttable::TT_Table, max_depth::Int)
     eval = 0
-    move = Move()
+    move = MOVE_NONE
     nodes = 0
+    moveorders = [MoveOrder() for i in 0:MAX_PLY+1]
     for depth in 1:max_depth
-        eval, move, n = aspiration_window(board, ttable, depth, eval)
+        eval, move, n = aspiration_window(board, ttable, depth, eval, moveorders)
         nodes += n
     end
     return eval, move, nodes
 end
 
 
-function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int)
+function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int, moveorders::Vector{MoveOrder})
     α = -MATE
     β = MATE
     δ = 35
@@ -84,7 +81,7 @@ function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int
     end
 
     while true
-        eval, move, nodes = absearch(board, ttable, α, β, depth)
+        eval, move, nodes = absearch(board, ttable, α, β, depth, moveorders)
 
         # inside an aspiration window
         if α < eval < β
@@ -116,7 +113,7 @@ Quiescence search function. Under development.
 function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, moveorders::Vector{MoveOrder})
     # default val
     tt_eval = -2MATE
-    tt_move = Move()
+    tt_move = MOVE_NONE
     nodes = 1
 
     # draw checks
@@ -164,14 +161,7 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, mov
         return eval, nodes
     end
 
-    # moves = MoveStack(50)
-    # if ischeck(board)
-    #     # we need evasions
-    #     gen_moves!(moves, board)
-    # else
-    #     gen_noisy_moves!(moves, board)
-    # end
-    moveorder = moveorders[ply + 1]
+    moveorder = @inbounds moveorders[ply + 1]
     if ischeck(board)
         # we need evasions
         moveorder.type = NORMAL_TYPE
@@ -182,7 +172,7 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, mov
     # iterate through moves
     while true
         move = selectmove!(moveorder, board, tt_move)
-        if move == Move()
+        if move == MOVE_NONE
             break
         end
         u = apply_move!(board, move)
@@ -216,10 +206,8 @@ end
 
 Naive αβ search. Implements qsearch, SEE eval pruning.
 """
-function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int)
-    #movestack = [MoveStack(200) for i in 0:depth+10]
-    moveorders = [MoveOrder() for i in 0:MAX_PLY+1]
-    run_absearch(board, ttable, α, β, depth, 0, moveorders)#, movestack)
+function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, moveorders::Vector{MoveOrder})
+    run_absearch(board, ttable, α, β, depth, 0, moveorders)
 end
 
 
@@ -228,7 +216,7 @@ end
 
 Internals of `absearch()` routine.
 """
-function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, moveorders::Vector{MoveOrder})#, movestack::Vector{MoveStack})
+function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, moveorders::Vector{MoveOrder})
     # init vales
     init_α = α
 
@@ -243,7 +231,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     # default tt_eval, tt_move
     tt_eval = -2MATE
-    tt_move = Move()
+    tt_move = MOVE_NONE
 
     # ensure +ve depth
     if depth < 0
@@ -253,17 +241,17 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     # enter quiescence search
     if iszero(depth) #&& !ischeck(board)
         q_eval, nodes = qsearch(board, ttable, α, β, ply, moveorders)
-        return q_eval, Move(), nodes
+        return q_eval, MOVE_NONE, nodes
     end
 
     # early exit conditions
     if isroot == false
         if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
-            return 0, Move(), 1
+            return 0, MOVE_NONE, 1
         end
         if ply >= MAX_PLY
             eval = evaluate(board)
-            return eval, Move(), 1
+            return eval, MOVE_NONE, 1
         end
 
         # mate pruning
@@ -278,7 +266,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
             mate_β = MATE - ply - 1
         end
         if mate_α >= mate_β
-            return mate_α, Move(), 1
+            return mate_α, MOVE_NONE, 1
         end
     end
 
@@ -320,12 +308,12 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
             end
 
             # add to transposition table
-            tt_entry = TT_Entry(eval, Move(), MAX_PLY - 1, tt_bound)
+            tt_entry = TT_Entry(eval, MOVE_NONE, MAX_PLY - 1, tt_bound)
             if (tt_entry.bound == BOUND_EXACT) ||
                 ((tt_entry.bound == BOUND_LOWER) && (eval >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (eval <= α))
                 setTTentry!(ttable, board.hash, tt_entry)
-                return eval, Move(), 1
+                return eval, MOVE_NONE, 1
             end
         end
     end
@@ -340,19 +328,19 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     #razoring
     if (pvnode == false) && (ischeck(board) == false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
         q_eval, nodes = qsearch(board, ttable, α, β, ply, moveorders)
-        return q_eval, Move(), nodes
+        return q_eval, MOVE_NONE, nodes
     end
 
     # beta pruning
     if (pvnode == false) && (ischeck(board) == false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
-        return eval, Move(), 1
+        return eval, MOVE_NONE, 1
     end
 
     #moves = movestack[ply + 1]
     moveorder = moveorders[ply + 1]
     #gen_moves!(moves, board)
     nodes = 0
-    best_move = Move()
+    best_move = MOVE_NONE
 
     #mo = MoveOrder()
     played = 0
@@ -360,13 +348,13 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     while true
         move = selectmove!(moveorder, board, tt_move)
 
-        if move == Move()
+        if move == MOVE_NONE
             break
         end
         played += 1
 
         # discard bad SEE moves
-        if (static_exchange_evaluator(board, move, SEE_MARGIN * depth) == false) && (best_move !== Move()) && (depth <= SEE_PRUNE_DEPTH)
+        if (static_exchange_evaluator(board, move, SEE_MARGIN * depth) == false) && (best_move !== MOVE_NONE) && (depth <= SEE_PRUNE_DEPTH)
             continue
         end
 
@@ -475,9 +463,6 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     if move_flag == __ENPASS
         balance += PVALS[1]
     end
-
-    #if (move_flag == __KING_CASTLE) || (move_flag == __QUEEN_CASTLE)
-    #end
 
     if balance < 0
         return false

@@ -46,6 +46,8 @@ struct Move
 end
 Move() = Move(zero(UInt16))
 
+const MOVE_NONE = Move()
+
 
 """
     Move(move_from::Integer, move_to::Integer, move_flag::Integer)

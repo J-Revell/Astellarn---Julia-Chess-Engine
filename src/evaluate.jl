@@ -105,11 +105,11 @@ function evaluate_pawns(board::Board)
     material_eval -= pval*count(b_pawns)
 
     for pawn in w_pawns
-        position_eval += PAWN_EVAL_TABLE[pawn]
+        @inbounds position_eval += PAWN_EVAL_TABLE[pawn]
     end
 
     for pawn in b_pawns
-        position_eval -= PAWN_EVAL_TABLE[65 - pawn]
+        @inbounds position_eval -= PAWN_EVAL_TABLE[65 - pawn]
     end
 
     eval = material_eval + position_eval
@@ -128,11 +128,11 @@ function evaluate_knights(board::Board)
     material_eval -= pval*count(b_knights)
 
     for knight in w_knights
-        position_eval += KNIGHT_EVAL_TABLE[knight]
+        @inbounds position_eval += KNIGHT_EVAL_TABLE[knight]
     end
 
     for knight in b_knights
-        position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
+        @inbounds position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
     end
 
     eval = material_eval + position_eval
@@ -151,11 +151,11 @@ function evaluate_bishops(board::Board)
     material_eval -= pval*count(b_bishops)
 
     for bishop in w_bishops
-        position_eval += BISHOP_EVAL_TABLE[bishop]
+        @inbounds position_eval += BISHOP_EVAL_TABLE[bishop]
     end
 
     for bishop in b_bishops
-        position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
+        @inbounds position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
     end
 
     eval = material_eval + position_eval
@@ -174,11 +174,11 @@ function evaluate_rooks(board::Board)
     material_eval -= pval*count(b_rooks)
 
     for rook in w_rooks
-        position_eval += ROOK_EVAL_TABLE[rook]
+        @inbounds position_eval += ROOK_EVAL_TABLE[rook]
     end
 
     for rook in b_rooks
-        position_eval -= ROOK_EVAL_TABLE[65 - rook]
+        @inbounds position_eval -= ROOK_EVAL_TABLE[65 - rook]
     end
 
     eval = material_eval + position_eval
@@ -197,11 +197,11 @@ function evaluate_queens(board::Board)
     material_eval -= pval*count(b_queens)
 
     for queen in w_queens
-        position_eval += QUEEN_EVAL_TABLE[queen]
+        @inbounds position_eval += QUEEN_EVAL_TABLE[queen]
     end
 
     for queen in b_queens
-        position_eval -= QUEEN_EVAL_TABLE[65 - queen]
+        @inbounds position_eval -= QUEEN_EVAL_TABLE[65 - queen]
     end
 
     eval = material_eval + position_eval
@@ -216,8 +216,8 @@ function evaluate_kings(board::Board)
     material_eval = 0
     position_eval = 0
 
-    position_eval += KING_EVAL_TABLE[square(w_king)]
-    position_eval -= KING_EVAL_TABLE[65 - square(b_king)]
+    @inbounds position_eval += KING_EVAL_TABLE[square(w_king)]
+    @inbounds position_eval -= KING_EVAL_TABLE[65 - square(b_king)]
 
     eval = material_eval + position_eval
 end

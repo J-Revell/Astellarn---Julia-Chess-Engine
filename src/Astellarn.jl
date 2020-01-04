@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.3"
+    const ASTELLARN_VERSION = "v0.1.4"
 
     using Crayons
     using StaticArrays
@@ -34,6 +34,7 @@ module Astellarn
 
     include("move.jl")
     include("movegen.jl")
+    include("movecount.jl")
 
     include("perft.jl")
 

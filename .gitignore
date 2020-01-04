@@ -1,5 +1,7 @@
 benchmarks/
 src/AstellarnEngine.jl
+src/transposition2.jl
+src/thread.jl
 deps/tbprobe.so
 deps/config.jl
 deps/build.log

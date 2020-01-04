@@ -6,7 +6,7 @@ const BOUND_EXACT = 3
 mutable struct TT_Entry
     eval::Int
     move::Move
-    depth::Int
+    depth::UInt8
     bound::Int
 end
 
