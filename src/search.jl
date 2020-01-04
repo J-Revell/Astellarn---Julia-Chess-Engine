@@ -23,7 +23,8 @@ const MATE = 32000
 
 Probe the tablebase if appropriate, or perform the absearch routine.
 """
-function find_best_move(board::Board; ab_depth::Int = 3)
+function find_best_move(thread::Thread; ab_depth::Int = 3)
+    board = thread.board
     # probe the tablebase
     if (count(occupied(board)) <= 5)
         res = tb_probe_root(board)
@@ -52,40 +53,42 @@ function find_best_move(board::Board; ab_depth::Int = 3)
     # else we do a search
     else
         ttable = TT_Table()
-        return iterative_deepening(board, ttable, ab_depth)
+        return iterative_deepening(thread, ttable, ab_depth)
     end
 end
 
 
-function iterative_deepening(board::Board, ttable::TT_Table, max_depth::Int)
+function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)
     eval = 0
     move = MOVE_NONE
     nodes = 0
     moveorders = [MoveOrder() for i in 0:MAX_PLY+1]
     for depth in 1:max_depth
-        eval, move, n = aspiration_window(board, ttable, depth, eval, moveorders)
-        nodes += n
+        eval, move = aspiration_window(thread, ttable, depth, eval, moveorders)
     end
-    return eval, move, nodes
+    return eval, move, thread.ss.nodes
 end
 
 
-function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int, moveorders::Vector{MoveOrder})
+function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int, moveorders::Vector{MoveOrder})
     α = -MATE
     β = MATE
     δ = 35
-
+    board = thread.board
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
         β = min(MATE, eval + δ)
     end
-
     while true
-        eval, move, nodes = absearch(board, ttable, α, β, depth, moveorders)
+        eval, move, nodes = absearch(thread, ttable, α, β, depth, 0, moveorders)
+
+        # reporting
+        updatestats!(thread.ss, depth, thread.ss.nodes + nodes, 0)
 
         # inside an aspiration window
         if α < eval < β
-            return eval, move, nodes
+            uci_report(thread, α, β, eval)
+            return eval, move
         end
 
         # fail low
@@ -110,11 +113,16 @@ end
 
 Quiescence search function. Under development.
 """
-function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, moveorders::Vector{MoveOrder})
+function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, moveorders::Vector{MoveOrder})
+    board = thread.board
+    pv = thread.pv
+
     # default val
-    tt_eval = -2MATE
+    tt_eval = -MATE
     tt_move = MOVE_NONE
     nodes = 1
+
+    thread.ss.seldepth = max(thread.ss.seldepth, ply)
 
     # draw checks
     if isdrawbymaterial(board) || is50moverule(board)
@@ -135,11 +143,11 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, mov
         if (tt_entry.bound == BOUND_EXACT) ||
             ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
             ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
-            return tt_entry.eval, 1
+            return tt_entry.eval, nodes
         end
     end
 
-    if tt_eval !== -2MATE
+    if tt_eval !== -MATE
         eval = tt_eval
     else
         eval = evaluate(board)
@@ -176,7 +184,7 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, mov
             break
         end
         u = apply_move!(board, move)
-        eval, new_nodes = qsearch(board, ttable, -β, -α, ply + 1, moveorders)
+        eval, new_nodes = qsearch(thread, ttable, -β, -α, ply + 1, moveorders)
         eval = -eval
         undo_move!(board, move, u)
         nodes += new_nodes
@@ -186,6 +194,11 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, mov
             best = eval
             if eval > α
                 α = best
+                clear!(pv[ply + 1])
+                push!(pv[ply + 1], move)
+                for tmp_pv_move in pv[ply + 2]
+                    push!(pv[ply + 1], tmp_pv_move)
+                end
             end
         end
 
@@ -204,19 +217,11 @@ end
 """
     absearch()
 
-Naive αβ search. Implements qsearch, SEE eval pruning.
-"""
-function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, moveorders::Vector{MoveOrder})
-    run_absearch(board, ttable, α, β, depth, 0, moveorders)
-end
-
-
-"""
-    run_absearch()
-
 Internals of `absearch()` routine.
 """
-function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, moveorders::Vector{MoveOrder})
+function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, moveorders::Vector{MoveOrder})
+    board = thread.board
+    pv = thread.pv
     # init vales
     init_α = α
 
@@ -230,7 +235,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     best = -MATE #+ ply
 
     # default tt_eval, tt_move
-    tt_eval = -2MATE
+    tt_eval = -MATE
     tt_move = MOVE_NONE
 
     # ensure +ve depth
@@ -240,9 +245,12 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     # enter quiescence search
     if iszero(depth) #&& !ischeck(board)
-        q_eval, nodes = qsearch(board, ttable, α, β, ply, moveorders)
+        q_eval, nodes = qsearch(thread, ttable, α, β, ply, moveorders)
         return q_eval, MOVE_NONE, nodes
     end
+
+    # update thread details
+    thread.ss.seldepth = max(thread.ss.seldepth, ply)
 
     # early exit conditions
     if isroot == false
@@ -319,7 +327,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     end
 
     # set the eval
-    if tt_eval !== -2MATE
+    if tt_eval !== -MATE
         eval = tt_eval
     else
         eval = evaluate(board)
@@ -327,7 +335,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     #razoring
     if (pvnode == false) && (ischeck(board) == false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
-        q_eval, nodes = qsearch(board, ttable, α, β, ply, moveorders)
+        q_eval, nodes = qsearch(thread, ttable, α, β, ply, moveorders)
         return q_eval, MOVE_NONE, nodes
     end
 
@@ -361,14 +369,14 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         u = apply_move!(board, move)
 
         # do we need an extension?
-        if ischeck(board)
+        if ischeck(board) && (isroot == false)
             newdepth = depth + 1
         else
             newdepth = depth
         end
 
         # perform search
-        cand_eval, cand_pv, cand_nodes = run_absearch(board, ttable, -β, -α, newdepth - 1, ply + 1, moveorders)#, movestack)
+        cand_eval, cand_pv, cand_nodes = absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1, moveorders)#, movestack)
         cand_eval = -cand_eval
 
         # revert move and count nodes
@@ -378,9 +386,14 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         # improvement?
         if cand_eval > best
             best = cand_eval
+            best_move = move
             if cand_eval > α
                 α = cand_eval
-                best_move = move
+                clear!(pv[ply + 1])
+                push!(pv[ply + 1], best_move)
+                for tmp_pv_move in pv[ply + 2]
+                    push!(pv[ply + 1], tmp_pv_move)
+                end
 
                 # fail high?
                 if α >= β

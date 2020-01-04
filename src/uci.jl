@@ -23,13 +23,24 @@ end
 
 
 function main()
-    # by default, load starting position
-    board = importfen(START_FEN)
+    io = stdout
+    if iszero(length(ARGS))
+        # by default, load starting position
+        board = importfen(START_FEN)
+        threads = ThreadPool(1)
+    else
+        # else, a FEN was supplied in command line (assume)
+        board = importfen(ARGS[1])
+        println(io, ARGS[2])
+        threads = ThreadPool(Threads.nthreads())
+    end
+    # init thread boards
+    setthreadpoolboard!(threads, board)
+
 
     # main UCI loop
     while true
         line = readline()
-        io = stdout
 
         if line == "uci"
             uci_engine(io)
@@ -40,7 +51,7 @@ function main()
             continue
 
         elseif line == "ucinewgame"
-            uci_newgame!(board)
+            uci_newgame!(threads)
 
         elseif line == "quit"
             break
@@ -49,14 +60,17 @@ function main()
         splitlines = split(line)
 
         if splitlines[1] == "go"
-            uci_go(io, board, splitlines)
+            uci_go(io, threads, splitlines)
             continue
 
         elseif splitlines[1] == "position"
-            uci_position!(board, splitlines)
+            uci_position!(threads, splitlines)
 
         elseif splitlines[1] == "perft"
-            uci_perft(io, board, splitlines)
+            uci_perft(io, threads, splitlines)
+
+        elseif splitlines[1] == "setoption"
+            uci_setoptions(io, threads, splitlines)
         end
         # additional options currently unsupported
     end
@@ -76,15 +90,16 @@ function uci_isready(io::IO)
 end
 
 
-function uci_newgame!(board::Board)
-    copy!(board, importfen(START_FEN))
+function uci_newgame!(threads::ThreadPool)
+    board = importfen(START_FEN)
+    setthreadpoolboard!(threads, board)
 end
 
 
-function uci_perft(io::IO, board::Board, splitlines::Vector{SubString{String}})
+function uci_perft(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String}})
     depth = parse(Int, splitlines[2])
     time_start = time()
-    nodes = perft(board, depth)
+    nodes = perft(threads[1].board, depth)
     time_stop = time()
     elapsed = time_stop - time_start
     @printf(io, "Total time (ms) : %d\n", elapsed*1000)
@@ -94,7 +109,7 @@ function uci_perft(io::IO, board::Board, splitlines::Vector{SubString{String}})
 end
 
 
-function uci_go(io::IO, board::Board, splitlines::Vector{SubString{String}})
+function uci_go(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String}})
     ab_depth = 3 #temporary default value
 
     # extract depth
@@ -104,24 +119,32 @@ function uci_go(io::IO, board::Board, splitlines::Vector{SubString{String}})
             break
         end
     end
-    time_start = time()
-    eval, move, nodes = find_best_move(board, ab_depth = ab_depth)
+
+    threads[1].ss.time_start = time()
+    threads[1].ss.nodes = 0
+    threads[1].ss.tbhits = 0
+
+    eval, move, nodes = find_best_move(threads[1], ab_depth = ab_depth)
+
     time_stop = time()
-    elapsed = time_stop - time_start
+    elapsed = time_stop - threads[1].ss.time_start
     nps = nodes/elapsed
+
     ucistring = movetostring(move)
-    @printf(io, "info nodes %d nps %d score cp %d depth %d\n", nodes, nps, eval, ab_depth)
+    @printf(io, "info depth %d seldepth %d nodes %d nps %d score cp %d pv ", ab_depth, threads[1].ss.seldepth, nodes, nps, eval)
+    print(io, join(movetostring.(threads[1].pv[1]), " "))
+    print(io, "\n")
     print(io, "bestmove ", ucistring, "\n")
 end
 
 
-function uci_position!(board::Board, splitlines::Vector{SubString{String}})
+function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}})
     # import a given FEN string
     if splitlines[2] == "startpos"
-        copy!(board, importfen(START_FEN))
+        board = importfen(START_FEN)
     elseif splitlines[2] == "fen"
         fen = join(splitlines[3:8], " ")
-        copy!(board, importfen(fen))
+        board = importfen(fen)
     end
 
     # make the given moves, if any
@@ -142,4 +165,30 @@ function uci_position!(board::Board, splitlines::Vector{SubString{String}})
             end
         end
     end
+
+    setthreadpoolboard!(threads, board)
+end
+
+
+function uci_setoptions(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String}})
+    if splitlines[3] == "Threads"
+        num_threads = parse(Int, splitlines[5])
+        createthreadpool(threads[1].board, num_threads)
+        println(io, "info string set Threads to ", num_threads)
+    end
+
+    if splitlines[3] == "SyzgyPath"
+        tb_init(splitlines[5])
+        println(io, "info string set SyzgyPath to ", splitlines[5])
+    end
+end
+
+
+function uci_report(thread::Thread, α::Int, β::Int, value::Int)
+    score = max(α, min(β, value))
+    elapsed = time() - thread.ss.time_start
+    nps = thread.ss.nodes / elapsed
+    @printf("info depth %d seldepth %d nodes %d nps %d score cp %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, score)
+    print(join(movetostring.(thread.pv[1]), " "))
+    print("\n")
 end

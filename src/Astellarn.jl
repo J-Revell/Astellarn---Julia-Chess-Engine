@@ -43,10 +43,13 @@ module Astellarn
     include("transposition.jl")
 
     include("moveorder.jl")
+
+    include("thread.jl")
     include("search.jl")
 
     include("engine.jl")
     include("play.jl")
+
     include("uci.jl")
 
 
