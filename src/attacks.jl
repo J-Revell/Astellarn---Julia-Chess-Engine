@@ -36,11 +36,11 @@ function isattacked(board::Board, sqr::Integer)
     occ = occupied(board)
     enemies = enemy(board)
 
-    !isempty(pawns(board) & enemies & pawnAttacks(board.turn, sqr)) && return true
-    !isempty(knightMoves(sqr) & knights(board) & enemies) && return true
-    !isempty(bishopMoves(sqr, occ) & bishoplike(board) & enemies) && return true
-    !isempty(rookMoves(sqr, occ) & rooklike(board) & enemies) && return true
-    !isempty(kingMoves(sqr) & kings(board) & enemies) && return true
+    isempty(pawns(board) & enemies & pawnAttacks(board.turn, sqr)) == false && return true
+    isempty(knightMoves(sqr) & knights(board) & enemies) == false && return true
+    isempty(bishopMoves(sqr, occ) & bishoplike(board) & enemies) == false && return true
+    isempty(rookMoves(sqr, occ) & rooklike(board) & enemies) == false && return true
+    isempty(kingMoves(sqr) & kings(board) & enemies) == false && return true
     return false
 end
 
@@ -50,11 +50,11 @@ function isattacked_through_king(board::Board, sqr::Integer)
     occ &= ~(kings(board) & friendly(board))
     enemies = enemy(board)
 
-    !isempty(pawns(board) & enemies & pawnAttacks(board.turn, sqr)) && return true
-    !isempty(knightMoves(sqr) & knights(board) & enemies) && return true
-    !isempty(bishopMoves(sqr, occ) & bishoplike(board) & enemies) && return true
-    !isempty(rookMoves(sqr, occ) & rooklike(board) & enemies) && return true
-    !isempty(kingMoves(sqr) & kings(board) & enemies) && return true
+    isempty(pawns(board) & enemies & pawnAttacks(board.turn, sqr)) == false && return true
+    isempty(knightMoves(sqr) & knights(board) & enemies) == false && return true
+    isempty(bishopMoves(sqr, occ) & bishoplike(board) & enemies) == false && return true
+    isempty(rookMoves(sqr, occ) & rooklike(board) & enemies) == false && return true
+    isempty(kingMoves(sqr) & kings(board) & enemies) == false && return true
     return false
 end
 
@@ -81,10 +81,10 @@ kingAttackers(board::Board) = kingAttackers(board, square(kings(board) & friendl
 function initBlockerMasks(blockermasks::Array{Bitboard, 2})
     for sqr1 in 1:64
         for sqr2 in 1:64
-            if !isempty(rookMoves(sqr1, EMPTY) & sqr2)
+            if isempty(rookMoves(sqr1, EMPTY) & sqr2) == false
                 blockermasks[sqr1, sqr2] = rookMoves(sqr1, Bitboard(sqr2)) & rookMoves(sqr2, Bitboard(sqr1))
             end
-            if !isempty(bishopMoves(sqr1, EMPTY) & sqr2)
+            if isempty(bishopMoves(sqr1, EMPTY) & sqr2) == false
                 blockermasks[sqr1, sqr2] = bishopMoves(sqr1, Bitboard(sqr2)) & bishopMoves(sqr2, Bitboard(sqr1))
             end
         end
@@ -118,7 +118,7 @@ function findpins(board::Board)
     pinned = EMPTY
     for sqr in sliders
         blocking = blockers(sqr, king) & occ
-        if isone(blocking) && !isempty(blocking & friendly(board))
+        if isone(blocking) && (isempty(blocking & friendly(board)) == false)
             pinned |= blocking
         end
     end

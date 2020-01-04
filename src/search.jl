@@ -2,7 +2,7 @@
 #     moves::MoveStack
 # end
 
-const MAX_PLY = 100
+const MAX_PLY = 15
 
 const Q_FUTILE_THRESH = 200
 
@@ -66,7 +66,8 @@ function iterative_deepening(board::Board, ttable::TT_Table, max_depth::Int)
     move = Move()
     nodes = 0
     for depth in 1:max_depth
-        eval, move, nodes = aspiration_window(board, ttable, depth, eval)
+        eval, move, n = aspiration_window(board, ttable, depth, eval)
+        nodes += n
     end
     return eval, move, nodes
 end
@@ -75,7 +76,7 @@ end
 function aspiration_window(board::Board, ttable::TT_Table, depth::Int, eval::Int)
     α = -MATE
     β = MATE
-    δ = 50
+    δ = 35
 
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
@@ -112,9 +113,10 @@ end
 
 Quiescence search function. Under development.
 """
-function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)
+function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, ply::Int, moveorders::Vector{MoveOrder})
     # default val
     tt_eval = -2MATE
+    tt_move = Move()
     nodes = 1
 
     # draw checks
@@ -123,7 +125,7 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, p
     end
 
     # max depth cutoff
-    if depth == 0
+    if ply >= MAX_PLY
         return evaluate(board), nodes
     end
 
@@ -131,6 +133,7 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, p
     if hasTTentry(ttable, board.hash)
         tt_entry = getTTentry(ttable, board.hash)
         tt_eval = tt_entry.eval
+        tt_move = tt_entry.move
         tt_value = ttvalue(tt_entry, ply)
         if (tt_entry.bound == BOUND_EXACT) ||
             ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
@@ -161,18 +164,29 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, p
         return eval, nodes
     end
 
-    moves = MoveStack(50)
+    # moves = MoveStack(50)
+    # if ischeck(board)
+    #     # we need evasions
+    #     gen_moves!(moves, board)
+    # else
+    #     gen_noisy_moves!(moves, board)
+    # end
+    moveorder = moveorders[ply + 1]
     if ischeck(board)
         # we need evasions
-        gen_moves!(moves, board)
+        moveorder.type = NORMAL_TYPE
     else
-        gen_noisy_moves!(moves, board)
+        moveorder.type = NOISY_TYPE
     end
 
     # iterate through moves
-    for move in moves
+    while true
+        move = selectmove!(moveorder, board, tt_move)
+        if move == Move()
+            break
+        end
         u = apply_move!(board, move)
-        eval, new_nodes = qsearch(board, ttable, -β, -α, depth - 1, ply + 1)
+        eval, new_nodes = qsearch(board, ttable, -β, -α, ply + 1, moveorders)
         eval = -eval
         undo_move!(board, move, u)
         nodes += new_nodes
@@ -187,10 +201,12 @@ function qsearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int, p
 
         # fail high?
         if α >= β
+            clear!(moveorder)
             return best, nodes
         end
 
     end
+    clear!(moveorder)
     return best, nodes
 end
 
@@ -202,7 +218,7 @@ Naive αβ search. Implements qsearch, SEE eval pruning.
 """
 function absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::Int)
     #movestack = [MoveStack(200) for i in 0:depth+10]
-    moveorders = [MoveOrder() for i in 0:depth+10]
+    moveorders = [MoveOrder() for i in 0:MAX_PLY+1]
     run_absearch(board, ttable, α, β, depth, 0, moveorders)#, movestack)
 end
 
@@ -236,7 +252,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
 
     # enter quiescence search
     if iszero(depth) #&& !ischeck(board)
-        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
+        q_eval, nodes = qsearch(board, ttable, α, β, ply, moveorders)
         return q_eval, Move(), nodes
     end
 
@@ -272,7 +288,7 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
         tt_eval = tt_entry.eval
         tt_value = ttvalue(tt_entry, ply)
         tt_move = tt_entry.move
-        if (tt_entry.depth >= depth) && (depth == 0 || !pvnode)
+        if (tt_entry.depth >= depth) && (depth == 0 || (pvnode == false))
             if (tt_entry.bound == BOUND_EXACT) ||
                 ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
@@ -322,13 +338,13 @@ function run_absearch(board::Board, ttable::TT_Table, α::Int, β::Int, depth::I
     end
 
     #razoring
-    if !pvnode && !ischeck(board) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
-        q_eval, nodes = qsearch(board, ttable, α, β, QSEARCH_DEPTH, 0)
+    if (pvnode == false) && (ischeck(board) == false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
+        q_eval, nodes = qsearch(board, ttable, α, β, ply, moveorders)
         return q_eval, Move(), nodes
     end
 
     # beta pruning
-    if !pvnode && !ischeck(board) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
+    if (pvnode == false) && (ischeck(board) == false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
         return eval, Move(), 1
     end
 
@@ -484,7 +500,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         # find weakest piece to recapture
         for i in 1:6
             piecetype = PieceType(i)
-            if !isempty(our_attackers & board[piecetype])
+            if isempty(our_attackers & board[piecetype]) == false
                 victim = piecetype
                 break
             end
@@ -509,7 +525,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         color = !color
 
         if balance >= 0
-            if (victim == KING) && !isempty(attackers & board[!color])
+            if (victim == KING) && (isempty(attackers & board[!color]) == false)
                 color = !color
             end
 

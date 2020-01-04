@@ -307,10 +307,10 @@ function apply_move!(board::Board, move::Move)
     board.hash ⊻= zobturnkey()
     switchturn!(board)
 
-    push!(board.history, board.hash)
     board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
+    board.history[board.movecount] = board.hash
     return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_halfmovecount, undo_hash)
 end
 
@@ -507,7 +507,6 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.halfmovecount = undo.halfmovecount
     board.movecount -= one(UInt16)
     board.hash = undo.hash
-    pop!(board.history)
     switchturn!(board)
     if (flag(move) == __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
         undo_normal!(board, move, undo)

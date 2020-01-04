@@ -24,7 +24,7 @@ function Board(squares::AbstractArray{Piece}, pieces::AbstractArray{Bitboard}, c
 
     return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, halfmovecount, movecount, hash, history)
 end
-Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16), zero(UInt64), UInt64[])
+Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16), zero(UInt64), zeros(UInt64, 512))
 
 
 """
@@ -116,7 +116,7 @@ addremove!(board::Board, piece::Piece, sqr::Integer) = addremove!(board, piece, 
 
 Returns `true` if the king is in check, `false` otherwise.
 """
-ischeck(board::Board) = !isempty(board.checkers)
+ischeck(board::Board) = isempty(board.checkers) == false
 
 
 """

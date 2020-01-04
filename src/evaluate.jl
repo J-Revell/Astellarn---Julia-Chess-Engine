@@ -82,9 +82,8 @@ function evaluate(board::Board)
     eval += evaluate_queens(board)
     eval += evaluate_kings(board)
 
-    # eval += evaluate_pins(board)
-    #
-    # eval += evaluate_space(board)
+    #eval += evaluate_pins(board)
+    #eval += evaluate_space(board)
 
     if board.turn == WHITE
         return eval

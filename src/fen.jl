@@ -67,7 +67,8 @@ function importfen(fen::String)
     board.pinned = findpins(board)
     board.checkers = kingAttackers(board)
 
-    board.history = [repeat([zero(UInt64)], board.movecount - 1); board.hash]
+    board.history = zeros(UInt64, 512)
+    board.history[board.movecount] = board.hash
 
     board
 end

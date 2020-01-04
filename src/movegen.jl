@@ -7,6 +7,7 @@ function build_pawn_advances!(movestack::MoveStack, board::Board, targets::Bitbo
     return
 end
 
+
 function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = (pawns(board) & friendly(board)) & (~pinned(board) | file(kings(board) & friendly(board)))
 
@@ -23,6 +24,7 @@ function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
     end
     return
 end
+
 
 function build_bpawn_advances!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = (pawns(board) & friendly(board)) & (~pinned(board) | file(kings(board) & friendly(board)))
@@ -51,6 +53,7 @@ function build_free_pawn_captures!(movestack::MoveStack, board::Board, targets::
     return
 end
 
+
 function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & ~pinned(board)
 
@@ -72,6 +75,7 @@ function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets:
     build_promo_internal!(movestack, dests & RANK_8, 7)
     return
 end
+
 
 function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & ~pinned(board)
@@ -121,6 +125,7 @@ function build_pawn_advance_promos!(movestack::MoveStack, board::Board, targets:
     return
 end
 
+
 function build_wpawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
     dests = (pwns << 8) & targets & RANK_8
@@ -128,12 +133,14 @@ function build_wpawn_advance_promos!(movestack::MoveStack, board::Board, targets
     return
 end
 
+
 function build_bpawn_advance_promos!(movestack::MoveStack, board::Board, targets::Bitboard)
     pwns = pawns(board) & friendly(board) & (~pinned(board) | file(kings(board) & friendly(board)))
     dests = (pwns >> 8) & targets & RANK_1
     build_promo_internal!(movestack, dests, -8)
     return
 end
+
 
 function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Integer)
     for dest in dests
@@ -166,12 +173,14 @@ function build_pinned_pawn_captures_and_promos!(movestack::MoveStack, board::Boa
     return
 end
 
+
 function push_normal!(movestack::MoveStack, sqr_from::Integer, dests::Bitboard)
     for dest in dests
         push!(movestack, Move(sqr_from, dest, __NORMAL_MOVE))
     end
     return
 end
+
 
 # internal function to build knight moves
 function build_knight_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
@@ -189,6 +198,7 @@ function build_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboa
     return
 end
 
+
 function build_free_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     occ = occupied(board)
     for bishop in (bishoplike(board) & friendly(board) & ~pinned(board))
@@ -196,6 +206,7 @@ function build_free_bishop_moves!(movestack::MoveStack, board::Board, targets::B
     end
     return
 end
+
 
 function build_pinned_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     king = square(kings(board) & friendly(board))
@@ -219,6 +230,7 @@ function build_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard
     return
 end
 
+
 function build_free_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     occ = occupied(board)
     for rook in (rooklike(board) & friendly(board) & ~pinned(board))
@@ -226,6 +238,7 @@ function build_free_rook_moves!(movestack::MoveStack, board::Board, targets::Bit
     end
     return
 end
+
 
 function build_pinned_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard)
     king = square(kings(board) & friendly(board))
@@ -253,6 +266,7 @@ function build_king_moves!(movestack::MoveStack, board::Board, targets::Bitboard
     return
 end
 
+
 function build_castling!(movestack::MoveStack, board::Board)
     if cancastlekingside(board)
         build_kingside_castling!(movestack, board)
@@ -263,6 +277,7 @@ function build_castling!(movestack::MoveStack, board::Board)
     return
 end
 
+
 function build_kingside_castling!(movestack::MoveStack, board::Board)
     king = square(kings(board) & friendly(board))
     rook = king - 3
@@ -271,6 +286,7 @@ function build_kingside_castling!(movestack::MoveStack, board::Board)
     end
     return
 end
+
 
 function build_queenside_castling!(movestack, board)
     king = square(kings(board) & friendly(board))
