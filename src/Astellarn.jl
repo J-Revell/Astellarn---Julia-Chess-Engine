@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.4"
+    const ASTELLARN_VERSION = "v0.1.5"
 
     using Crayons
     using StaticArrays
