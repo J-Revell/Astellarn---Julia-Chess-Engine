@@ -16,6 +16,6 @@ if (path_to_syzygy == "") && !isfile(builddir*"/config.jl")
 else
     @info "Building config.jl..."
     file = open(builddir*"/config.jl", "w")
-    write(file, "const SYZYGY_PATH = \"$(path_to_syzygy)\"")
+    write(file, "const SYZYGY_PATH = \"$(path_to_syzygy)\"\nconst FATHOM_PATH = \"$(output)\"")
     close(file)
 end
