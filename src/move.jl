@@ -91,6 +91,23 @@ Given a move, return any special flags, as an `Integer`.
 flag(move::Move) = move.val >> 12
 
 
+function istactical(board::Board, move::Move)
+    if flag(move) == __ENPASS
+        return true
+    elseif flag(move) == __KING_CASTLE
+        return true
+    elseif flag(move) == __QUEEN_CASTLE
+        return true
+    elseif flag(move) > __ENPASS
+        return true
+    elseif board[to(move)] !== BLANK
+        return true
+    else
+        return false
+    end
+end
+
+
 # """
 #     move_is_psuedo_legal(board::Board, move::Move)
 #
@@ -200,7 +217,6 @@ end
 
 
 # Allows a preallocation for MoveStack
-#MoveStack(size::Int) = MoveStack(fill(Move(), size), 0)
 MoveStack(size::Int) = MoveStack(Vector{Move}(undef, size), 0)
 
 

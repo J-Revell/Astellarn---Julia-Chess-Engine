@@ -1,4 +1,4 @@
-const MAX_PLY = 10
+const MAX_PLY = 12
 
 const Q_FUTILE_THRESH = 200
 
@@ -11,9 +11,14 @@ const BETA_PRUNE_DEPTH = 8
 const BETA_PRUNE_MARGIN = 85
 
 const SEE_PRUNE_DEPTH = 8
-const SEE_MARGIN = -50
+const SEE_QUIET_MARGIN = -80
+const SEE_NOISY_MARGIN = -20
 
-const WINDOW_DEPTH = 4
+const FUTILITY_PRUNE_DEPTH = 5
+const FUTILITY_MARGIN = 85
+const FUTILITY_MARGIN_NOHIST = 250
+
+const WINDOW_DEPTH = 6
 
 const MATE = 32000
 
@@ -73,7 +78,7 @@ end
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int, moveorders::Vector{MoveOrder})
     α = -MATE
     β = MATE
-    δ = 35
+    δ = 25
     board = thread.board
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
@@ -175,6 +180,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, m
         moveorder.type = NORMAL_TYPE
     else
         moveorder.type = NOISY_TYPE
+        setmargin!(moveorder, max(1, margin))
     end
 
     # iterate through moves
@@ -336,7 +342,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     #razoring
     if (pvnode == false) && (ischeck(board) == false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
         q_eval, nodes = qsearch(thread, ttable, α, β, ply, moveorders)
-        return q_eval, MOVE_NONE, nodes
+        return q_eval, MOVE_NONE, 1
     end
 
     # beta pruning
@@ -350,6 +356,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     nodes = 0
     best_move = MOVE_NONE
 
+    futility_margin = FUTILITY_MARGIN * depth
+    see_quiet_margin = SEE_QUIET_MARGIN * depth
+    see_noisy_margin = SEE_NOISY_MARGIN * depth * depth
+    skipquiets = false
+
     #mo = MoveOrder()
     played = 0
 
@@ -359,14 +370,26 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         if move == MOVE_NONE
             break
         end
-        played += 1
+
+        isquiet = !istactical(board, move)
+        if skipquiets && isquiet
+            continue
+        end
+
+        if isquiet && (best > -MATE + MAX_PLY)
+            # quiet move futility pruning
+            if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin + FUTILITY_MARGIN_NOHIST <= α)
+                skipquiets = true
+            end
+        end
 
         # discard bad SEE moves
-        if (static_exchange_evaluator(board, move, SEE_MARGIN * depth) == false) && (best_move !== MOVE_NONE) && (depth <= SEE_PRUNE_DEPTH)
+        if (static_exchange_evaluator(board, move, isquiet ? see_quiet_margin : see_noisy_margin) == false) && (best_move !== MOVE_NONE) && (depth <= SEE_PRUNE_DEPTH)
             continue
         end
 
         u = apply_move!(board, move)
+        played += 1
 
         # do we need an extension?
         if ischeck(board) && (isroot == false)

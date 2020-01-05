@@ -1,9 +1,9 @@
 const STAGE_INIT = 0
 const STAGE_TABLE = 1
 const STAGE_SCORE = 2
-const STAGE_NOISY = 3
-#const STAGE_GEN_QUIET = 4
-const STAGE_QUIET = 5
+const STAGE_GOOD_NOISY = 3
+const STAGE_QUIET = 4
+const STAGE_BAD_NOISY = 5
 const STAGE_DONE = 6
 
 
@@ -18,11 +18,16 @@ mutable struct MoveOrder
     stage::Int
     movestack::MoveStack
     values::Vector{Int}
+    margin::Int
     noisy_size::Int
     quiet_size::Int
 end
-MoveOrder() = MoveOrder(NORMAL_TYPE, STAGE_INIT, MoveStack(150), zeros(Int, 150), 0, 0)
-NoisyMoveOrder() = MoveOrder(NOISY_TYPE, STAGE_INIT, MoveStack(150), zeros(Int, 150), 0, 0)
+MoveOrder() = MoveOrder(NORMAL_TYPE, STAGE_INIT, MoveStack(150), zeros(Int, 150), 0, 0, 0)
+
+
+function setmargin!(moveorder::MoveOrder, margin::Int)
+    moveorder.margin = margin
+end
 
 
 function clear!(moveorder::MoveOrder)
@@ -113,15 +118,23 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
     if moveorder.stage == STAGE_SCORE
         MVVLVA!(moveorder, board)
         # to-do, insert score quiets
-        moveorder.stage = STAGE_NOISY
+        moveorder.stage = STAGE_GOOD_NOISY
     end
 
     # pick noisy moves
-    if moveorder.stage == STAGE_NOISY
+    if moveorder.stage == STAGE_GOOD_NOISY
         if moveorder.noisy_size > 0
             idx = idx_bestmove(moveorder, 1, moveorder.movestack.idx)
-            move = popmove!(moveorder, idx)
-            return move
+            if moveorder.values[idx] >= 0
+                move = popmove!(moveorder, idx)
+                if static_exchange_evaluator(board, move, moveorder.margin) == false
+                    moveorder.values[idx] = -1
+                    return selectmove!(moveorder, board, tt_move)
+                end
+                return move
+            else
+                moveorder.stage = STAGE_QUIET
+            end
         else
             moveorder.stage = STAGE_QUIET
         end
@@ -134,12 +147,22 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
             move = popmove!(moveorder, idx)
             return move
         else
+            moveorder.stage = STAGE_BAD_NOISY
+        end
+    end
+
+    # pick bad noisy moves
+    if moveorder.stage == STAGE_BAD_NOISY
+        if (moveorder.noisy_size > 0) && (moveorder.type !== NOISY_TYPE)
+            move = popmove!(moveorder, 1)
+            return move
+        else
             moveorder.stage = STAGE_DONE
         end
     end
 
     # we are done
     if moveorder.stage == STAGE_DONE
-        return Move()
+        return MOVE_NONE
     end
 end

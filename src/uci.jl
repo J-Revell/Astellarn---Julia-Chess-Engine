@@ -122,6 +122,8 @@ function uci_go(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String
 
     threads[1].ss.time_start = time()
     threads[1].ss.nodes = 0
+    threads[1].ss.depth = 0
+    threads[1].ss.seldepth = 0
     threads[1].ss.tbhits = 0
 
     eval, move, nodes = find_best_move(threads[1], ab_depth = ab_depth)
