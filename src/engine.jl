@@ -40,7 +40,14 @@ function engine!(board::Board; ab_depth::Int = 3)
     if is50moverule(board)
         return :DRAW
     end
-    eval, move, nodes = find_best_move(board; ab_depth = ab_depth)
+    thread = Thread()
+    copy!(thread.board, board)
+    thread.ss.time_start = time()
+    thread.ss.nodes = 0
+    thread.ss.depth = 0
+    thread.ss.seldepth = 0
+    thread.ss.tbhits = 0
+    eval, move, nodes = find_best_move(thread; ab_depth = ab_depth)
     if move == Move()
         if ischeck(board)
             if board.turn == WHITE

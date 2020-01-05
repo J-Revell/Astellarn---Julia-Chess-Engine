@@ -384,7 +384,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         # discard bad SEE moves
-        if (static_exchange_evaluator(board, move, isquiet ? see_quiet_margin : see_noisy_margin) == false) && (best_move !== MOVE_NONE) && (depth <= SEE_PRUNE_DEPTH)
+        if (static_exchange_evaluator(board, move, isquiet ? see_quiet_margin : see_noisy_margin) == false) && (best_move !== MOVE_NONE) && (depth <= SEE_PRUNE_DEPTH) && (best > -MATE + MAX_PLY)
             continue
         end
 

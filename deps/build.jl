@@ -12,7 +12,7 @@ run(cmd)
 @info "Finding syzygy..."
 path_to_syzygy = get(ENV, "SYZYGY", "")
 if (path_to_syzygy == "") && !isfile(builddir*"/config.jl")
-    error("Please pass the location of the syzygy build to the environment 'ENV[\"SYZYGY\"]=/Path/To/Syzygy'")
+    error("Please pass the location of the syzygy build to the environment 'ENV[\"SYZYGY\"]=/Path/To/Syzygy', and rebuild Astellarn. Astellarn should still continue to mostly function.")
 else
     @info "Building config.jl..."
     file = open(builddir*"/config.jl", "w")
