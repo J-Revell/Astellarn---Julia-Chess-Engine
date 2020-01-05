@@ -126,11 +126,11 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
         if moveorder.noisy_size > 0
             idx = idx_bestmove(moveorder, 1, moveorder.movestack.idx)
             if moveorder.values[idx] >= 0
-                move = popmove!(moveorder, idx)
-                if static_exchange_evaluator(board, move, moveorder.margin) == false
+                if static_exchange_evaluator(board, moveorder.movestack[idx], moveorder.margin) == false
                     moveorder.values[idx] = -1
                     return selectmove!(moveorder, board, tt_move)
                 end
+                move = popmove!(moveorder, idx)
                 return move
             else
                 moveorder.stage = STAGE_QUIET

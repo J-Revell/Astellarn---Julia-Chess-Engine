@@ -1,6 +1,6 @@
-const MAX_PLY = 12
+const MAX_PLY = 15
 
-const Q_FUTILE_THRESH = 200
+const Q_FUTILITY_MARGIN = 100
 
 const QSEARCH_DEPTH = 4
 
@@ -148,7 +148,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, m
         if (tt_entry.bound == BOUND_EXACT) ||
             ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
             ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
-            return tt_entry.eval, nodes
+            return tt_value, nodes
         end
     end
 
@@ -169,7 +169,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, m
     end
 
     # delta pruning
-    margin = α - eval - Q_FUTILE_THRESH
+    margin = α - eval - Q_FUTILITY_MARGIN
     if optimistic_move_estimator(board) < margin
         return eval, nodes
     end
@@ -294,7 +294,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             if (tt_entry.bound == BOUND_EXACT) ||
                 ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
-                return tt_eval, tt_move, 1
+                return tt_value, tt_move, 1
             end
         end
     end

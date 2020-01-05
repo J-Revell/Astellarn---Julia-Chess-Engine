@@ -54,7 +54,7 @@ module Astellarn
 
 
     export Bitboard, Board, Piece, PieceType, Color, Magic, Move, Undo, MoveStack, UndoStack
-    export @newgame, @move, @random, @engine
+    export @newgame, @move, @random, @engine, @importfen
 
     export importfen, exportfen
     export pawns, kings, bishops, knights, rooks, queens, enemy, friendly, occupied, empty, rooklike, bishoplike

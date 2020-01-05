@@ -64,7 +64,7 @@ const QUEEN_EVAL_TABLE = @SVector [
     -20,-10,-10, -5, -5,-10,-10,-20
     ]
 
-const PVALS = @SVector [100, 300, 300, 500, 900, 2500]
+const PVALS = @SVector [100, 300, 320, 500, 900, 2500]
 
 
 """
@@ -82,7 +82,7 @@ function evaluate(board::Board)
     eval += evaluate_queens(board)
     eval += evaluate_kings(board)
 
-    #eval += evaluate_pins(board)
+    eval += evaluate_pins(board)
     #eval += evaluate_space(board)
 
     if board.turn == WHITE
@@ -111,6 +111,50 @@ function evaluate_pawns(board::Board)
     for pawn in b_pawns
         @inbounds position_eval -= PAWN_EVAL_TABLE[65 - pawn]
     end
+
+    # double pawns
+    for file in FILE
+        if file == FILE_A || file == FILE_H
+            penalty_factor = 30
+        else
+            penalty_factor = 15
+        end
+        if ismany(w_pawns & file)
+            position_eval -= penalty_factor
+        elseif ismany(b_pawns & file)
+            position_eval += penalty_factor
+        end
+    end
+
+    # passed pawn
+    w_pass_threats = w_pawns & (RANK_6 | RANK_7)
+    b_pass_threats = b_pawns & (RANK_2 | RANK_3)
+
+    for i in eachindex(FILE)
+        neighbour = FILE[i]
+        if i > 1
+            neighbour |= FILE[i - 1]
+        end
+        if i < 8
+            neighbour |= FILE[i + 1]
+        end
+        if !isempty(w_pass_threats & FILE[i]) && isempty(neighbour & RANK_7 & b_pawns)
+            if isone(occupied(board) & RANK_8 & FILE[i])
+                position_eval += 5
+            else
+                position_eval += 15
+            end
+        end
+        if !isempty(b_pass_threats & FILE[i]) && isempty(neighbour & RANK_2 & w_pawns)
+            if isone(occupied(board) & RANK_1 & FILE[i])
+                position_eval -= 5
+            else
+                position_eval -= 15
+            end
+        end
+    end
+
+
 
     eval = material_eval + position_eval
 end

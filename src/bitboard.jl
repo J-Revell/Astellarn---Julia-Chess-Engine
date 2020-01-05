@@ -346,11 +346,10 @@ Get the `Bitboard` representing the file of the given square.
 Input is given as either an `Integer` type, or a `Bitboard` - assuming it contains only one square.
 """
 function file(sqr::Integer)
-    #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
     @inbounds FILE[mod1(65 - sqr, 8)]
 end
 file(bb::Bitboard) = file(square(bb))
-
+    
 
 """
     rank(bb::Bitboard)
@@ -360,7 +359,6 @@ Get the `Bitboard` representing the rank of the given square.
 Input is given as either an `Integer` type, or a `Bitboard` - assuming it contains only one square.
 """
 function rank(sqr::Integer)
-    #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
     @inbounds RANK[fld1(sqr, 8)]
 end
 rank(bb::Bitboard) = rank(square(bb))
