@@ -137,6 +137,11 @@ macro newgame()
 end
 
 
+macro importfen(fen::String)
+    global _globalboard = importfen(fen)
+end
+
+
 """
     @random
 
