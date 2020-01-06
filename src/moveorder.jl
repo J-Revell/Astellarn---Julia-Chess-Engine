@@ -131,7 +131,11 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
                     return selectmove!(moveorder, board, tt_move)
                 end
                 move = popmove!(moveorder, idx)
-                return move
+                if move == tt_move
+                    return selectmove!(moveorder, board, tt_move)
+                else
+                    return move
+                end
             else
                 moveorder.stage = STAGE_QUIET
             end
@@ -145,7 +149,11 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
         if moveorder.quiet_size > 0
             idx = idx_bestmove(moveorder, moveorder.noisy_size + 1, moveorder.movestack.idx)
             move = popmove!(moveorder, idx)
-            return move
+            if move == tt_move
+                return selectmove!(moveorder, board, tt_move)
+            else
+                return move
+            end
         else
             moveorder.stage = STAGE_BAD_NOISY
         end
@@ -155,7 +163,11 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
     if moveorder.stage == STAGE_BAD_NOISY
         if (moveorder.noisy_size > 0) && (moveorder.type !== NOISY_TYPE)
             move = popmove!(moveorder, 1)
-            return move
+            if move == tt_move
+                return selectmove!(moveorder, board, tt_move)
+            else
+                return move
+            end
         else
             moveorder.stage = STAGE_DONE
         end

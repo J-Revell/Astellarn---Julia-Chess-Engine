@@ -349,7 +349,7 @@ function file(sqr::Integer)
     @inbounds FILE[mod1(65 - sqr, 8)]
 end
 file(bb::Bitboard) = file(square(bb))
-    
+
 
 """
     rank(bb::Bitboard)
@@ -379,6 +379,9 @@ A `Bitboard` constant representing a full board.
 """
 const FULL = ~EMPTY
 
+
+const LIGHT = Bitboard(0xAA55AA55AA55AA55)
+const DARK = ~LIGHT
 
 # Custom show for bitboard types
 function Base.show(io::IO, bb::Bitboard)

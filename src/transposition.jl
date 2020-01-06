@@ -1,13 +1,13 @@
-const BOUND_LOWER = 1
-const BOUND_UPPER = 2
-const BOUND_EXACT = 3
+const BOUND_LOWER = UInt8(1)
+const BOUND_UPPER = UInt8(2)
+const BOUND_EXACT = UInt8(3)
 
 
 mutable struct TT_Entry
     eval::Int
     move::Move
     depth::UInt8
-    bound::Int
+    bound::UInt8
 end
 
 

@@ -10,7 +10,7 @@ const PAWN_EVAL_TABLE = @SVector [
      ]
 
 const KING_EVAL_TABLE_MG = @SVector [
-     20, 30, 10,  0,  0, 10, 30, 20,
+     20, 40, 10,  0,  0, 10, 40, 20,
      20, 20,  0,  0,  0,  0, 20, 20,
     -10,-20,-20,-20,-20,-20,-20,-10,
     -20,-30,-30,-40,-40,-30,-30,-20,
@@ -77,10 +77,36 @@ const QUEEN_EVAL_TABLE = @SVector [
 
 const PVALS = @SVector [100, 300, 320, 500, 950, 2500]
 
-const BISHOP_PAIR_BONUS = 10
+const TEMPO_BONUS = 22
+
 const ROOK_OPEN_FILE_BONUS = 10
+
 const PAWN_SHIELD_BONUS = 10
-const DOUBLE_PAWN_PENALTY = 10
+const DOUBLE_PAWN_PENALTY = 8
+const ISOLATED_PAWN_PENALTY = 12
+const ISOLATED_SEMIOPEN_PENALTY = 4
+
+const KNIGHT_RAMMED_BONUS = 2
+
+const BISHOP_COLOR_PENALTY = 4
+const BISHOP_RAMMED_COLOR_PENALTY = 5
+const BISHOP_PAIR_BONUS = 10
+
+const CASTLE_OPTION_BONUS = 8
+
+struct EvalAux
+    rammedpawns::Vector{Bitboard}
+end
+
+
+function initEvalAux(board::Board)
+    # check for rammed pawns
+    rammedpawns = Vector{Bitboard}(undef, 2)
+    rammedpawns[1] = pawnAdvance(board[BLACKPAWN], board[WHITEPAWN], BLACK)
+    rammedpawns[2] = pawnAdvance(board[WHITEPAWN], board[BLACKPAWN], WHITE)
+    EvalAux(rammedpawns)
+end
+
 
 """
     evaluate(board)
@@ -88,11 +114,11 @@ const DOUBLE_PAWN_PENALTY = 10
 Naive evaluation function to get the code development going.
 """
 function evaluate(board::Board)
+    evalaux = initEvalAux(board::Board)
     eval = 0
-
     eval += evaluate_pawns(board)
-    eval += evaluate_knights(board)
-    eval += evaluate_bishops(board)
+    eval += evaluate_knights(board, evalaux)
+    eval += evaluate_bishops(board, evalaux)
     eval += evaluate_rooks(board)
     eval += evaluate_queens(board)
     eval += evaluate_kings(board)
@@ -101,8 +127,10 @@ function evaluate(board::Board)
     #eval += evaluate_space(board)
 
     if board.turn == WHITE
+        eval += TEMPO_BONUS
         return eval
     else
+        eval -= TEMPO_BONUS
         return -eval
     end
 end
@@ -153,6 +181,18 @@ function evaluate_pawns(board::Board)
         if i < 8
             neighbour |= FILE[i + 1]
         end
+        if isone(neighbour & w_pawns)
+            position_eval -= ISOLATED_PAWN_PENALTY
+            if !isempty(FILE[i] & b_pawns) && !isempty(board[BLACKROOK] | board[BLACKQUEEN])
+                position_eval -= ISOLATED_SEMIOPEN_PENALTY
+            end
+        end
+        if isone(neighbour & b_pawns)
+            position_eval += ISOLATED_PAWN_PENALTY
+            if !isempty(FILE[i] & w_pawns) && !isempty(board[WHITEROOK] | board[WHITEQUEEN])
+                position_eval += ISOLATED_SEMIOPEN_PENALTY
+            end
+        end
         if !isempty(w_pass_threats & FILE[i]) && isempty(neighbour & RANK_7 & b_pawns)
             if isone(occupied(board) & RANK_8 & FILE[i])
                 position_eval += 5
@@ -174,7 +214,7 @@ function evaluate_pawns(board::Board)
 end
 
 
-function evaluate_knights(board::Board)
+function evaluate_knights(board::Board, evalaux::EvalAux)
     w_knights = board[WHITEKNIGHT]
     b_knights = board[BLACKKNIGHT]
     pval = PVALS[2]
@@ -195,11 +235,16 @@ function evaluate_knights(board::Board)
     end
     position_eval -= count((b_knights >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
 
+    # bonus for knights in rammed positions
+    num_rammed = count(evalaux.rammedpawns[1])
+    position_eval += fld(count(w_knights) * KNIGHT_RAMMED_BONUS * num_rammed * num_rammed, 4)
+    position_eval -= fld(count(b_knights) * KNIGHT_RAMMED_BONUS * num_rammed * num_rammed, 4)
+
     eval = material_eval + position_eval
 end
 
 
-function evaluate_bishops(board::Board)
+function evaluate_bishops(board::Board, evalaux::EvalAux)
     w_bishops = board[WHITEBISHOP]
     b_bishops = board[BLACKBISHOP]
     pval = PVALS[3]
@@ -226,6 +271,24 @@ function evaluate_bishops(board::Board)
     end
     if count(b_bishops) >= 2
         position_eval -= BISHOP_PAIR_BONUS
+    end
+
+    # penalty for bishops on colour of own pawns
+    if !isempty(board[WHITEBISHOP] & LIGHT)
+        position_eval -= BISHOP_COLOR_PENALTY * count(board[WHITEPAWN] & LIGHT)
+        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[1] & LIGHT)
+    end
+    if !isempty(board[WHITEBISHOP] & DARK)
+        position_eval -= BISHOP_COLOR_PENALTY * count(board[WHITEPAWN] & DARK)
+        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[1] & DARK)
+    end
+    if !isempty(board[BLACKBISHOP] & LIGHT)
+        position_eval += BISHOP_COLOR_PENALTY * count(board[BLACKPAWN] & LIGHT)
+        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[2] & LIGHT)
+    end
+    if !isempty(board[BLACKBISHOP] & DARK)
+        position_eval += BISHOP_COLOR_PENALTY * count(board[BLACKPAWN] & DARK)
+        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[2] & DARK)
     end
 
     eval = material_eval + position_eval
@@ -289,7 +352,7 @@ function evaluate_kings(board::Board)
     b_king = board[BLACKKING]
     pval = PVALS[6]
 
-    if count(occupied(board)) <= 10
+    if count(occupied(board)) <= 12
         ktable = KING_EVAL_TABLE_EG
     else
         ktable = KING_EVAL_TABLE_MG
@@ -297,6 +360,19 @@ function evaluate_kings(board::Board)
 
     material_eval = 0
     position_eval = 0
+
+    if cancastlekingside(board, WHITE)
+        position_eval += CASTLE_OPTION_BONUS
+    end
+    if cancastlequeenside(board, WHITE)
+        position_eval += CASTLE_OPTION_BONUS
+    end
+    if cancastlekingside(board, BLACK)
+        position_eval -= CASTLE_OPTION_BONUS
+    end
+    if cancastlequeenside(board, BLACK)
+        position_eval -= CASTLE_OPTION_BONUS
+    end
 
     @inbounds position_eval += ktable[square(w_king)]
     @inbounds position_eval -= ktable[65 - square(b_king)]

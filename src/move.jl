@@ -47,6 +47,7 @@ end
 Move() = Move(zero(UInt16))
 
 const MOVE_NONE = Move()
+const NULL_MOVE = Move(0xffff)
 
 
 """
@@ -635,4 +636,41 @@ function undo_promo!(board::Board, move::Move, undo::Undo)
         @inbounds board[!board.turn] ⊻= bb_to
     end
     return
+end
+
+
+# "pass" the go, and let out opponent have another move.
+function apply_null!(board::Board)
+    undo_checkers = board.checkers
+    undo_pinned = board.pinned
+    undo_castling = board.castling
+    undo_enpass = board.enpass
+    undo_halfmovecount = board.halfmovecount
+    undo_hash = board.hash
+
+    if board.enpass !== zero(UInt8)
+        board.hash ⊻= zobepkey(board.enpass)
+    end
+
+    # Finishing calculations, for the next turn
+    board.hash ⊻= zobturnkey()
+    switchturn!(board)
+
+    board.checkers = kingAttackers(board)
+    board.pinned = findpins(board)
+    board.movecount += one(board.movecount)
+    board.history[board.movecount] = board.hash
+    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, BLANK, undo_halfmovecount, undo_hash)
+end
+
+
+function undo_null!(board::Board, undo::Undo)
+    board.checkers = undo.checkers
+    board.pinned = undo.pinned
+    board.enpass = undo.enpass
+    board.castling = undo.castling
+    board.halfmovecount = undo.halfmovecount
+    board.movecount -= one(UInt16)
+    board.hash = undo.hash
+    switchturn!(board)
 end

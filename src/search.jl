@@ -97,7 +97,7 @@ function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::I
     end
 
     while true
-        eval, move = absearch(thread, ttable, α, β, depth, 0)
+        eval, move = absearch(thread, ttable, α, β, depth, 0, move)
 
         # reporting
         updatestats!(thread.ss, depth, thread.ss.nodes, 0)
@@ -239,7 +239,7 @@ end
 
 Internals of `absearch()` routine.
 """
-function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)::Tuple{Int, Move}
+function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, lstmove::Move)::Tuple{Int, Move}
     board = thread.board
     pv = thread.pv
     # init vales
@@ -364,6 +364,19 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         return eval, MOVE_NONE
     end
 
+    # null move pruning
+    if (depth >= 2) && (eval >= β) && !pvnode && !ischeck(board) && !isempty(pawns(board)) && (lstmove !== NULL_MOVE)
+        reduction = fld(depth, 4) + 3 + min(fld(best - β, 100), 3)
+        u = apply_null!(board)
+        cand_eval, cand_move = absearch(thread, ttable, -β + 1, -β, depth - reduction, ply + 1, NULL_MOVE)
+        cand_eval = -cand_eval
+        undo_null!(board, u)
+        if (cand_eval >= β)
+            return β, MOVE_NONE
+        end
+    end
+
+
     moveorder = thread.moveorders[ply + 1]
     best_move = MOVE_NONE
 
@@ -425,15 +438,15 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # perform search, taking into account LMR
         if reduction !== 1
-            cand_eval, cand_pv = absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1)
+            cand_eval, cand_pv = absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1, move)
             cand_eval = -cand_eval
         end
         if ((reduction !== 1) && (cand_eval > α)) || (reduction == 1 && !(pvnode && played == 1))
-            cand_eval, cand_pv = absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1)
+            cand_eval, cand_pv = absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1, move)
             cand_eval = -cand_eval
         end
         if (pvnode && (played == 1 || cand_eval > α))
-            cand_eval, cand_pv = absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1)
+            cand_eval, cand_pv = absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1, move)
             cand_eval = -cand_eval
         end
 
