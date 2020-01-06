@@ -88,7 +88,7 @@ function MVVLVA!(moveorder::MoveOrder, board::Board)
 end
 
 
-function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
+function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
     if moveorder.stage == STAGE_INIT
         gen_noisy_moves!(moveorder.movestack, board)
         moveorder.noisy_size = moveorder.movestack.idx
@@ -104,7 +104,7 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)
 
     # first pick ttable move
     if moveorder.stage == STAGE_TABLE
-        if tt_move !== Move()
+        if tt_move !== MOVE_NONE
             moveorder.stage = STAGE_SCORE
             # robust check for hash nonsense (collisions)
             if tt_move ∈ moveorder.movestack

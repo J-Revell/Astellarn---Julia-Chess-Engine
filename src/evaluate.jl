@@ -9,7 +9,7 @@ const PAWN_EVAL_TABLE = @SVector [
      0,  0,  0,  0,  0,  0,  0,  0
      ]
 
-const KING_EVAL_TABLE = @SVector [
+const KING_EVAL_TABLE_MG = @SVector [
      20, 30, 10,  0,  0, 10, 30, 20,
      20, 20,  0,  0,  0,  0, 20, 20,
     -10,-20,-20,-20,-20,-20,-20,-10,
@@ -18,6 +18,17 @@ const KING_EVAL_TABLE = @SVector [
     -30,-40,-40,-50,-50,-40,-40,-30,
     -30,-40,-40,-50,-50,-40,-40,-30,
     -30,-40,-40,-50,-50,-40,-40,-30
+    ]
+
+const KING_EVAL_TABLE_EG = @SVector [
+    -5, -5, -5, -5, -5, -5, -5, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    -5, 0, 5, 10, 10, 5, 0, -5,
+    -5, 0, 5, 10, 10, 5, 0, -5,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, -5, -5, -5, -5, -5, -5, -5
     ]
 
 const BISHOP_EVAL_TABLE = @SVector [
@@ -64,8 +75,12 @@ const QUEEN_EVAL_TABLE = @SVector [
     -20,-10,-10, -5, -5,-10,-10,-20
     ]
 
-const PVALS = @SVector [100, 300, 320, 500, 900, 2500]
+const PVALS = @SVector [100, 300, 320, 500, 950, 2500]
 
+const BISHOP_PAIR_BONUS = 10
+const ROOK_OPEN_FILE_BONUS = 10
+const PAWN_SHIELD_BONUS = 10
+const DOUBLE_PAWN_PENALTY = 10
 
 """
     evaluate(board)
@@ -115,14 +130,14 @@ function evaluate_pawns(board::Board)
     # double pawns
     for file in FILE
         if file == FILE_A || file == FILE_H
-            penalty_factor = 30
+            penalty = 2DOUBLE_PAWN_PENALTY
         else
-            penalty_factor = 15
+            penalty = DOUBLE_PAWN_PENALTY
         end
         if ismany(w_pawns & file)
-            position_eval -= penalty_factor
+            position_eval -= penalty
         elseif ismany(b_pawns & file)
-            position_eval += penalty_factor
+            position_eval += penalty
         end
     end
 
@@ -155,7 +170,6 @@ function evaluate_pawns(board::Board)
     end
 
 
-
     eval = material_eval + position_eval
 end
 
@@ -174,10 +188,12 @@ function evaluate_knights(board::Board)
     for knight in w_knights
         @inbounds position_eval += KNIGHT_EVAL_TABLE[knight]
     end
+    position_eval += count((w_knights << 8) & board[WHITEPAWN]) * PAWN_SHIELD_BONUS
 
     for knight in b_knights
         @inbounds position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
     end
+    position_eval -= count((b_knights >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
 
     eval = material_eval + position_eval
 end
@@ -197,9 +213,19 @@ function evaluate_bishops(board::Board)
     for bishop in w_bishops
         @inbounds position_eval += BISHOP_EVAL_TABLE[bishop]
     end
+    position_eval += count((w_bishops << 8) & board[WHITEPAWN]) * PAWN_SHIELD_BONUS
 
     for bishop in b_bishops
         @inbounds position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
+    end
+    position_eval -= count((b_bishops >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
+
+    # bishop pair
+    if count(w_bishops) >= 2
+        position_eval += BISHOP_PAIR_BONUS
+    end
+    if count(b_bishops) >= 2
+        position_eval -= BISHOP_PAIR_BONUS
     end
 
     eval = material_eval + position_eval
@@ -219,10 +245,16 @@ function evaluate_rooks(board::Board)
 
     for rook in w_rooks
         @inbounds position_eval += ROOK_EVAL_TABLE[rook]
+        if isempty(file(rook) & board[WHITEPAWN])
+            position_eval += ROOK_OPEN_FILE_BONUS
+        end
     end
 
     for rook in b_rooks
         @inbounds position_eval -= ROOK_EVAL_TABLE[65 - rook]
+        if isempty(file(rook) & board[BLACKPAWN])
+            position_eval -= ROOK_OPEN_FILE_BONUS
+        end
     end
 
     eval = material_eval + position_eval
@@ -257,11 +289,17 @@ function evaluate_kings(board::Board)
     b_king = board[BLACKKING]
     pval = PVALS[6]
 
+    if count(occupied(board)) <= 10
+        ktable = KING_EVAL_TABLE_EG
+    else
+        ktable = KING_EVAL_TABLE_MG
+    end
+
     material_eval = 0
     position_eval = 0
 
-    @inbounds position_eval += KING_EVAL_TABLE[square(w_king)]
-    @inbounds position_eval -= KING_EVAL_TABLE[65 - square(b_king)]
+    @inbounds position_eval += ktable[square(w_king)]
+    @inbounds position_eval -= ktable[65 - square(b_king)]
 
     eval = material_eval + position_eval
 end
@@ -290,8 +328,8 @@ end
 function evaluate_space(board::Board)
     eval = 0
 
-    w_filter = RANK_2 | RANK_3 | RANK_4
-    b_filter = RANK_5 | RANK_6 | RANK_7
+    w_filter = (RANK_2 | RANK_3 | RANK_4) & (FILE_C | FILE_D | FILE_E | FILE_F)
+    b_filter = (RANK_5 | RANK_6 | RANK_7) & (FILE_C | FILE_D | FILE_E | FILE_F)
 
     # remove pawns
     non_pawn = FULL & ~board[PAWN]

@@ -36,6 +36,7 @@ function main()
     end
     # init thread boards
     setthreadpoolboard!(threads, board)
+    ttable = TT_Table()
 
 
     # main UCI loop
@@ -51,7 +52,7 @@ function main()
             continue
 
         elseif line == "ucinewgame"
-            uci_newgame!(threads)
+            uci_newgame!(threads, ttable)
 
         elseif line == "quit"
             break
@@ -60,7 +61,7 @@ function main()
         splitlines = split(line)
 
         if splitlines[1] == "go"
-            uci_go(io, threads, splitlines)
+            uci_go(io, threads, ttable, splitlines)
             continue
 
         elseif splitlines[1] == "position"
@@ -90,9 +91,10 @@ function uci_isready(io::IO)
 end
 
 
-function uci_newgame!(threads::ThreadPool)
+function uci_newgame!(threads::ThreadPool, ttable::TT_Table)
     board = importfen(START_FEN)
     setthreadpoolboard!(threads, board)
+    ttable = TT_Table()
 end
 
 
@@ -109,7 +111,7 @@ function uci_perft(io::IO, threads::ThreadPool, splitlines::Vector{SubString{Str
 end
 
 
-function uci_go(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String}})
+function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubString{String}})
     ab_depth = 3 #temporary default value
 
     # extract depth
@@ -126,7 +128,7 @@ function uci_go(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String
     threads[1].ss.seldepth = 0
     threads[1].ss.tbhits = 0
 
-    eval, move, nodes = find_best_move(threads[1], ab_depth = ab_depth)
+    eval, move, nodes = find_best_move(threads[1], ttable, ab_depth)
 
     time_stop = time()
     elapsed = time_stop - threads[1].ss.time_start
