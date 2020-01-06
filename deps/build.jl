@@ -34,8 +34,8 @@ close(file)
 @info "Config set."
 
 @info "Setting executable flag for AstellarnEngine.jl"
-enginepath = builddir*"/../src/AstellarnEngine.jl"
-run(`chmod a+x $enginepath`)
+run(`cd ../src`)
+run(`chmod a+x Astellarn.jl`)
 
 @info "Build finished."
 
