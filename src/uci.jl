@@ -53,7 +53,6 @@ function uci_main()
 
         elseif line == "ucinewgame"
             uci_newgame!(threads, ttable)
-
         elseif line == "quit"
             break
         end
@@ -94,7 +93,7 @@ end
 function uci_newgame!(threads::ThreadPool, ttable::TT_Table)
     board = importfen(START_FEN)
     setthreadpoolboard!(threads, board)
-    ttable = TT_Table()
+    ttable.table = Dict{UInt64, TT_Entry}()
 end
 
 
