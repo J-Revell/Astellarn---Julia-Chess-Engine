@@ -34,7 +34,7 @@ close(file)
 @info "Config set."
 
 @info "Setting executable flag for AstellarnEngine.jl"
-run(`cd ../src`)
+cd("../src")
 run(`chmod a+x Astellarn.jl`)
 
 @info "Build finished."
