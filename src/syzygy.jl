@@ -75,8 +75,8 @@ end
 
 # We can't call static inline function :tb_probe_wdl, so we use :tb_probe_wdl_impl as a workaround.
 # Because of the above, care is taken to ensure we conform to syzygy rules.
-function tb_probe_wdl(board::Board)
-    if iszero(board.enpass) ==  false
+function tb_probe_wdl(board::Board)::UInt32
+    if iszero(board.enpass) == false
         return TB_RESULT_FAILED
     elseif iszero(board.castling) == false
         return TB_RESULT_FAILED
@@ -92,7 +92,7 @@ end
 
 # We can't call static inline function :tb_probe_root, so we use :tb_probe_root_impl as a workaround.
 # Because of the above, care is taken to ensure we conform to syzygy rules.
-function tb_probe_root(board::Board)
+function tb_probe_root(board::Board)::UInt32
     if iszero(board.castling) == false
         return TB_RESULT_FAILED
     else

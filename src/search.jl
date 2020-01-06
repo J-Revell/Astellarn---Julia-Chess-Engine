@@ -39,7 +39,7 @@ const LMRTABLE = init_reduction_table()
 
 Probe the tablebase if appropriate, or perform the absearch routine.
 """
-function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 3)::Tuple{Int, Move, Int}
+function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::Tuple{Int, Move, Int}
     board = thread.board
     # probe the tablebase
     if (count(occupied(board)) <= 5)
@@ -65,11 +65,10 @@ function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 3)::Tu
                 return eval, Move(move_from, move_to, __NORMAL_MOVE), 1
             end
         end
+    end
 
     # else we do a search
-    else
-        return iterative_deepening(thread, ttable, ab_depth)
-    end
+    return iterative_deepening(thread, ttable, ab_depth)
 end
 
 
