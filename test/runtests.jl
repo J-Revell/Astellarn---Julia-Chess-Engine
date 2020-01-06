@@ -6,7 +6,7 @@ using Test
 
 @testset "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" begin
     fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    b = importfen(fen)
+    b = Astellarn.importfen(fen)
     @test cancastlekingside(b) == true
     @test cancastlekingside(b, BLACK) == true
     @test cancastlequeenside(b) == true

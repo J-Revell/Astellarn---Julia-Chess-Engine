@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.5"
+    const ASTELLARN_VERSION = "v0.1.6"
 
     using Crayons
     using StaticArrays
@@ -54,7 +54,7 @@ module Astellarn
 
 
     export Bitboard, Board, Piece, PieceType, Color, Magic, Move, Undo, MoveStack, UndoStack
-    export @newgame, @move, @random, @engine, @importfen
+    export @newgame, @move, @random, @engine, @importfen, @perft
 
     export importfen, exportfen
     export pawns, kings, bishops, knights, rooks, queens, enemy, friendly, occupied, empty, rooklike, bishoplike
@@ -63,9 +63,12 @@ module Astellarn
     export monkey!, perft, engine!
 
     export WHITE, BLACK
+    export PAWN, KNIGHT, BISHOP, ROOK, KING, QUEEN
+    export WHITEPAWN, WHITEKNIGHT, WHITEBISHOP, WHITEROOK, WHITEQUEEN, WHITEKING
+    export BLACKPAWN, BLACKKNIGHT, BLACKBISHOP, BLACKROOK, BLACKQUEEN, BLACKKING
 
-    export tb_init
+    #export tb_init
 
-    export main
+    export uci_main
 
 end

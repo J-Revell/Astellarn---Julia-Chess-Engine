@@ -170,3 +170,8 @@ Play the best engine move on the global board, evaluated at a depth 'n::Int'.
 macro engine(depth::Int)
     engine!(_globalboard, ab_depth = depth)
 end
+
+
+macro perft(depth::Int)
+    perft(_globalboard, depth)
+end

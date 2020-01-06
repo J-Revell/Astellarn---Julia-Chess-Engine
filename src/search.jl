@@ -2,8 +2,6 @@ const MAX_PLY = 15
 
 const Q_FUTILITY_MARGIN = 100
 
-const QSEARCH_DEPTH = 4
-
 const RAZOR_DEPTH = 1
 const RAZOR_MARGIN = 330
 
@@ -22,6 +20,7 @@ const WINDOW_DEPTH = 6
 
 const MATE = 32000
 
+
 function init_reduction_table()
     lmrtable = zeros(Int, (64, 64))
     for depth in 1:64
@@ -32,6 +31,7 @@ function init_reduction_table()
     lmrtable
 end
 const LMRTABLE = init_reduction_table()
+
 
 
 """
@@ -133,6 +133,9 @@ Quiescence search function. Under development.
 function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::Int
     board = thread.board
     pv = thread.pv
+
+    # ensure pv is clear
+    clear!(pv[ply + 1])
 
     # default val
     tt_eval = -MATE
@@ -241,7 +244,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     pv = thread.pv
     # init vales
     init_α = α
-
+    clear!(pv[ply + 1])
     # is this the root node?
     isroot = ply == 0
 
@@ -249,7 +252,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     pvnode = β !== α + 1
 
     # default best val
-    best = -MATE #+ ply
+    best = -MATE
 
     # default tt_eval, tt_move
     tt_eval = -MATE
@@ -312,7 +315,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # probe the syzygy tablebase
-    # to-do, add entries to the transposition table
     if (count(occupied(board)) <= 5)
         _eval = tb_probe_wdl(board)
         if _eval !== TB_RESULT_FAILED
@@ -362,9 +364,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         return eval, MOVE_NONE
     end
 
-    #moves = movestack[ply + 1]
     moveorder = thread.moveorders[ply + 1]
-    #gen_moves!(moves, board)
     best_move = MOVE_NONE
 
     futility_margin = FUTILITY_MARGIN * depth
@@ -372,7 +372,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     see_noisy_margin = SEE_NOISY_MARGIN * depth * depth
     skipquiets = false
 
-    #mo = MoveOrder()
     played = 0
 
     while true
@@ -470,7 +469,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             best = 0
         end
     end
-    #clear!(moves)
     clear!(moveorder)
 
     if isroot == false

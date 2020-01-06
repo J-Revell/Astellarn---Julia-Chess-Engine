@@ -22,7 +22,7 @@ function movetostring(move::Move)
 end
 
 
-function main()
+function uci_main()
     io = stdout
     if iszero(length(ARGS))
         # by default, load starting position
