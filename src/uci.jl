@@ -94,6 +94,8 @@ function uci_newgame!(threads::ThreadPool, ttable::TT_Table)
     board = importfen(START_FEN)
     setthreadpoolboard!(threads, board)
     ttable.table = Dict{UInt64, TT_Entry}()
+    threads[1].history = MArray{Tuple{2},Array{Array{Int32,1},1},1,2}([[zeros(Int32, 64) for i in 1:64] for j in 1:2])
+    return
 end
 
 
@@ -107,6 +109,7 @@ function uci_perft(io::IO, threads::ThreadPool, splitlines::Vector{SubString{Str
     @printf(io, "Nodes searched : %d\n", nodes)
     nps = nodes/elapsed
     @printf(io, "Nodes/second :  %d\n", nps)
+    return
 end
 
 
@@ -127,8 +130,9 @@ function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vecto
     threads[1].ss.seldepth = 0
     threads[1].ss.tbhits = 0
 
-    eval, move, nodes = find_best_move(threads[1], ttable, ab_depth)
-
+    eval = find_best_move(threads[1], ttable, ab_depth)
+    move = threads[1].pv[1][1]
+    nodes = threads[1].ss.nodes
     time_stop = time()
     elapsed = time_stop - threads[1].ss.time_start
     nps = nodes/elapsed
@@ -138,6 +142,7 @@ function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vecto
     print(io, join(movetostring.(threads[1].pv[1]), " "))
     print(io, "\n")
     print(io, "bestmove ", ucistring, "\n")
+    return
 end
 
 
@@ -170,6 +175,7 @@ function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}
     end
 
     setthreadpoolboard!(threads, board)
+    return
 end
 
 
@@ -184,6 +190,7 @@ function uci_setoptions(io::IO, threads::ThreadPool, splitlines::Vector{SubStrin
         tb_init(splitlines[5])
         println(io, "info string set SyzgyPath to ", splitlines[5])
     end
+    return
 end
 
 
@@ -194,4 +201,5 @@ function uci_report(thread::Thread, α::Int, β::Int, value::Int)
     @printf("info depth %d seldepth %d nodes %d nps %d score cp %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, score)
     print(join(movetostring.(thread.pv[1]), " "))
     print("\n")
+    return
 end

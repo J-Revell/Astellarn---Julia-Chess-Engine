@@ -116,7 +116,7 @@ addremove!(board::Board, piece::Piece, sqr::Integer) = addremove!(board, piece, 
 
 Returns `true` if the king is in check, `false` otherwise.
 """
-ischeck(board::Board) = isempty(board.checkers) == false
+ischeck(board::Board) = isempty(board.checkers) === false
 
 
 """

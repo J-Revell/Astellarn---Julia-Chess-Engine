@@ -15,13 +15,36 @@ function updatestats!(ss::ThreadStats, depth::Int, nodes::Int, tbhits::Int)
 end
 
 
+# ButterflyTable for storing move histories.
+# BTABLE[i][j][k]
+# [i] => colour
+# [j] => from
+# [k] => to
+# https://www.chessprogramming.org/index.php?title=Butterfly_Boards
+const ButterflyTable = MArray{Tuple{2},Array{Array{Int32,1},1},1,2}
+
+mutable struct MoveOrder
+    type::UInt8
+    stage::UInt8
+    movestack::MoveStack
+    quietstack::MoveStack
+    values::Vector{Int32}
+    margin::Int
+    noisy_size::Int
+    quiet_size::Int
+end
+MoveOrder() = MoveOrder(NORMAL_TYPE, STAGE_TABLE, MoveStack(150),  MoveStack(150), zeros(Int32, 150), 0, 0, 0)
+
 mutable struct Thread
     board::Board
     pv::Vector{MoveStack} # 1st element is the PV, rest are preallocated tmp PVs
     ss::ThreadStats
     moveorders::Vector{MoveOrder}
+    movestack::MoveStack
+    history::ButterflyTable
 end
-Thread() = Thread(Board(), [MoveStack(MAX_PLY + 1) for i in 1:MAX_PLY+1], ThreadStats(), [MoveOrder() for i in 0:MAX_PLY+1])
+Thread() = Thread(Board(), [MoveStack(MAX_PLY + 1) for i in 1:MAX_PLY+1], ThreadStats(), [MoveOrder() for i in 0:MAX_PLY+1], MoveStack(256),
+    ButterflyTable([[zeros(Int32, 64) for i in 1:64] for j in 1:2]))
 
 
 const ThreadPool = Vector{Thread}

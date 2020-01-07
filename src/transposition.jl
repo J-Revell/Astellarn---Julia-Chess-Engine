@@ -9,6 +9,7 @@ mutable struct TT_Entry
     depth::UInt8
     bound::UInt8
 end
+const NO_ENTRY = TT_Entry(0, Move(), 0, 0)
 
 
 mutable struct TT_Table

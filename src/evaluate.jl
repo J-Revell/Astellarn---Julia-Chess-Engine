@@ -79,7 +79,9 @@ const PVALS = @SVector [100, 300, 320, 520, 950, 2500]
 
 const TEMPO_BONUS = 22
 
-const ROOK_OPEN_FILE_BONUS = 10
+const ROOK_OPEN_FILE_BONUS = 15
+const ROOK_SEMIOPEN_FILE_BONUS = 10
+const ROOK_KING_FILE_BONUS = 10
 
 const PAWN_SHIELD_BONUS = 10
 const DOUBLE_PAWN_PENALTY = 8
@@ -88,15 +90,74 @@ const ISOLATED_SEMIOPEN_PENALTY = 4
 const PAWN_DEFEND_PAWN_BONUS = 10
 const PAWN_DEFEND_MINOR_BONUS = 8
 const PAWN_DEFEND_MAJOR_BONUS = 5
-const PAWN_ATTACK_MINOR_BONUS = 25
-const PAWN_ATTACK_MAJOR_BONUS = 40
+const PAWN_ATTACK_MINOR_BONUS = 22
+const PAWN_ATTACK_MAJOR_BONUS = 38
 
-const KNIGHT_RAMMED_BONUS = 2
 
 struct MinorPieceTrap
     pawnmask::Bitboard
     minormask::Bitboard
 end
+
+
+function init_knight_traps()
+    # Trap 1
+    # White knight trapped on h8, with pawn on f7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["f7"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["h8"])
+    trap_1 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 2
+    # White knight trapped on h8, with pawn on h7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["h7"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["h8"])
+    trap_2 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 3
+    # White knight trapped on a8, with pawn on c7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["c7"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["a8"])
+    trap_3 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 4
+    # White knight trapped on a8, with pawn on a7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["a7"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["a8"])
+    trap_4 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 5
+    # Black knight trapped on h1, with pawn on f2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["f2"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["h1"])
+    trap_5 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 6
+    # Black knight trapped on h1, with pawn on h2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["h2"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["h1"])
+    trap_6 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 7
+    # Black knight trapped on a1, with pawn on c2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["c2"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["a1"])
+    trap_7 = MinorPieceTrap(pawnmask, knightmask)
+
+    # Trap 8
+    # Black knight trapped on a1, with pawn on a2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["a2"])
+    knightmask = Bitboard(LABEL_TO_SQUARE["a1"])
+    trap_8 = MinorPieceTrap(pawnmask, knightmask)
+
+    white_trapped = @SVector [trap_1, trap_2, trap_3, trap_4]
+    black_trapped = @SVector [trap_5, trap_6, trap_7, trap_8]
+    knight_trap_patterns= @SVector [white_trapped, black_trapped]
+end
+
+const KNIGHT_TRAP_PATTERNS = init_knight_traps()
+const KNIGHT_TRAP_PENALTY = 50
+const KNIGHT_RAMMED_BONUS = 2
+
 
 function init_bishop_traps()
     # Trap 1
@@ -153,7 +214,7 @@ function init_bishop_traps()
 end
 
 const BISHOP_TRAP_PATTERNS = init_bishop_traps()
-const BISHOP_TRAP_PENALTY = 120
+const BISHOP_TRAP_PENALTY = 110
 const BISHOP_COLOR_PENALTY = 4
 const BISHOP_RAMMED_COLOR_PENALTY = 5
 const BISHOP_PAIR_BONUS = 10
@@ -168,23 +229,37 @@ const KING_PAWN_SHIELD_BONUS = 12
 EvalAux is an auxilliary data structure for storing useful computations for the evaluation of the board.
 """
 struct EvalAux
-    rammedpawns::Vector{Bitboard}
-    pawnattacks::Vector{Bitboard}
+    wrammedpawns::Bitboard
+    brammedpawns::Bitboard
+    wpawnattacks::Bitboard
+    bpawnattacks::Bitboard
+    wknightattacks::Bitboard
+    bknightattacks::Bitboard
 end
 
 
 function initEvalAux(board::Board)
+    # extract pawn positions
+    wpawns = board[WHITEPAWN]
+    bpawns = board[BLACKPAWN]
+
     # check for rammed pawns
-    rammedpawns = Vector{Bitboard}(undef, 2)
-    rammedpawns[1] = pawnAdvance(board[BLACKPAWN], board[WHITEPAWN], BLACK)
-    rammedpawns[2] = pawnAdvance(board[WHITEPAWN], board[BLACKPAWN], WHITE)
+    wrammedpawns = pawnAdvance(bpawns, wpawns, BLACK)
+    brammedpawns = pawnAdvance(wpawns, bpawns, WHITE)
 
     # generate list of all positions attacked by a pawn
-    pawnattacks = Vector{Bitboard}(undef, 2)
-    pawnattacks[1] = pawnCapturesWhite(board[WHITEPAWN], FULL)
-    pawnattacks[2] = pawnCapturesBlack(board[BLACKPAWN], FULL)
+    wpawnattacks = pawnCapturesWhite(wpawns, FULL)
+    bpawnattacks = pawnCapturesBlack(bpawns, FULL)
 
-    EvalAux(rammedpawns, pawnattacks)
+    # extract knight positions
+    wknights = board[WHITEKNIGHT]
+    bknights = board[BLACKKNIGHT]
+
+    # generate list of all positions attacked by a knight
+    wknightattacks = knightMove_all(wknights)
+    bknightattacks = knightMove_all(bknights)
+
+    EvalAux(wrammedpawns, brammedpawns, wpawnattacks, bpawnattacks, wknightattacks, bknightattacks)
 end
 
 
@@ -201,7 +276,7 @@ function evaluate(board::Board)
     eval += evaluate_bishops(board, evalaux)
     eval += evaluate_rooks(board, evalaux)
     eval += evaluate_queens(board, evalaux)
-    eval += evaluate_kings(board)
+    eval += evaluate_kings(board, evalaux)
 
     eval += evaluate_pins(board)
     #eval += evaluate_space(board)
@@ -227,12 +302,12 @@ function evaluate_pawns(board::Board, evalaux::EvalAux)
     material_eval += pval*count(w_pawns)
     material_eval -= pval*count(b_pawns)
 
-    for pawn in w_pawns
-        @inbounds position_eval += PAWN_EVAL_TABLE[pawn]
+    @inbounds for pawn in w_pawns
+        position_eval += PAWN_EVAL_TABLE[pawn]
     end
 
-    for pawn in b_pawns
-        @inbounds position_eval -= PAWN_EVAL_TABLE[65 - pawn]
+    @inbounds for pawn in b_pawns
+        position_eval -= PAWN_EVAL_TABLE[65 - pawn]
     end
 
     # double pawns
@@ -288,8 +363,8 @@ function evaluate_pawns(board::Board, evalaux::EvalAux)
             end
         end
     end
-    position_eval += count(evalaux.pawnattacks[1] & w_pawns) * PAWN_DEFEND_PAWN_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & b_pawns) * PAWN_DEFEND_PAWN_BONUS
+    position_eval += count(evalaux.wpawnattacks & w_pawns) * PAWN_DEFEND_PAWN_BONUS
+    position_eval -= count(evalaux.bpawnattacks & b_pawns) * PAWN_DEFEND_PAWN_BONUS
 
     eval = material_eval + position_eval
 end
@@ -306,26 +381,54 @@ function evaluate_knights(board::Board, evalaux::EvalAux)
     material_eval += pval*count(w_knights)
     material_eval -= pval*count(b_knights)
 
-    for knight in w_knights
-        @inbounds position_eval += KNIGHT_EVAL_TABLE[knight]
+    @inbounds for knight in w_knights
+        position_eval += KNIGHT_EVAL_TABLE[knight]
     end
     position_eval += count((w_knights << 8) & board[WHITEPAWN]) * PAWN_SHIELD_BONUS
-    position_eval += count(evalaux.pawnattacks[1] & w_knights) * PAWN_DEFEND_MINOR_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & w_knights) * PAWN_ATTACK_MINOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & w_knights) * PAWN_DEFEND_MINOR_BONUS
+    position_eval -= count(evalaux.bpawnattacks & w_knights) * PAWN_ATTACK_MINOR_BONUS
 
-    for knight in b_knights
-        @inbounds position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
+    @inbounds for knight in b_knights
+        position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
     end
     position_eval -= count((b_knights >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & b_knights) * PAWN_DEFEND_MINOR_BONUS
-    position_eval += count(evalaux.pawnattacks[1] & b_knights) * PAWN_ATTACK_MINOR_BONUS
+    position_eval -= count(evalaux.bpawnattacks & b_knights) * PAWN_DEFEND_MINOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & b_knights) * PAWN_ATTACK_MINOR_BONUS
 
     # bonus for knights in rammed positions
-    num_rammed = count(evalaux.rammedpawns[1])
-    position_eval += fld(count(w_knights) * KNIGHT_RAMMED_BONUS * num_rammed * num_rammed, 4)
-    position_eval -= fld(count(b_knights) * KNIGHT_RAMMED_BONUS * num_rammed * num_rammed, 4)
+    num_rammed = count(evalaux.wrammedpawns)
+    position_eval += fld(count(w_knights) * KNIGHT_RAMMED_BONUS * num_rammed^2, 4)
+    position_eval -= fld(count(b_knights) * KNIGHT_RAMMED_BONUS * num_rammed^2, 4)
 
-    eval = material_eval + position_eval
+    # Evaluate trapped knights.
+    for trap in KNIGHT_TRAP_PATTERNS[1]
+        if ((board[BLACKPAWN] & trap.pawnmask) == trap.pawnmask) && isone(board[WHITEKNIGHT] & trap.minormask)
+            position_eval -= KNIGHT_TRAP_PENALTY
+        end
+    end
+    for trap in KNIGHT_TRAP_PATTERNS[2]
+        if ((board[WHITEPAWN] & trap.pawnmask) == trap.pawnmask) && isone(board[BLACKKNIGHT] & trap.minormask)
+            position_eval += KNIGHT_TRAP_PENALTY
+        end
+    end
+
+    position_eval += count(evalaux.wknightattacks & board[WHITEBISHOP]) * 10
+    position_eval -= count(evalaux.bknightattacks & board[BLACKBISHOP]) * 10
+    position_eval += count(evalaux.wknightattacks & board[WHITEROOK]) * 7
+    position_eval -= count(evalaux.bknightattacks & board[BLACKROOK]) * 7
+    position_eval += count(evalaux.wknightattacks & board[WHITEQUEEN]) * 5
+    position_eval -= count(evalaux.bknightattacks & board[BLACKQUEEN]) * 5
+
+    threat_eval = 0
+    threat_eval += count(evalaux.wknightattacks & board[BLACKBISHOP]) * 15
+    threat_eval -= count(evalaux.bknightattacks & board[WHITEBISHOP]) * 15
+    threat_eval += count(evalaux.wknightattacks & board[BLACKROOK]) * 28
+    threat_eval -= count(evalaux.bknightattacks & board[WHITEROOK]) * 28
+    threat_eval += count(evalaux.wknightattacks & board[BLACKQUEEN]) * 42
+    threat_eval -= count(evalaux.bknightattacks & board[WHITEQUEEN]) * 42
+
+
+    eval = material_eval + position_eval + threat_eval
 end
 
 
@@ -340,19 +443,19 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
     material_eval += pval*count(w_bishops)
     material_eval -= pval*count(b_bishops)
 
-    for bishop in w_bishops
-        @inbounds position_eval += BISHOP_EVAL_TABLE[bishop]
+    @inbounds for bishop in w_bishops
+        position_eval += BISHOP_EVAL_TABLE[bishop]
     end
     position_eval += count((w_bishops << 8) & board[WHITEPAWN]) * PAWN_SHIELD_BONUS
-    position_eval += count(evalaux.pawnattacks[1] & w_bishops) * PAWN_DEFEND_MINOR_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & w_bishops) * PAWN_ATTACK_MINOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & w_bishops) * PAWN_DEFEND_MINOR_BONUS
+    position_eval -= count(evalaux.bpawnattacks & w_bishops) * PAWN_ATTACK_MINOR_BONUS
 
-    for bishop in b_bishops
-        @inbounds position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
+    @inbounds for bishop in b_bishops
+        position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
     end
     position_eval -= count((b_bishops >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & b_bishops) * PAWN_DEFEND_MINOR_BONUS
-    position_eval += count(evalaux.pawnattacks[1] & b_bishops) * PAWN_ATTACK_MINOR_BONUS
+    position_eval -= count(evalaux.bpawnattacks & b_bishops) * PAWN_DEFEND_MINOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & b_bishops) * PAWN_ATTACK_MINOR_BONUS
 
     for trap in BISHOP_TRAP_PATTERNS[1]
         if ((board[BLACKPAWN] & trap.pawnmask) == trap.pawnmask) && !isempty(board[WHITEBISHOP] & trap.minormask)
@@ -376,19 +479,19 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
     # penalty for bishops on colour of own pawns
     if !isempty(board[WHITEBISHOP] & LIGHT)
         position_eval -= BISHOP_COLOR_PENALTY * count(board[WHITEPAWN] & LIGHT)
-        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[1] & LIGHT)
+        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.wrammedpawns & LIGHT)
     end
     if !isempty(board[WHITEBISHOP] & DARK)
         position_eval -= BISHOP_COLOR_PENALTY * count(board[WHITEPAWN] & DARK)
-        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[1] & DARK)
+        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.wrammedpawns & DARK)
     end
     if !isempty(board[BLACKBISHOP] & LIGHT)
         position_eval += BISHOP_COLOR_PENALTY * count(board[BLACKPAWN] & LIGHT)
-        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[2] & LIGHT)
+        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.brammedpawns & LIGHT)
     end
     if !isempty(board[BLACKBISHOP] & DARK)
         position_eval += BISHOP_COLOR_PENALTY * count(board[BLACKPAWN] & DARK)
-        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.rammedpawns[2] & DARK)
+        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(evalaux.brammedpawns & DARK)
     end
 
     eval = material_eval + position_eval
@@ -408,22 +511,34 @@ function evaluate_rooks(board::Board, evalaux::EvalAux)
 
     for rook in w_rooks
         @inbounds position_eval += ROOK_EVAL_TABLE[rook]
-        if isempty(file(rook) & board[WHITEPAWN])
+        rfile = file(rook)
+        if isempty(rfile & pawns(board))
             position_eval += ROOK_OPEN_FILE_BONUS
+        elseif isempty(rfile & board[WHITEPAWN])
+            position_eval += ROOK_SEMIOPEN_FILE_BONUS
+        end
+        if isone(rfile & board[BLACKKING])
+            position_eval += ROOK_KING_FILE_BONUS
         end
     end
 
     for rook in b_rooks
         @inbounds position_eval -= ROOK_EVAL_TABLE[65 - rook]
-        if isempty(file(rook) & board[BLACKPAWN])
+        rfile = file(rook)
+        if isempty(rfile & pawns(board))
             position_eval -= ROOK_OPEN_FILE_BONUS
+        elseif isempty(rfile & board[BLACKPAWN])
+            position_eval -= ROOK_SEMIOPEN_FILE_BONUS
+        end
+        if isone(rfile & board[WHITEKING])
+            position_eval -= ROOK_KING_FILE_BONUS
         end
     end
 
-    position_eval += count(evalaux.pawnattacks[1] & w_rooks) * PAWN_DEFEND_MAJOR_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & w_rooks) * PAWN_ATTACK_MAJOR_BONUS
-    position_eval -= count(evalaux.pawnattacks[2] & b_rooks) * PAWN_DEFEND_MAJOR_BONUS
-    position_eval += count(evalaux.pawnattacks[1] & b_rooks) * PAWN_ATTACK_MAJOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & w_rooks) * PAWN_DEFEND_MAJOR_BONUS
+    position_eval -= count(evalaux.bpawnattacks & w_rooks) * PAWN_ATTACK_MAJOR_BONUS
+    position_eval -= count(evalaux.bpawnattacks & b_rooks) * PAWN_DEFEND_MAJOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & b_rooks) * PAWN_ATTACK_MAJOR_BONUS
 
     eval = material_eval + position_eval
 end
@@ -440,22 +555,23 @@ function evaluate_queens(board::Board, evalaux::EvalAux)
     material_eval += pval*count(w_queens)
     material_eval -= pval*count(b_queens)
 
-    for queen in w_queens
-        @inbounds position_eval += QUEEN_EVAL_TABLE[queen]
+    @inbounds for queen in w_queens
+        position_eval += QUEEN_EVAL_TABLE[queen]
     end
 
-    for queen in b_queens
-        @inbounds position_eval -= QUEEN_EVAL_TABLE[65 - queen]
+    @inbounds for queen in b_queens
+        position_eval -= QUEEN_EVAL_TABLE[65 - queen]
     end
 
-    position_eval -= count(evalaux.pawnattacks[2] & w_queens) * 2PAWN_ATTACK_MAJOR_BONUS
-    position_eval += count(evalaux.pawnattacks[1] & b_queens) * 2PAWN_ATTACK_MAJOR_BONUS
+    # attacked by a pawn?
+    position_eval -= count(evalaux.bpawnattacks & w_queens) * 2PAWN_ATTACK_MAJOR_BONUS
+    position_eval += count(evalaux.wpawnattacks & b_queens) * 2PAWN_ATTACK_MAJOR_BONUS
 
     eval = material_eval + position_eval
 end
 
 
-function evaluate_kings(board::Board)
+function evaluate_kings(board::Board, evalaux::EvalAux)
     w_king = board[WHITEKING]
     b_king = board[BLACKKING]
     pval = PVALS[6]
@@ -516,6 +632,22 @@ function evaluate_kings(board::Board)
     king_safety += count(kingMoves(square(w_king)) & board[WHITEPAWN]) * KING_PAWN_SHIELD_BONUS
     king_safety -= count(kingMoves(square(b_king)) & board[BLACKPAWN]) * KING_PAWN_SHIELD_BONUS
 
+    # decrease king safety if on an open file, with enemy rooks or queens on the board.
+    if !isempty(board[BLACKROOK] | board[BLACKQUEEN]) && isempty(file(square(w_king)) & pawns(board))
+        king_safety -= 15
+    end
+    if !isempty(board[WHITEROOK] | board[WHITEQUEEN]) && isempty(file(square(b_king)) & pawns(board))
+        king_safety += 15
+    end
+
+    # decrease king safety if a neighbouring knight can deliver a check
+    if !isempty(knightMove_all(w_king) & evalaux.bknightattacks)
+        king_safety -= 10
+    end
+    if !isempty(knightMove_all(b_king) & evalaux.wknightattacks)
+        king_safety += 10
+    end
+
     eval = material_eval + position_eval + king_safety
 end
 
@@ -529,11 +661,11 @@ function evaluate_pins(board::Board)
     board.turn = !board.turn
 
     if board.turn == WHITE
-        eval -= count(board.pinned) * 10
-        eval += count(opp_pinned) * 10
+        eval -= count(board.pinned) * 14
+        eval += count(opp_pinned) * 14
     else
-        eval += count(board.pinned) * 10
-        eval -= count(opp_pinned) * 10
+        eval += count(board.pinned) * 14
+        eval -= count(opp_pinned) * 14
     end
 
     eval

@@ -109,103 +109,6 @@ function istactical(board::Board, move::Move)
 end
 
 
-# """
-#     move_is_psuedo_legal(board::Board, move::Move)
-#
-# Sanity checks to see if a move makes sense. Returns `true` if so.
-# """
-# # function is not complete
-# function move_is_pseudo_legal(board::Board, move::Move)
-#     if move == Move()
-#         return false
-#     end
-#
-#     # load square details
-#     sqr_from = from(move)
-#     sqr_to = to(move)
-#
-#     # are we moving the right colour?
-#     if color(board[sqr_from]) !== board.turn
-#         return false
-#     end
-#
-#     # are we moving to a square of our own colour?
-#     if color(board[sqr_to]) == board.turn
-#         return false
-#     end
-#
-#     ptype_from = type(board[sqr_from])
-#     move_flag = flag(move)
-#
-#     if ptype_from == VOID
-#         return false
-#     end
-#
-#     # before we check piece cases, handle checks
-#     if isdoublecheck(board) && (ptype_from !== KING)
-#         return false
-#     end
-#
-#     if ischeck(board)
-#         if !((ptype_from == KING) || isone(Bitboard(sqr_to) & board.checkers) || isone(Bitboard(sqr_to) & blockers(sqr_to, square(kings(board) & friendly(board)))))
-#             return false
-#         end
-#     end
-#
-#     if ptype_from == KNIGHT
-#         return (move_flag == __NORMAL_MOVE) && !isempty(knightMoves(sqr_from) & Bitboard(sqr_to))
-#     end
-#
-#     occ = occupied(board)
-#
-#     if ptype_from == BISHOP
-#         return (move_flag == __NORMAL_MOVE) && isone(bishopMoves(Int(sqr_from), occ) & Bitboard(sqr_to))
-#     elseif ptype_from == ROOK
-#         return (move_flag == __NORMAL_MOVE) && isone(rookMoves(Int(sqr_from), occ) & Bitboard(sqr_to))
-#     elseif ptype_from == QUEEN
-#         return (move_flag == __NORMAL_MOVE) && isone(queenMoves(Int(sqr_from), occ) & Bitboard(sqr_to))
-#     end
-#
-#     if ptype_from == PAWN
-#         # pawns can't castle
-#         if (move_flag == __KING_CASTLE) || (move_flag == __QUEEN_CASTLE)
-#             return false
-#         end
-#
-#         pawn_attacks = pawnAttacks(board.turn, sqr_from)
-#
-#         # check enpass
-#         if (move_flag == __ENPASS)
-#             return (board.enpass == sqr_to) && isone(Bitboard(sqr_to) & pawn_attacks)
-#         end
-#
-#         advance = pawnAdvance(Bitboard(sqr_from), empty(board), board.turn)
-#
-#         if (move_flag > __ENPASS)
-#             return isone(RANK_27 & Bitboard(sqr_from)) && isone(Bitboard(sqr_to) & RANK_18 & ((pawn_attacks & enemy(board)) | advance))
-#         end
-#
-#         advance |= pawnDoubleAdvance(Bitboard(sqr_from), empty(board), board.turn)
-#
-#         return isone(Bitboard(sqr_to) & ~RANK_18 & ((pawn_attacks & enemy(board)) | advance))
-#     end
-#
-#     if ptype_from == KING
-#         if move_flag == __NORMAL_MOVE
-#             return isone(kingMoves(sqr_from) & sqr_to & ~friendly(board))
-#         elseif ischeck(board)
-#             return false
-#         elseif move_flag == __KING_CASTLE
-#             return cancastlekingside(board)
-#         elseif move_flag == __QUEEN_CASTLE
-#             return cancastlequeenside(board)
-#         end
-#     end
-#
-#     return false
-# end
-
-
 """
     MoveStack
 
@@ -312,11 +215,11 @@ function apply_move!(board::Board, move::Move)
     end
 
     # Apply the moves according to the appropriate flag
-    if (flag(move) == __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
+    if (flag(move) === __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
         undo_captured = apply_normal!(board, move)
-    elseif flag(move) == __ENPASS
+    elseif flag(move) === __ENPASS
         undo_captured = apply_enpass!(board, move)
-    elseif (flag(move) == __KING_CASTLE) || (flag(move) == __QUEEN_CASTLE)
+    elseif (flag(move) === __KING_CASTLE) || (flag(move) == __QUEEN_CASTLE)
         undo_captured = apply_castle!(board, move)
     else
         undo_captured = apply_promo!(board, move)
@@ -344,9 +247,12 @@ function apply_normal!(board::Board, move::Move)
     sqr_to = to(move)
 
     # Check for double pawn advance and set enpass square
-
-    if flag(move) == __DOUBLE_PAWN
-        board.enpass = UInt8(square(blockers(sqr_from, sqr_to)))
+    if flag(move) === __DOUBLE_PAWN
+        if board.turn === WHITE
+            board.enpass = UInt8(sqr_from + 8)
+        else
+            board.enpass = UInt8(sqr_from - 8)
+        end
         board.hash ⊻= zobepkey(sqr_from)
     else
         board.enpass = zero(board.enpass)
@@ -371,7 +277,7 @@ function apply_normal!(board::Board, move::Move)
         board.hash ⊻= zobkey(p_to, sqr_to)
     end
 
-    if (type(p_from) == PAWN) || (p_to !== BLANK)
+    if (type(p_from) === PAWN) || (p_to !== BLANK)
         board.halfmovecount = 0
     else
         board.halfmovecount += 1
@@ -437,7 +343,7 @@ function apply_castle!(board::Board, move::Move)
 
     updatecastling!(board, k_from, k_to)
 
-    if flag(move) == __KING_CASTLE
+    if flag(move) === __KING_CASTLE
         r_from = k_from - 3
         r_to = k_from - 1
     else
@@ -527,11 +433,11 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.movecount -= one(UInt16)
     board.hash = undo.hash
     switchturn!(board)
-    if (flag(move) == __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
+    if (flag(move) === __NORMAL_MOVE) || (flag(move) === __DOUBLE_PAWN)
         undo_normal!(board, move, undo)
-    elseif flag(move) == __ENPASS
+    elseif flag(move) === __ENPASS
         undo_enpass!(board, move, undo)
-    elseif (flag(move) == __KING_CASTLE) || (flag(move) == __QUEEN_CASTLE)
+    elseif (flag(move) === __KING_CASTLE) || (flag(move) === __QUEEN_CASTLE)
         undo_castle!(board, move, undo)
     else
         undo_promo!(board, move, undo)
@@ -588,7 +494,7 @@ function undo_castle!(board::Board, move::Move, undo::Undo)
     k_from = from(move)
     k_to = to(move)
 
-    if flag(move) == __KING_CASTLE
+    if flag(move) === __KING_CASTLE
         r_from = k_from - 3
         r_to = k_from - 1
     else

@@ -3,14 +3,14 @@ const MAX_MOVES = 200
 
 # Internal function to run perft
 function runperft(board::Board, depth::Int, ply::Int, movestack::Vector{MoveStack})
-    if depth == 1
+    if isone(depth)
         n = count_moves(board)
         return n
     else
         movelist = movestack[ply + 1]
         gen_moves!(movelist, board)
         num_moves = 0
-        for i in eachindex(movelist)
+        @inbounds for i in eachindex(movelist)
             u = apply_move!(board, movelist[i])
             num_moves += runperft(board, depth - 1, ply + 1, movestack)
             undo_move!(board, movelist[i], u)

@@ -1,4 +1,4 @@
-const MAX_PLY = 18
+const MAX_PLY = 22
 
 const Q_FUTILITY_MARGIN = 100
 
@@ -43,7 +43,7 @@ const LMRTABLE = init_reduction_table()
 
 Probe the tablebase if appropriate, or perform the absearch routine.
 """
-function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::Tuple{Int, Move, Int}
+function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::Int
     board = thread.board
     # probe the tablebase
     if (count(occupied(board)) <= 5)
@@ -66,7 +66,9 @@ function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::Tu
                 (promotion == TB_PROMOTES_BISHOP) && (return eval, Move(move_from, move_to, __BISHOP_PROMO), 1)
                 (promotion == TB_PROMOTES_KNIGHT) && (return eval, Move(move_from, move_to, __KNIGHT_PROMO), 1)
             else
-                return eval, Move(move_from, move_to, __NORMAL_MOVE), 1
+                clear!(thread.pv[1])
+                push!(thread.pv[1], Move(move_from, move_to, __NORMAL_MOVE))
+                return eval
             end
         end
     end
@@ -76,18 +78,18 @@ function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::Tu
 end
 
 
-function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)::Tuple{Int, Move, Int}
+function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)::Int
     eval = 0
     move = MOVE_NONE
     nodes = 0
     for depth in 1:max_depth
-        eval, move = aspiration_window(thread, ttable, depth, eval)
+        eval = aspiration_window(thread, ttable, depth, eval)
     end
-    return eval, move, thread.ss.nodes
+    return eval
 end
 
 
-function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Tuple{Int, Move}
+function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
     α = -MATE
     eval = -MATE
     β = MATE
@@ -100,7 +102,7 @@ function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::I
     end
 
     while true
-        eval, move = absearch(thread, ttable, α, β, depth, 0, move)
+        eval = absearch(thread, ttable, α, β, depth, 0, move)
 
         # reporting
         updatestats!(thread.ss, depth, thread.ss.nodes, 0)
@@ -108,7 +110,7 @@ function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::I
         # window cond met
         if α < eval < β
             uci_report(thread, α, β, eval)
-            return eval, move
+            return eval
         end
 
         # fail low
@@ -138,7 +140,9 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     pv = thread.pv
 
     # ensure pv is clear
-    clear!(pv[ply + 1])
+    @inbounds pv_current = thread.pv[ply + 1]
+    @inbounds pv_future = thread.pv[ply + 2]
+    clear!(pv_current)
 
     # default val
     tt_eval = -MATE
@@ -158,8 +162,8 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     end
 
     # probe the transposition table
-    if hasTTentry(ttable, board.hash)
-        tt_entry = getTTentry(ttable, board.hash)
+    tt_entry = get(ttable.table, board.hash, NO_ENTRY)
+    if tt_entry !== NO_ENTRY
         tt_eval = tt_entry.eval
         tt_move = tt_entry.move
         tt_value = ttvalue(tt_entry, ply)
@@ -192,7 +196,8 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         return eval
     end
 
-    moveorder = thread.moveorders[ply + 1]
+    @inbounds moveorder = thread.moveorders[ply + 1]
+
     if ischeck(board)
         # we need evasions
         moveorder.type = NORMAL_TYPE
@@ -203,13 +208,12 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
 
     # iterate through moves
     while true
-        move = selectmove!(moveorder, board, tt_move, false)
+        move = selectmove!(thread, tt_move, ply, true)
         if move == MOVE_NONE
             break
         end
         u = apply_move!(board, move)
-        eval = qsearch(thread, ttable, -β, -α, ply + 1)
-        eval = -eval
+        eval = -qsearch(thread, ttable, -β, -α, ply + 1)
         undo_move!(board, move, u)
 
         # check for improvements
@@ -217,11 +221,9 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
             best = eval
             if eval > α
                 α = best
-                clear!(pv[ply + 1])
-                push!(pv[ply + 1], move)
-                for tmp_pv_move in pv[ply + 2]
-                    push!(pv[ply + 1], tmp_pv_move)
-                end
+                clear!(pv_current)
+                push!(pv_current, move)
+                updatepv!(pv_current, pv_future)
             end
         end
 
@@ -242,14 +244,15 @@ end
 
 Internals of `absearch()` routine.
 """
-function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, lstmove::Move)::Tuple{Int, Move}
+function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, lstmove::Move)::Int
     board = thread.board
-    pv = thread.pv
+    @inbounds pv_current = thread.pv[ply + 1]
+    @inbounds pv_future = thread.pv[ply + 2]
     # init vales
     init_α = α
-    clear!(pv[ply + 1])
+    clear!(pv_current)
     # is this the root node?
-    isroot = ply == 0
+    isroot = iszero(ply)
 
     # is this a pvnode
     pvnode = β !== α + 1
@@ -269,7 +272,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # enter quiescence search
     if iszero(depth) && !ischeck(board)
         q_eval = qsearch(thread, ttable, α, β, ply)
-        return q_eval, MOVE_NONE
+        return q_eval
     end
 
     # update thread details
@@ -279,11 +282,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # early exit conditions
     if isroot == false
         if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
-            return 0, MOVE_NONE
+            return 0
         end
         if ply >= MAX_PLY
             eval = evaluate(board)
-            return eval, MOVE_NONE
+            return eval
         end
 
         # mate pruning
@@ -298,13 +301,13 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             mate_β = MATE - ply - 1
         end
         if mate_α >= mate_β
-            return mate_α, MOVE_NONE
+            return mate_α
         end
     end
 
     # probe the transposition table
-    if hasTTentry(ttable, board.hash)
-        tt_entry = getTTentry(ttable, board.hash)
+    tt_entry = get(ttable.table, board.hash, NO_ENTRY)
+    if tt_entry !== NO_ENTRY
         tt_eval = tt_entry.eval
         tt_value = ttvalue(tt_entry, ply)
         tt_move = tt_entry.move
@@ -312,7 +315,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             if (tt_entry.bound == BOUND_EXACT) ||
                 ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
-                return tt_value, tt_move
+                return tt_value
             end
         end
     end
@@ -344,7 +347,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
                 ((tt_entry.bound == BOUND_LOWER) && (eval >= β)) ||
                 ((tt_entry.bound == BOUND_UPPER) && (eval <= α))
                 setTTentry!(ttable, board.hash, tt_entry)
-                return eval, MOVE_NONE
+                return eval
             end
         end
     end
@@ -357,30 +360,27 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     #razoring
-    if (pvnode == false) && (ischeck(board) == false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
+    if (pvnode === false) && (ischeck(board) === false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
         q_eval = qsearch(thread, ttable, α, β, ply)
-        return q_eval, MOVE_NONE
+        return q_eval
     end
 
     # beta pruning
-    if (pvnode == false) && (ischeck(board) == false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
-        return eval, MOVE_NONE
+    if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
+        return eval
     end
 
     # null move pruning
-    if (depth >= 2) && (eval >= β) && !pvnode && !ischeck(board) && !isempty(pawns(board)) && (lstmove !== NULL_MOVE)
+    if (depth >= 2) && (eval >= β) && !pvnode && (ischeck(board) === false) && !isempty(pawns(board)) && (lstmove !== NULL_MOVE)
         reduction = fld(depth, 4) + 3 + min(fld(best - β, 100), 3)
         u = apply_null!(board)
-        cand_eval, cand_move = absearch(thread, ttable, -β + 1, -β, depth - reduction, ply + 1, NULL_MOVE)
-        cand_eval = -cand_eval
+        cand_eval = -absearch(thread, ttable, -β + 1, -β, depth - reduction, ply + 1, NULL_MOVE)
         undo_null!(board, u)
         if (cand_eval >= β)
-            return β, MOVE_NONE
+            return β
         end
     end
 
-
-    moveorder = thread.moveorders[ply + 1]
     best_move = MOVE_NONE
 
     futility_margin = FUTILITY_MARGIN * depth
@@ -390,9 +390,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
     played = 0
     num_quiets = 0
-
+    quiets_tried = thread.moveorders[ply + 1].quietstack
+    @inbounds moveorder = thread.moveorders[ply + 1]
+    setmargin!(moveorder, 0)
     while true
-        move = selectmove!(moveorder, board, tt_move, skipquiets)
+        move = selectmove!(thread, tt_move, ply, skipquiets)
 
         if move == MOVE_NONE
             break
@@ -403,10 +405,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         if isquiet
             num_quiets += 1
         end
-
-        # if skipquiets && isquiet
-        #     continue
-        # end
 
         if isquiet && (best > -MATE + MAX_PLY)
             # quiet move futility pruning
@@ -429,6 +427,9 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         u = apply_move!(board, move)
         played += 1
+        if isquiet
+            push!(quiets_tried, move)
+        end
 
         # late move reductions
         if isquiet && (depth > 2) && (played > 1)
@@ -436,7 +437,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             if !pvnode
                 reduction += 1
             end
-            if ischeck(board) && (type(board[from(move)]) == KING)
+            if ischeck(board) && (type(board[from(move)]) === KING)
                 reduction += 1
             end
             reduction = min(depth - 1, max(reduction, 1))
@@ -445,7 +446,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         # do we need an extension?
-        if ischeck(board) && (isroot == false)
+        if ischeck(board) && (isroot === false)
             newdepth = depth + 1
         else
             newdepth = depth
@@ -453,16 +454,13 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # perform search, taking into account LMR
         if reduction !== 1
-            cand_eval, cand_pv = absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1, move)
-            cand_eval = -cand_eval
+            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1, move)
         end
         if ((reduction !== 1) && (cand_eval > α)) || (reduction == 1 && !(pvnode && played == 1))
-            cand_eval, cand_pv = absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1, move)
-            cand_eval = -cand_eval
+            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1, move)
         end
         if (pvnode && (played == 1 || cand_eval > α))
-            cand_eval, cand_pv = absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1, move)
-            cand_eval = -cand_eval
+            cand_eval = -absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1, move)
         end
 
         # revert move and count nodes
@@ -474,11 +472,9 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             best_move = move
             if cand_eval > α
                 α = cand_eval
-                clear!(pv[ply + 1])
-                push!(pv[ply + 1], best_move)
-                for tmp_pv_move in pv[ply + 2]
-                    push!(pv[ply + 1], tmp_pv_move)
-                end
+                clear!(pv_current)
+                push!(pv_current, best_move)
+                updatepv!(pv_current, pv_future)
 
                 # fail high?
                 if α >= β
@@ -497,6 +493,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             best = 0
         end
     end
+
+    if (best >= β) && !istactical(board, best_move) && (best_move !== MOVE_NONE)
+        updatehistory!(thread, quiets_tried, ply, depth^2)
+    end
+
     clear!(moveorder)
 
     if isroot == false
@@ -505,7 +506,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         setTTentry!(ttable, board.hash, tt_entry)
     end
 
-    return best, best_move
+    return best
 end
 
 
@@ -528,16 +529,20 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     occ = occupied(board)
     occ ⊻= (Bitboard(from_sqr) | Bitboard(to_sqr))
 
-    if move_flag == __ENPASS
+    if move_flag === __ENPASS
         occ ⊻= Bitboard(board.enpass)
     end
 
     attackers = (pawns(board) & pawnAttacks(!board.turn, to_sqr) & friendly(board)) |
     (pawns(board) & pawnAttacks(board.turn, to_sqr) & enemy(board)) |
     (knightMoves(to_sqr) & knights(board)) |
-    (bishopMoves(to_sqr, occ) & bishoplike(board)) |
-    (rookMoves(to_sqr, occ) & rooklike(board)) |
     (kingMoves(to_sqr) & kings(board))
+    if !isempty(bishoplike(board))
+        attackers |= (bishopMoves(to_sqr, occ) & bishoplike(board))
+    end
+    if !isempty(rooklike(board))
+        attackers |= (rookMoves(to_sqr, occ) & rooklike(board))
+    end
 
     attackers &= occ
 
@@ -550,22 +555,22 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     balance = -threshold
 
     if to_piece !== BLANK
-        balance += PVALS[type(to_piece).val]
+        @inbounds balance += PVALS[type(to_piece).val]
     end
 
     if move_flag >= 5
-        balance += PVALS[type(victim).val] - PVALS[1]
+        @inbounds balance += PVALS[type(victim).val] - PVALS[1]
     end
 
-    if move_flag == __ENPASS
-        balance += PVALS[1]
+    if move_flag === __ENPASS
+        @inbounds balance += PVALS[1]
     end
 
     if balance < 0
         return false
     end
 
-    balance -= PVALS[type(victim).val]
+    @inbounds balance -= PVALS[type(victim).val]
 
     if balance >= 0
         return true
@@ -592,12 +597,12 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         occ ⊻= Bitboard(poplsb(our_attackers & board[victim])[1])
 
         # check for diag moves
-        if (victim == PAWN || victim == BISHOP || victim == QUEEN)
+        if (victim === PAWN || victim === BISHOP || victim === QUEEN)
             attackers |= bishopMoves(to_sqr, occ) & bishoplike(board)
         end
 
         # check for rank/file moves
-        if (victim == ROOK || victim == QUEEN)
+        if (victim === ROOK || victim === QUEEN)
             attackers |= rookMoves(to_sqr, occ) & rooklike(board)
         end
 
@@ -607,7 +612,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         color = !color
 
         if balance >= 0
-            if (victim == KING) && (isempty(attackers & board[!color]) == false)
+            if (victim === KING) && (isempty(attackers & board[!color]) === false)
                 color = !color
             end
 
@@ -616,7 +621,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
 
     end
     # if it's your turn, you lost the SEE loop
-    if board.turn == color
+    if board.turn === color
         return false
     else
         return true
@@ -633,15 +638,22 @@ function optimistic_move_estimator(board::Board)
     for i in 5:-1:2
         piecetype = PieceType(i)
         if isempty(board[board.turn] & board[piecetype]) == false
-            value = PVALS[i]
+            @inbounds value = PVALS[i]
             break
         end
     end
 
     # promo checks
     if isempty(board[PAWN] & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2)) == false
-        value += PVALS[5] - PVALS[1]
+        @inbounds value += PVALS[5] - PVALS[1]
     end
 
     return value
+end
+
+
+function updatepv!(pv_current::MoveStack, pv_future::MoveStack)
+    for tmp_pv_move in pv_future
+        push!(pv_current, tmp_pv_move)
+    end
 end

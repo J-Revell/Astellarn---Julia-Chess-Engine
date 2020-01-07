@@ -6,11 +6,16 @@ Find all the enemy units that attack a given square, `sqr`.
 function squareAttackers(board::Board, sqr::Integer)
     occ = occupied(board)
 
-    ((pawns(board) & pawnAttacks(board.turn, sqr)) |
-    (knightMoves(sqr) & knights(board)) |
-    (bishopMoves(sqr, occ) & bishoplike(board)) |
-    (rookMoves(sqr, occ) & rooklike(board)) |
-    (kingMoves(sqr) & kings(board))) & enemy(board)
+    attackers = (pawns(board) & pawnAttacks(board.turn, sqr)) |
+        (knightMoves(sqr) & knights(board)) |
+        (kingMoves(sqr) & kings(board))
+    if !isempty(bishoplike(board))
+        attackers |= (bishopMoves(sqr, occ) & bishoplike(board))
+    end
+    if !isempty(rooklike(board))
+        attackers |= (rookMoves(sqr, occ) & rooklike(board))
+    end
+    attackers &= enemy(board)
 end
 squareAttackers(board::Board, bb::Bitboard) = squareAttackers(board, square(bb))
 
@@ -19,11 +24,15 @@ function squaresquareAttackers_through_king(board::Board, sqr::Integer)
     occ = occupied(board)
     occ &= ~(kings(board) & friendly(board))
 
-    ((pawns(board) & pawnAttacks(board.turn, sqr)) |
-    (knightMoves(sqr) & knights(board)) |
-    (bishopMoves(sqr, occ) & bishoplike(board)) |
-    (rookMoves(sqr, occ) & rooklike(board)) |
-    (kingMoves(sqr) & kings(board))) & enemy(board)
+    attackers = (pawns(board) & pawnAttacks(board.turn, sqr)) |
+        (knightMoves(sqr) & knights(board))
+    if !isempty(bishoplike(board))
+        attackers |= (bishopMoves(sqr, occ) & bishoplike(board))
+    end
+    if !isempty(rooklike(board))
+        attackers |= (rookMoves(sqr, occ) & rooklike(board))
+    end
+    attackers &= enemy(board)
 end
 
 
@@ -68,10 +77,15 @@ function kingAttackers(board::Board, sqr::Integer)
     enemies = enemy(board)
     occ = occupied(board)
 
-    ((pawns(board) & pawnAttacks(board.turn, sqr)) |
-    (knightMoves(sqr) & knights(board)) |
-    (bishopMoves(sqr, occ) & bishoplike(board)) |
-    (rookMoves(sqr, occ) & rooklike(board))) & enemies
+    attackers = (pawns(board) & pawnAttacks(board.turn, sqr)) |
+        (knightMoves(sqr) & knights(board))
+    if !isempty(bishoplike(board))
+        attackers |= (bishopMoves(sqr, occ) & bishoplike(board))
+    end
+    if !isempty(rooklike(board))
+        attackers |= (rookMoves(sqr, occ) & rooklike(board))
+    end
+    attackers &= enemy(board)
 end
 kingAttackers(board::Board, bb::Bitboard) = kingAttackers(board, square(bb))
 kingAttackers(board::Board) = kingAttackers(board, square(kings(board) & friendly(board)))
@@ -82,10 +96,10 @@ function initBlockerMasks(blockermasks::Array{Bitboard, 2})
     for sqr1 in 1:64
         for sqr2 in 1:64
             if isempty(rookMoves(sqr1, EMPTY) & sqr2) == false
-                blockermasks[sqr1, sqr2] = rookMoves(sqr1, Bitboard(sqr2)) & rookMoves(sqr2, Bitboard(sqr1))
+                @inbounds blockermasks[sqr1, sqr2] = rookMoves(sqr1, Bitboard(sqr2)) & rookMoves(sqr2, Bitboard(sqr1))
             end
             if isempty(bishopMoves(sqr1, EMPTY) & sqr2) == false
-                blockermasks[sqr1, sqr2] = bishopMoves(sqr1, Bitboard(sqr2)) & bishopMoves(sqr2, Bitboard(sqr1))
+                @inbounds blockermasks[sqr1, sqr2] = bishopMoves(sqr1, Bitboard(sqr2)) & bishopMoves(sqr2, Bitboard(sqr1))
             end
         end
     end
@@ -118,7 +132,7 @@ function findpins(board::Board)
     pinned = EMPTY
     for sqr in sliders
         blocking = blockers(sqr, king) & occ
-        if isone(blocking) && (isempty(blocking & friendly(board)) == false)
+        if isone(blocking) && (isempty(blocking & friendly(board)) === false)
             pinned |= blocking
         end
     end

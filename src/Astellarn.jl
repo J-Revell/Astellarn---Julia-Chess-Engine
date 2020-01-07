@@ -42,9 +42,9 @@ module Astellarn
     include("syzygy.jl")
     include("transposition.jl")
 
-    include("moveorder.jl")
-
     include("thread.jl")
+    include("moveorder.jl")
+    include("history.jl")
     include("search.jl")
 
     include("engine.jl")

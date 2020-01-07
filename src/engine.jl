@@ -48,7 +48,9 @@ function engine!(board::Board; ab_depth::Int = 3)
     thread.ss.seldepth = 0
     thread.ss.tbhits = 0
     ttable = TT_Table()
-    eval, move, nodes = find_best_move(thread, ttable, ab_depth)
+    eval = find_best_move(thread, ttable, ab_depth)
+    move = thread.pv[1][1]
+    nodes = thread.ss.nodes
     if move == Move()
         if ischeck(board)
             if board.turn == WHITE
