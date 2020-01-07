@@ -75,7 +75,7 @@ const QUEEN_EVAL_TABLE = @SVector [
     -20,-10,-10, -5, -5,-10,-10,-20
     ]
 
-const PVALS = @SVector [100, 300, 320, 500, 950, 2500]
+const PVALS = @SVector [100, 300, 320, 520, 950, 2500]
 
 const TEMPO_BONUS = 22
 
@@ -85,17 +85,91 @@ const PAWN_SHIELD_BONUS = 10
 const DOUBLE_PAWN_PENALTY = 8
 const ISOLATED_PAWN_PENALTY = 12
 const ISOLATED_SEMIOPEN_PENALTY = 4
+const PAWN_DEFEND_PAWN_BONUS = 10
+const PAWN_DEFEND_MINOR_BONUS = 8
+const PAWN_DEFEND_MAJOR_BONUS = 5
+const PAWN_ATTACK_MINOR_BONUS = 25
+const PAWN_ATTACK_MAJOR_BONUS = 40
 
 const KNIGHT_RAMMED_BONUS = 2
 
+struct MinorPieceTrap
+    pawnmask::Bitboard
+    minormask::Bitboard
+end
+
+function init_bishop_traps()
+    # Trap 1
+    # White bishop trapped on A7 or B8 by pawns on B6 and C7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["b6"]) | Bitboard(LABEL_TO_SQUARE["c7"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["a7"]) | Bitboard(LABEL_TO_SQUARE["b8"])
+    trap_1 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 2
+    # White bishop trapped on h7 or G8, by pawns on g6 and f7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["g6"]) | Bitboard(LABEL_TO_SQUARE["f7"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["h7"]) | Bitboard(LABEL_TO_SQUARE["g8"])
+    trap_2 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 3
+    # White bishop trapped on a8, c8, A6, B7, by pawns on B5, c6, d7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["b5"]) | Bitboard(LABEL_TO_SQUARE["c6"]) | Bitboard(LABEL_TO_SQUARE["d7"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["a8"]) | Bitboard(LABEL_TO_SQUARE["c8"]) | Bitboard(LABEL_TO_SQUARE["a6"]) | Bitboard(LABEL_TO_SQUARE["b7"])
+    trap_3 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 4
+    # White bishop trapped on h8, f8, H6, g7, by pawns on g5, F6, E7
+    pawnmask = Bitboard(LABEL_TO_SQUARE["g5"]) | Bitboard(LABEL_TO_SQUARE["f6"]) | Bitboard(LABEL_TO_SQUARE["e7"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["h8"]) | Bitboard(LABEL_TO_SQUARE["f8"]) | Bitboard(LABEL_TO_SQUARE["h6"]) | Bitboard(LABEL_TO_SQUARE["g7"])
+    trap_4 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 5
+    # Black bishop trapped on A2 or B1 by pawns on B3 and C2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["b3"]) | Bitboard(LABEL_TO_SQUARE["c2"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["a2"]) | Bitboard(LABEL_TO_SQUARE["b1"])
+    trap_5 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 6
+    # White bishop trapped on H2 or g1, by pawns on g3 and F2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["g3"]) | Bitboard(LABEL_TO_SQUARE["f2"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["h2"]) | Bitboard(LABEL_TO_SQUARE["g1"])
+    trap_6 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 7
+    # White bishop trapped on a1, C1, A3, B2, by pawns on B4, C3, D2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["b4"]) | Bitboard(LABEL_TO_SQUARE["c3"]) | Bitboard(LABEL_TO_SQUARE["d2"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["a1"]) | Bitboard(LABEL_TO_SQUARE["c1"]) | Bitboard(LABEL_TO_SQUARE["a3"]) | Bitboard(LABEL_TO_SQUARE["b2"])
+    trap_7 = MinorPieceTrap(pawnmask, bishopmask)
+
+    # Trap 8
+    # White bishop trapped on H1, F1, H3, g2, by pawns on g4, F3, E2
+    pawnmask = Bitboard(LABEL_TO_SQUARE["g4"]) | Bitboard(LABEL_TO_SQUARE["f3"]) | Bitboard(LABEL_TO_SQUARE["e2"])
+    bishopmask = Bitboard(LABEL_TO_SQUARE["h1"]) | Bitboard(LABEL_TO_SQUARE["f1"]) | Bitboard(LABEL_TO_SQUARE["h3"]) | Bitboard(LABEL_TO_SQUARE["g2"])
+    trap_8 = MinorPieceTrap(pawnmask, bishopmask)
+
+    white_trapped = @SVector [trap_1, trap_2, trap_3, trap_4]
+    black_trapped = @SVector [trap_5, trap_6, trap_7, trap_8]
+    bishop_trap_patterns= @SVector [white_trapped, black_trapped]
+end
+
+const BISHOP_TRAP_PATTERNS = init_bishop_traps()
+const BISHOP_TRAP_PENALTY = 120
 const BISHOP_COLOR_PENALTY = 4
 const BISHOP_RAMMED_COLOR_PENALTY = 5
 const BISHOP_PAIR_BONUS = 10
 
 const CASTLE_OPTION_BONUS = 8
+const KING_PAWN_SHIELD_BONUS = 12
 
+
+"""
+    EvalAux
+
+EvalAux is an auxilliary data structure for storing useful computations for the evaluation of the board.
+"""
 struct EvalAux
     rammedpawns::Vector{Bitboard}
+    pawnattacks::Vector{Bitboard}
 end
 
 
@@ -104,7 +178,13 @@ function initEvalAux(board::Board)
     rammedpawns = Vector{Bitboard}(undef, 2)
     rammedpawns[1] = pawnAdvance(board[BLACKPAWN], board[WHITEPAWN], BLACK)
     rammedpawns[2] = pawnAdvance(board[WHITEPAWN], board[BLACKPAWN], WHITE)
-    EvalAux(rammedpawns)
+
+    # generate list of all positions attacked by a pawn
+    pawnattacks = Vector{Bitboard}(undef, 2)
+    pawnattacks[1] = pawnCapturesWhite(board[WHITEPAWN], FULL)
+    pawnattacks[2] = pawnCapturesBlack(board[BLACKPAWN], FULL)
+
+    EvalAux(rammedpawns, pawnattacks)
 end
 
 
@@ -116,11 +196,11 @@ Naive evaluation function to get the code development going.
 function evaluate(board::Board)
     evalaux = initEvalAux(board::Board)
     eval = 0
-    eval += evaluate_pawns(board)
+    eval += evaluate_pawns(board, evalaux)
     eval += evaluate_knights(board, evalaux)
     eval += evaluate_bishops(board, evalaux)
-    eval += evaluate_rooks(board)
-    eval += evaluate_queens(board)
+    eval += evaluate_rooks(board, evalaux)
+    eval += evaluate_queens(board, evalaux)
     eval += evaluate_kings(board)
 
     eval += evaluate_pins(board)
@@ -136,7 +216,7 @@ function evaluate(board::Board)
 end
 
 
-function evaluate_pawns(board::Board)
+function evaluate_pawns(board::Board, evalaux::EvalAux)
     w_pawns = board[WHITEPAWN]
     b_pawns = board[BLACKPAWN]
     pval = PVALS[1]
@@ -208,7 +288,8 @@ function evaluate_pawns(board::Board)
             end
         end
     end
-
+    position_eval += count(evalaux.pawnattacks[1] & w_pawns) * PAWN_DEFEND_PAWN_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & b_pawns) * PAWN_DEFEND_PAWN_BONUS
 
     eval = material_eval + position_eval
 end
@@ -229,11 +310,15 @@ function evaluate_knights(board::Board, evalaux::EvalAux)
         @inbounds position_eval += KNIGHT_EVAL_TABLE[knight]
     end
     position_eval += count((w_knights << 8) & board[WHITEPAWN]) * PAWN_SHIELD_BONUS
+    position_eval += count(evalaux.pawnattacks[1] & w_knights) * PAWN_DEFEND_MINOR_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & w_knights) * PAWN_ATTACK_MINOR_BONUS
 
     for knight in b_knights
         @inbounds position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
     end
     position_eval -= count((b_knights >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & b_knights) * PAWN_DEFEND_MINOR_BONUS
+    position_eval += count(evalaux.pawnattacks[1] & b_knights) * PAWN_ATTACK_MINOR_BONUS
 
     # bonus for knights in rammed positions
     num_rammed = count(evalaux.rammedpawns[1])
@@ -259,11 +344,26 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
         @inbounds position_eval += BISHOP_EVAL_TABLE[bishop]
     end
     position_eval += count((w_bishops << 8) & board[WHITEPAWN]) * PAWN_SHIELD_BONUS
+    position_eval += count(evalaux.pawnattacks[1] & w_bishops) * PAWN_DEFEND_MINOR_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & w_bishops) * PAWN_ATTACK_MINOR_BONUS
 
     for bishop in b_bishops
         @inbounds position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
     end
     position_eval -= count((b_bishops >> 8) & board[BLACKPAWN]) * PAWN_SHIELD_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & b_bishops) * PAWN_DEFEND_MINOR_BONUS
+    position_eval += count(evalaux.pawnattacks[1] & b_bishops) * PAWN_ATTACK_MINOR_BONUS
+
+    for trap in BISHOP_TRAP_PATTERNS[1]
+        if ((board[BLACKPAWN] & trap.pawnmask) == trap.pawnmask) && !isempty(board[WHITEBISHOP] & trap.minormask)
+            position_eval -= BISHOP_TRAP_PENALTY
+        end
+    end
+    for trap in BISHOP_TRAP_PATTERNS[2]
+        if ((board[WHITEPAWN] & trap.pawnmask) == trap.pawnmask) && !isempty(board[BLACKBISHOP] & trap.minormask)
+            position_eval += BISHOP_TRAP_PENALTY
+        end
+    end
 
     # bishop pair
     if count(w_bishops) >= 2
@@ -295,7 +395,7 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
 end
 
 
-function evaluate_rooks(board::Board)
+function evaluate_rooks(board::Board, evalaux::EvalAux)
     w_rooks = board[WHITEROOK]
     b_rooks = board[BLACKROOK]
     pval = PVALS[4]
@@ -320,11 +420,16 @@ function evaluate_rooks(board::Board)
         end
     end
 
+    position_eval += count(evalaux.pawnattacks[1] & w_rooks) * PAWN_DEFEND_MAJOR_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & w_rooks) * PAWN_ATTACK_MAJOR_BONUS
+    position_eval -= count(evalaux.pawnattacks[2] & b_rooks) * PAWN_DEFEND_MAJOR_BONUS
+    position_eval += count(evalaux.pawnattacks[1] & b_rooks) * PAWN_ATTACK_MAJOR_BONUS
+
     eval = material_eval + position_eval
 end
 
 
-function evaluate_queens(board::Board)
+function evaluate_queens(board::Board, evalaux::EvalAux)
     w_queens = board[WHITEQUEEN]
     b_queens = board[BLACKQUEEN]
     pval = PVALS[5]
@@ -343,6 +448,9 @@ function evaluate_queens(board::Board)
         @inbounds position_eval -= QUEEN_EVAL_TABLE[65 - queen]
     end
 
+    position_eval -= count(evalaux.pawnattacks[2] & w_queens) * 2PAWN_ATTACK_MAJOR_BONUS
+    position_eval += count(evalaux.pawnattacks[1] & b_queens) * 2PAWN_ATTACK_MAJOR_BONUS
+
     eval = material_eval + position_eval
 end
 
@@ -360,6 +468,7 @@ function evaluate_kings(board::Board)
 
     material_eval = 0
     position_eval = 0
+    king_safety = 0
 
     if cancastlekingside(board, WHITE)
         position_eval += CASTLE_OPTION_BONUS
@@ -377,7 +486,37 @@ function evaluate_kings(board::Board)
     @inbounds position_eval += ktable[square(w_king)]
     @inbounds position_eval -= ktable[65 - square(b_king)]
 
-    eval = material_eval + position_eval
+    # Increase king safety if attacking pieces are non existent
+    if isempty(board[BLACKQUEEN])
+        king_safety += 15
+    end
+    if isempty(board[WHITEQUEEN])
+        king_safety -= 15
+    end
+    if isempty(board[BLACKROOK])
+        king_safety += 9
+    end
+    if isempty(board[WHITEROOK])
+        king_safety -= 9
+    end
+    if isempty(board[BLACKBISHOP])
+        king_safety += 6
+    end
+    if isempty(board[WHITEBISHOP])
+        king_safety -= 6
+    end
+    if isempty(board[BLACKKNIGHT])
+        king_safety += 5
+    end
+    if isempty(board[WHITEKNIGHT])
+        king_safety -= 5
+    end
+
+    # Increase king safety for each pawn surrounding him
+    king_safety += count(kingMoves(square(w_king)) & board[WHITEPAWN]) * KING_PAWN_SHIELD_BONUS
+    king_safety -= count(kingMoves(square(b_king)) & board[BLACKPAWN]) * KING_PAWN_SHIELD_BONUS
+
+    eval = material_eval + position_eval + king_safety
 end
 
 

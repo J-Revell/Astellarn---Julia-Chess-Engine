@@ -88,7 +88,7 @@ function MVVLVA!(moveorder::MoveOrder, board::Board)
 end
 
 
-function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
+function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move, skipquiets::Bool)::Move
     if moveorder.stage == STAGE_INIT
         gen_noisy_moves!(moveorder.movestack, board)
         moveorder.noisy_size = moveorder.movestack.idx
@@ -124,15 +124,15 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
     # pick noisy moves
     if moveorder.stage == STAGE_GOOD_NOISY
         if moveorder.noisy_size > 0
-            idx = idx_bestmove(moveorder, 1, moveorder.movestack.idx)
+            idx = idx_bestmove(moveorder, 1, moveorder.noisy_size)
             if moveorder.values[idx] >= 0
                 if static_exchange_evaluator(board, moveorder.movestack[idx], moveorder.margin) == false
                     moveorder.values[idx] = -1
-                    return selectmove!(moveorder, board, tt_move)
+                    return selectmove!(moveorder, board, tt_move, skipquiets)
                 end
                 move = popmove!(moveorder, idx)
                 if move == tt_move
-                    return selectmove!(moveorder, board, tt_move)
+                    return selectmove!(moveorder, board, tt_move, skipquiets)
                 else
                     return move
                 end
@@ -144,13 +144,17 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
         end
     end
 
+    if skipquiets
+        moveorder.stage = STAGE_BAD_NOISY
+    end
+
     # pick quiet moves
     if moveorder.stage == STAGE_QUIET
         if moveorder.quiet_size > 0
             idx = idx_bestmove(moveorder, moveorder.noisy_size + 1, moveorder.movestack.idx)
             move = popmove!(moveorder, idx)
             if move == tt_move
-                return selectmove!(moveorder, board, tt_move)
+                return selectmove!(moveorder, board, tt_move, skipquiets)
             else
                 return move
             end
@@ -164,7 +168,7 @@ function selectmove!(moveorder::MoveOrder, board::Board, tt_move::Move)::Move
         if (moveorder.noisy_size > 0) && (moveorder.type !== NOISY_TYPE)
             move = popmove!(moveorder, 1)
             if move == tt_move
-                return selectmove!(moveorder, board, tt_move)
+                return selectmove!(moveorder, board, tt_move, skipquiets)
             else
                 return move
             end

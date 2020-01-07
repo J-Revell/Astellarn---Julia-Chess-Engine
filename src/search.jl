@@ -1,4 +1,4 @@
-const MAX_PLY = 15
+const MAX_PLY = 18
 
 const Q_FUTILITY_MARGIN = 100
 
@@ -12,13 +12,17 @@ const SEE_PRUNE_DEPTH = 8
 const SEE_QUIET_MARGIN = -80
 const SEE_NOISY_MARGIN = -20
 
-const FUTILITY_PRUNE_DEPTH = 5
+const FUTILITY_PRUNE_DEPTH = 8
 const FUTILITY_MARGIN = 85
-const FUTILITY_MARGIN_NOHIST = 250
+const FUTILITY_MARGIN_NOHIST = 300
 
-const WINDOW_DEPTH = 6
+const WINDOW_DEPTH = 5
 
 const MATE = 32000
+
+# For late move count, we can add another vector for when eval is improving. At the moment it is static.
+const LATE_MOVE_COUNT = @SVector [0, 3, 5, 9, 15, 23, 32, 42, 55, 69, 84, 101, 120]
+const LATE_MOVE_PRUNE_DEPTH = 13
 
 
 function init_reduction_table()
@@ -87,7 +91,7 @@ function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::I
     α = -MATE
     eval = -MATE
     β = MATE
-    δ = 25
+    δ = 20
     move = MOVE_NONE
     board = thread.board
     if depth >= WINDOW_DEPTH
@@ -199,7 +203,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
 
     # iterate through moves
     while true
-        move = selectmove!(moveorder, board, tt_move)
+        move = selectmove!(moveorder, board, tt_move, false)
         if move == MOVE_NONE
             break
         end
@@ -263,7 +267,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # enter quiescence search
-    if iszero(depth) #&& !ischeck(board)
+    if iszero(depth) && !ischeck(board)
         q_eval = qsearch(thread, ttable, α, β, ply)
         return q_eval, MOVE_NONE
     end
@@ -385,27 +389,39 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     skipquiets = false
 
     played = 0
+    num_quiets = 0
 
     while true
-        move = selectmove!(moveorder, board, tt_move)
+        move = selectmove!(moveorder, board, tt_move, skipquiets)
 
         if move == MOVE_NONE
             break
         end
 
         isquiet = !istactical(board, move)
-        if skipquiets && isquiet
-            continue
+
+        if isquiet
+            num_quiets += 1
         end
+
+        # if skipquiets && isquiet
+        #     continue
+        # end
 
         if isquiet && (best > -MATE + MAX_PLY)
             # quiet move futility pruning
             if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin + FUTILITY_MARGIN_NOHIST <= α)
                 skipquiets = true
             end
+
+            # Late move pruning.
+            if (depth <= LATE_MOVE_PRUNE_DEPTH) && (num_quiets >= LATE_MOVE_COUNT[depth + 1])
+                skipquiets = true
+            end
         end
 
-        # discard bad SEE moves
+        # Prune moves which fail the static exchange evaluator.
+        # Only ran if our best evaluation is not a mating line.
         if (static_exchange_evaluator(board, move, isquiet ? see_quiet_margin : see_noisy_margin) == false) &&
             (depth <= SEE_PRUNE_DEPTH) && (best > -MATE + MAX_PLY) && (moveorder.stage > STAGE_GOOD_NOISY)
             continue
