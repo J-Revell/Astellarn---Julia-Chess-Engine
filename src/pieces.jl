@@ -8,6 +8,32 @@ struct PieceType
 end
 
 
+mutable struct PieceStack <: AbstractArray{PieceType, 1}
+    list::Vector{PieceType}
+    idx::Int
+end
+
+
+# Allows a preallocation for PieceStack
+PieceStack(size::Int) = PieceStack(Vector{PieceType}(undef, size), 0)
+
+
+# define useful array methods for PieceStack
+Base.iterate(m::PieceStack, state = 1) = (state > m.idx) ? nothing : (m.list[state], state + 1)
+Base.length(m::PieceStack) = m.idx
+Base.eltype(::Type{PieceStack}) = PieceType
+Base.size(m::PieceStack) = (m.idx, )
+Base.IndexStyle(::Type{<:PieceStack}) = IndexLinear()
+Base.getindex(m::PieceStack, idx::Int) = m.list[idx]
+
+
+# add moves to the PieceStack
+function push!(m::PieceStack, piece::PieceType)
+    m.idx += 1
+    @inbounds m.list[m.idx] = piece
+end
+
+
 """
     Piece
 

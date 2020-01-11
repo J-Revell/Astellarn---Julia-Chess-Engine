@@ -146,6 +146,28 @@ function iterate(bb::Bitboard, state::Bitboard = bb)
 end
 
 
+# Useful for rotating bits.
+function rotate180(x::Bitboard)
+    h1 = 0x5555555555555555
+    h2 = 0x3333333333333333
+    h4 = 0x0F0F0F0F0F0F0F0F
+    v1 = 0x00FF00FF00FF00FF
+    v2 = 0x0000FFFF0000FFFF
+    x = ((x >>  1) & h1) | ((x & h1) <<  1)
+    x = ((x >>  2) & h2) | ((x & h2) <<  2)
+    x = ((x >>  4) & h4) | ((x & h4) <<  4)
+    x = ((x >>  8) & v1) | ((x & v1) <<  8)
+    x = ((x >> 16) & v2) | ((x & v2) << 16)
+    x = ( x >> 32)       | ( x       << 32)
+end
+
+
+# Flip vertically (bit swap)
+function bswap(bb::Bitboard)
+    Bitboard(bswap(bb.val))
+end
+
+
 """
     FILE_A
 

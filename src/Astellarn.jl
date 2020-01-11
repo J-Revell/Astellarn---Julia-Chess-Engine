@@ -1,11 +1,11 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.7"
+    const ASTELLARN_VERSION = "v0.1.8"
 
     using Crayons
     using StaticArrays
     using Printf
 
-    import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.!
+    import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.!, Base.bswap
     import Base.isempty, Base.isone
     import Base.getindex, Base.setindex!, Base.push!
     import Base.iterate, Base.length, Base.eltype, Base.size, Base.IndexStyle
@@ -20,6 +20,9 @@ module Astellarn
     include("zobrist.jl")
 
     include("board.jl")
+
+    include("types.jl")
+
     include("fen.jl")
 
     include("pawns.jl")

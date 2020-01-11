@@ -94,7 +94,9 @@ function uci_newgame!(threads::ThreadPool, ttable::TT_Table)
     board = importfen(START_FEN)
     setthreadpoolboard!(threads, board)
     ttable.table = Dict{UInt64, TT_Entry}()
-    threads[1].history = MArray{Tuple{2},Array{Array{Int32,1},1},1,2}([[zeros(Int32, 64) for i in 1:64] for j in 1:2])
+    threads[1].history = ButterflyHistTable([[zeros(Int32, 64) for i in 1:64] for j in 1:2])
+    threads[1].counterhistory = CounterHistTable([[[zeros(Int32, 64) for j in 1:6] for k in 1:64] for l in 1:6])
+    threads[1].followhistory = CounterHistTable([[[zeros(Int32, 64) for j in 1:6] for k in 1:64] for l in 1:6])
     return
 end
 
@@ -114,7 +116,7 @@ end
 
 
 function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubString{String}})
-    ab_depth = 3 #temporary default value
+    ab_depth = 6 #temporary default value
 
     # extract depth
     for i in eachindex(splitlines)
@@ -124,6 +126,7 @@ function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vecto
         end
     end
 
+    # following section is a hack, while multithreadding is not supported.
     threads[1].ss.time_start = time()
     threads[1].ss.nodes = 0
     threads[1].ss.depth = 0
@@ -138,7 +141,7 @@ function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vecto
     nps = nodes/elapsed
 
     ucistring = movetostring(move)
-    @printf(io, "info depth %d seldepth %d nodes %d nps %d score cp %d pv ", ab_depth, threads[1].ss.seldepth, nodes, nps, eval)
+    @printf(io, "info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", ab_depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval)
     print(io, join(movetostring.(threads[1].pv[1]), " "))
     print(io, "\n")
     print(io, "bestmove ", ucistring, "\n")
@@ -173,7 +176,6 @@ function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}
             end
         end
     end
-
     setthreadpoolboard!(threads, board)
     return
 end
@@ -186,19 +188,20 @@ function uci_setoptions(io::IO, threads::ThreadPool, splitlines::Vector{SubStrin
         println(io, "info string set Threads to ", num_threads)
     end
 
-    if splitlines[3] == "SyzgyPath"
+    if splitlines[3] == "SyzygyPath"
         tb_init(splitlines[5])
-        println(io, "info string set SyzgyPath to ", splitlines[5])
+        println(io, "info string set SyzygyPath to ", splitlines[5])
     end
     return
 end
 
 
+# This function is called when the thread (or search) wishes to output stats mid-execution.
 function uci_report(thread::Thread, α::Int, β::Int, value::Int)
     score = max(α, min(β, value))
     elapsed = time() - thread.ss.time_start
     nps = thread.ss.nodes / elapsed
-    @printf("info depth %d seldepth %d nodes %d nps %d score cp %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, score)
+    @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, thread.ss.tbhits, score)
     print(join(movetostring.(thread.pv[1]), " "))
     print("\n")
     return

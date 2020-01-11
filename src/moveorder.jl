@@ -12,6 +12,7 @@ const NOISY_TYPE = UInt8(2)
 
 const MVVLVA_VALS = @SVector Int32[100, 400, 425, 650, 1200, 0]
 
+MoveOrder() = MoveOrder(NORMAL_TYPE, STAGE_TABLE, MoveStack(150),  MoveStack(150), zeros(Int32, 150), 0, 0, 0)
 
 function setmargin!(moveorder::MoveOrder, margin::Int)
     moveorder.margin = margin
@@ -91,7 +92,7 @@ function selectmove!(thread::Thread, tt_move::Move, ply::Int, skipquiets::Bool):
         gen_quiet_moves!(moveorder.movestack, board)
         moveorder.quiet_size = moveorder.movestack.idx - moveorder.noisy_size
         moveorder.stage = STAGE_INIT_NOISY
-        if (tt_move !== MOVE_NONE) && (tt_move ∈ moveorder.movestack)
+        if (moveorder.type !== NOISY_TYPE) && (tt_move !== MOVE_NONE) && (tt_move ∈ moveorder.movestack)
             return tt_move
         end
     end

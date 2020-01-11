@@ -33,17 +33,6 @@ const CASTLING_RIGHT = @SVector [~0x01, ~0x00, ~0x00, ~0x05, ~0x00, ~0x00, ~0x00
                                 ~0x02, ~0x00, ~0x00, ~0x0a, ~0x00, ~0x00, ~0x00, ~0x08]
 
 
-
-# FLAG | mov to | m from
-# 0000 | 000000 | 000000
-"""
-    Move
-
-`DataType` used to store the information encoding a move.
-"""
-struct Move
-    val::UInt16
-end
 Move() = Move(zero(UInt16))
 
 const MOVE_NONE = Move()
@@ -109,17 +98,6 @@ function istactical(board::Board, move::Move)
 end
 
 
-"""
-    MoveStack
-
-`DataType` for storing lists of moves.
-"""
-mutable struct MoveStack <: AbstractArray{Move, 1}
-    list::Vector{Move}
-    idx::Int
-end
-
-
 # Allows a preallocation for MoveStack
 MoveStack(size::Int) = MoveStack(Vector{Move}(undef, size), 0)
 
@@ -142,34 +120,6 @@ end
 
 # pseudo-clear the MoveStack
 clear!(m::MoveStack) = m.idx = 0
-
-
-# Potential to make Undo into an immutable struct in future?
-"""
-    Undo
-
-`DataType` for storing the minimal amount of information to restore a `Board` object to its previous position.
-"""
-struct Undo
-    checkers::Bitboard
-    pinned::Bitboard
-    castling::UInt8
-    enpass::UInt8
-    captured::Piece
-    halfmovecount::UInt16
-    hash::UInt64
-end
-
-
-"""
-    UndoStack
-
-`DataType` for storing lists of `Undos`.
-"""
-mutable struct UndoStack <: AbstractArray{Undo, 1}
-    list::Vector{Undo}
-    idx::Int
-end
 
 
 # Allows a preallocation for MoveStack
@@ -234,6 +184,17 @@ function apply_move!(board::Board, move::Move)
     board.movecount += one(board.movecount)
     board.history[board.movecount] = board.hash
     return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_halfmovecount, undo_hash)
+end
+
+
+# This function is the same as above
+# ... but includes the option to update the thread movestack and piecestack for history heuristics.
+function apply_move!(thread::Thread, move::Move)
+    board = thread.board
+    push!(thread.movestack, move)
+    push!(thread.piecestack, type(board[from(move)]))
+    u = apply_move!(board, move)
+    return u
 end
 
 
@@ -424,6 +385,15 @@ function apply_promo!(board::Board, move::Move)
 end
 
 
+function undo_move!(thread::Thread, move::Move, undo::Undo)
+    board = thread.board
+    thread.movestack.idx -= 1
+    thread.piecestack.idx -= 1
+    undo_move!(board, move, undo)
+    return
+end
+
+
 function undo_move!(board::Board, move::Move, undo::Undo)
     board.checkers = undo.checkers
     board.pinned = undo.pinned
@@ -546,7 +516,10 @@ end
 
 
 # "pass" the go, and let out opponent have another move.
-function apply_null!(board::Board)
+function apply_null!(thread::Thread)
+    board = thread.board
+    push!(thread.movestack, NULL_MOVE)
+    push!(thread.piecestack, VOID)
     undo_checkers = board.checkers
     undo_pinned = board.pinned
     undo_castling = board.castling
@@ -570,7 +543,10 @@ function apply_null!(board::Board)
 end
 
 
-function undo_null!(board::Board, undo::Undo)
+function undo_null!(thread::Thread, undo::Undo)
+    board = thread.board
+    thread.movestack.idx -= 1
+    thread.piecestack.idx -= 1
     board.checkers = undo.checkers
     board.pinned = undo.pinned
     board.enpass = undo.enpass

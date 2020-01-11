@@ -63,7 +63,7 @@ function TB_GET_DTZ(res::UInt32)
 end
 
 
-function tb_init(syzygypath::String)::Bool
+function tb_init(syzygypath::S)::Bool where S <: Union{String, SubString}
     return ccall((:tb_init, FATHOM_PATH), UInt8, (Ptr{UInt8},), syzygypath)
 end
 
@@ -103,4 +103,4 @@ function tb_probe_root(board::Board)::UInt32
 end
 
 
-tb_init(SYZYGY_PATH)
+#tb_init(SYZYGY_PATH)

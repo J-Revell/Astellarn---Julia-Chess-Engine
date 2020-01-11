@@ -104,10 +104,10 @@ end
 
 # initiate the attacks table for rook and bishop pieces
 function initSlidingTable(table::Vector{Vector{Bitboard}}, magics::SArray{Tuple{64}, Magic, 1, 64}, directions::SArray{Tuple{4},Function,1,4})
-	for sqr in 1:64
+	@inbounds for sqr in 1:64
 		occupied = EMPTY
 		table[sqr] = Vector{Bitboard}(undef, 2^count(magics[sqr].mask))
-		@inbounds for i in 1:(1 << count(magics[sqr].mask))
+		for i in 1:(1 << count(magics[sqr].mask))
 			idx = subindex(occupied, magics[sqr])
 			table[sqr][idx] = slidermoves(Bitboard(sqr), occupied, directions)
 			occupied = Bitboard(occupied.val - magics[sqr].mask.val) & magics[sqr].mask

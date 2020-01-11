@@ -1,4 +1,4 @@
-const MAX_PLY = 22
+const MAX_PLY = 25
 
 const Q_FUTILITY_MARGIN = 100
 
@@ -61,13 +61,24 @@ function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::In
             move_to = TB_GET_TO(res)
             promotion = TB_GET_PROMOTES(res)
             if promotion !== TB_PROMOTES_NONE
-                (promotion == TB_PROMOTES_QUEEN) && (return eval, Move(move_from, move_to, __QUEEN_PROMO), 1)
-                (promotion == TB_PROMOTES_ROOK) && (return eval, Move(move_from, move_to, __ROOK_PROMO), 1)
-                (promotion == TB_PROMOTES_BISHOP) && (return eval, Move(move_from, move_to, __BISHOP_PROMO), 1)
-                (promotion == TB_PROMOTES_KNIGHT) && (return eval, Move(move_from, move_to, __KNIGHT_PROMO), 1)
+                thread.ss.tbhits += 1
+                if promotion == TB_PROMOTES_QUEEN
+                    push!(thread.pv[1], Move(move_from, move_to, __QUEEN_PROMO))
+                    return eval
+                elseif promotion == TB_PROMOTES_ROOK
+                    push!(thread.pv[1], Move(move_from, move_to, __ROOK_PROMO))
+                    return eval
+                elseif promotion == TB_PROMOTES_BISHOP
+                    push!(thread.pv[1], Move(move_from, move_to, __BISHOP_PROMO))
+                    return eval
+                elseif promotion == TB_PROMOTES_KNIGHT
+                    push!(thread.pv[1], Move(move_from, move_to, __KNIGHT_PROMO))
+                    return eval
+                end
             else
                 clear!(thread.pv[1])
                 push!(thread.pv[1], Move(move_from, move_to, __NORMAL_MOVE))
+                thread.ss.tbhits += 1
                 return eval
             end
         end
@@ -79,9 +90,7 @@ end
 
 
 function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)::Int
-    eval = 0
-    move = MOVE_NONE
-    nodes = 0
+    eval = -MATE
     for depth in 1:max_depth
         eval = aspiration_window(thread, ttable, depth, eval)
     end
@@ -90,22 +99,20 @@ end
 
 
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
-    α = -MATE
-    eval = -MATE
-    β = MATE
     δ = 20
-    move = MOVE_NONE
-    board = thread.board
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
         β = min(MATE, eval + δ)
     end
+    return aspiration_window_internal(thread, ttable, depth, eval, -MATE, MATE, δ)
+end
 
+function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int, eval::Int, α::Int, β::Int, δ::Int)::Int
     while true
-        eval = absearch(thread, ttable, α, β, depth, 0, move)
+        eval = absearch(thread, ttable, α, β, depth, 0)
 
         # reporting
-        updatestats!(thread.ss, depth, thread.ss.nodes, 0)
+        thread.ss.depth = depth
 
         # window cond met
         if α < eval < β
@@ -212,9 +219,9 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         if move == MOVE_NONE
             break
         end
-        u = apply_move!(board, move)
+        u = apply_move!(thread, move)
         eval = -qsearch(thread, ttable, -β, -α, ply + 1)
-        undo_move!(board, move, u)
+        undo_move!(thread, move, u)
 
         # check for improvements
         if eval > best
@@ -244,7 +251,7 @@ end
 
 Internals of `absearch()` routine.
 """
-function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, lstmove::Move)::Int
+function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)::Int
     board = thread.board
     @inbounds pv_current = thread.pv[ply + 1]
     @inbounds pv_future = thread.pv[ply + 2]
@@ -321,9 +328,10 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # probe the syzygy tablebase
-    if (count(occupied(board)) <= 5)
+    if (count(occupied(board)) <= 5) && !isroot
         _eval = tb_probe_wdl(board)
         if _eval !== TB_RESULT_FAILED
+            thread.ss.tbhits += 1
 
             # is the tablebase losing
             if iszero(_eval)
@@ -371,11 +379,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # null move pruning
-    if (depth >= 2) && (eval >= β) && !pvnode && (ischeck(board) === false) && !isempty(pawns(board)) && (lstmove !== NULL_MOVE)
+    if (depth >= 2) && (eval >= β) && !pvnode && (ischeck(board) === false) && !isempty(pawns(board)) && (ply > 0 ? (thread.movestack[ply] !== NULL_MOVE) : true)  && (ply > 1 ? (thread.movestack[ply - 1] !== NULL_MOVE) : true)
         reduction = fld(depth, 4) + 3 + min(fld(best - β, 100), 3)
-        u = apply_null!(board)
-        cand_eval = -absearch(thread, ttable, -β + 1, -β, depth - reduction, ply + 1, NULL_MOVE)
-        undo_null!(board, u)
+        u = apply_null!(thread)
+        cand_eval = -absearch(thread, ttable, -β + 1, -β, depth - reduction, ply + 1)
+        undo_null!(thread, u)
         if (cand_eval >= β)
             return β
         end
@@ -385,7 +393,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
     futility_margin = FUTILITY_MARGIN * depth
     see_quiet_margin = SEE_QUIET_MARGIN * depth
-    see_noisy_margin = SEE_NOISY_MARGIN * depth * depth
+    see_noisy_margin = SEE_NOISY_MARGIN * depth^2
     skipquiets = false
 
     played = 0
@@ -425,7 +433,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             continue
         end
 
-        u = apply_move!(board, move)
+        u = apply_move!(thread, move)
         played += 1
         if isquiet
             push!(quiets_tried, move)
@@ -454,17 +462,17 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # perform search, taking into account LMR
         if reduction !== 1
-            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1, move)
+            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1)
         end
         if ((reduction !== 1) && (cand_eval > α)) || (reduction == 1 && !(pvnode && played == 1))
-            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1, move)
+            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1)
         end
         if (pvnode && (played == 1 || cand_eval > α))
-            cand_eval = -absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1, move)
+            cand_eval = -absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1)
         end
 
         # revert move and count nodes
-        undo_move!(board, move, u)
+        undo_move!(thread, move, u)
 
         # improvement?
         if cand_eval > best
