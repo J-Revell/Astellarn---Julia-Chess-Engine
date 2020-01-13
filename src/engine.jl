@@ -1,3 +1,5 @@
+# These are entirely functions relating to the REPL capability of Astellarn.
+
 """
     monkey!(board)
 

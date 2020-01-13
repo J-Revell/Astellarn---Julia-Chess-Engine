@@ -1,16 +1,19 @@
 const STAGE_TABLE = UInt8(0)
 const STAGE_INIT_NOISY = UInt8(1)
 const STAGE_GOOD_NOISY = UInt8(2)
-const STAGE_INIT_QUIET = UInt8(3)
-const STAGE_QUIET = UInt8(4)
-const STAGE_BAD_NOISY = UInt8(5)
-const STAGE_DONE = UInt8(6)
+const STAGE_KILLER_1 = UInt8(3)
+const STAGE_KILLER_2 = UInt8(4)
+const STAGE_COUNTER = UInt8(5)
+const STAGE_INIT_QUIET = UInt8(6)
+const STAGE_QUIET = UInt8(7)
+const STAGE_BAD_NOISY = UInt8(8)
+const STAGE_DONE = UInt8(9)
 
 
 const NORMAL_TYPE = UInt8(1)
 const NOISY_TYPE = UInt8(2)
 
-const MVVLVA_VALS = @SVector Int32[100, 400, 425, 650, 1200, 0]
+const MVVLVA_VALS = @SVector Int32[100, 450, 450, 675, 1300, 5000]
 
 MoveOrder() = MoveOrder(NORMAL_TYPE, STAGE_TABLE, MoveStack(150),  MoveStack(150), zeros(Int32, 150), 0, 0, 0)
 
@@ -83,6 +86,30 @@ function selectmove!(thread::Thread, tt_move::Move, ply::Int, skipquiets::Bool):
     moveorder = thread.moveorders[ply + 1]
     board = thread.board
 
+    # Get the counter move, if existing.
+    if moveorder.type !== NOISY_TYPE
+        if ply > 0
+            previous_move = thread.movestack[ply]
+            previous_piece = thread.piecestack[ply]
+        else
+            previous_move = MOVE_NONE
+            previous_piece = VOID
+        end
+        previous_to = to(previous_move)
+        if (previous_move === MOVE_NONE || previous_move === NULL_MOVE)
+            counter = MOVE_NONE
+        else
+            counter = thread.cmtable[(!board.turn).val][previous_piece.val][previous_to]
+        end
+        killer1 = thread.killers[ply + 1][1]
+        killer2 = thread.killers[ply + 1][2]
+    else
+        counter = MOVE_NONE
+        killer1 = MOVE_NONE
+        killer2 = MOVE_NONE
+    end
+
+
     # First pick the transposition table move.
     # However, due to collisions and current TT implementation it may not always be legal.
     # Therefore verify legality, by *first* generating possible moves, and checking it exists.
@@ -110,27 +137,61 @@ function selectmove!(thread::Thread, tt_move::Move, ply::Int, skipquiets::Bool):
         if moveorder.noisy_size > 0
             idx = idx_bestmove(moveorder, 1, moveorder.noisy_size)
             if moveorder.values[idx] >= 0
-                if static_exchange_evaluator(board, moveorder.movestack[idx], moveorder.margin) == false
+                if !ischeck(board) && (static_exchange_evaluator(board, moveorder.movestack[idx], moveorder.margin) == false)
                     moveorder.values[idx] = -1
                     return selectmove!(thread, tt_move, ply, skipquiets)
                 end
                 move = popmove!(moveorder, idx)
-                if move == tt_move
+                if (moveorder.type !== NOISY_TYPE) && (move == tt_move)
                     return selectmove!(thread, tt_move, ply, skipquiets)
                 else
+                    # Avoid playing killer or counter moves twice.
+                    (move == killer1) && (killer1 = MOVE_NONE)
+                    (move == killer2) && (killer2 = MOVE_NONE)
+                    (move == counter) && (counter = MOVE_NONE)
                     return move
                 end
             else
-                moveorder.stage = STAGE_INIT_QUIET
+                moveorder.stage = STAGE_KILLER_1
             end
         else
-            moveorder.stage = STAGE_INIT_QUIET
+            moveorder.stage = STAGE_KILLER_1
         end
     end
 
     # If skipquiets flag is set, now is the time to skip a few stages.
-    if skipquiets
+    if skipquiets || (moveorder.type === NOISY_TYPE)
         moveorder.stage = STAGE_BAD_NOISY
+    end
+
+    # First killer move stage.
+    if moveorder.stage === STAGE_KILLER_1
+        if (killer1 !== tt_move) && (killer1 ∈ moveorder.movestack)
+            moveorder.stage = STAGE_KILLER_2
+            return killer1
+        else
+            moveorder.stage = STAGE_KILLER_2
+        end
+    end
+
+    # Second killer move stage.
+    if moveorder.stage === STAGE_KILLER_2
+        if (killer2 !== tt_move) && (killer2 ∈ moveorder.movestack)
+            moveorder.stage = STAGE_COUNTER
+            return killer2
+        else
+            moveorder.stage = STAGE_COUNTER
+        end
+    end
+
+    # Counter moves stage.
+    if moveorder.stage === STAGE_COUNTER
+        if (counter !== tt_move) && (counter !== killer1) && (counter !== killer2) && (counter ∈ moveorder.movestack)
+            moveorder.stage = STAGE_INIT_QUIET
+            return counter
+        else
+            moveorder.stage = STAGE_INIT_QUIET
+        end
     end
 
     # Score all quiet moves.
@@ -146,7 +207,7 @@ function selectmove!(thread::Thread, tt_move::Move, ply::Int, skipquiets::Bool):
         if moveorder.quiet_size > 0
             idx = idx_bestmove(moveorder, moveorder.noisy_size + 1, moveorder.movestack.idx)
             move = popmove!(moveorder, idx)
-            if move == tt_move
+            if (move == tt_move) || ((move == killer1) ||  (move == killer1) || (move == counter))
                 return selectmove!(thread, tt_move, ply, skipquiets)
             else
                 return move
@@ -160,7 +221,7 @@ function selectmove!(thread::Thread, tt_move::Move, ply::Int, skipquiets::Bool):
     if moveorder.stage === STAGE_BAD_NOISY
         if (moveorder.noisy_size > 0) && (moveorder.type !== NOISY_TYPE)
             move = popmove!(moveorder, 1)
-            if move == tt_move
+            if (move == tt_move) || (!skipquiets && ((move == killer1) ||  (move == killer2) || (move == counter)))
                 return selectmove!(thread, tt_move, ply, skipquiets)
             else
                 return move

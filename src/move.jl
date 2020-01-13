@@ -109,6 +109,7 @@ Base.eltype(::Type{MoveStack}) = Move
 Base.size(m::MoveStack) = (m.idx, )
 Base.IndexStyle(::Type{<:MoveStack}) = IndexLinear()
 Base.getindex(m::MoveStack, idx::Int) = m.list[idx]
+Base.setindex!(m::MoveStack, val::Move, idx::Int) = @inbounds m.list[idx] = val
 
 
 # add moves to the MoveStack
@@ -527,15 +528,17 @@ function apply_null!(thread::Thread)
     undo_halfmovecount = board.halfmovecount
     undo_hash = board.hash
 
+    # If the position had an enpassant square, set the key as needed, and turn off the enpass square flag.
     if board.enpass !== zero(UInt8)
         board.hash ⊻= zobepkey(board.enpass)
+        board.enpass = zero(UInt8)
     end
 
     # Finishing calculations, for the next turn
     board.hash ⊻= zobturnkey()
     switchturn!(board)
 
-    board.checkers = kingAttackers(board)
+    #board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
     board.history[board.movecount] = board.hash

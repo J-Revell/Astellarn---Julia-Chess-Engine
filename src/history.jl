@@ -41,17 +41,26 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
     # Below, the decision to split the cases up into 4 functions is so that the compiler can allow for SIMD optimisations.
     if (counter !== MOVE_NONE) && (counter !== NULL_MOVE) && (follow !== MOVE_NONE) && (follow !== NULL_MOVE)
         updatehistory_internal_countfollow!(thread, quietstried, bonus, best_move, colour, counter, cm_piece, cm_to, follow, fm_piece, fm_to)
-        return
     elseif (counter !== MOVE_NONE) && (counter !== NULL_MOVE)
         updatehistory_internal_count!(thread, quietstried, bonus, best_move, colour, counter, cm_piece, cm_to)
-        return
     elseif (follow !== MOVE_NONE) && (follow !== NULL_MOVE)
         updatehistory_internal_follow!(thread, quietstried, bonus, best_move, colour, follow, fm_piece, fm_to)
-        return
     else
         updatehistory_internal!(thread, quietstried, bonus, best_move, colour)
-        return
     end
+
+    # Set the killer moves.
+    killerstack = thread.killers[ply + 1]
+    if killerstack !== best_move
+        killerstack[2] = killerstack[1]
+        killerstack[1] = best_move
+    end
+
+    # Set the counter move.
+    if (counter !== MOVE_NONE) && (counter !== NULL_MOVE)
+        thread.cmtable[(!thread.board.turn).val][cm_piece.val][cm_to] = best_move
+    end
+
     return
 end
 
@@ -147,11 +156,11 @@ end
 
 
 """
-    gethistoryscores!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int, ply::Int)
+    gethistoryscores!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int, ply::Int)
 
 A function to extract the scores of quiet moves using the history heuristics. `idx_start` and `idx_end` determing the starting and ending indexes of the quiet moves in `moves`.
 """
-function gethistoryscores!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int, ply::Int)::Nothing
+function gethistoryscores!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int, ply::Int)::Nothing
     board = thread.board
 
     # extract one move ago
@@ -194,7 +203,7 @@ end
 
 
 # Internals for the case where we have no counter or follow up move.
-function gethistoryscores_internal_history!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int)::Nothing
+function gethistoryscores_internal_history!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int)::Nothing
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
         sqr_to = to(moves[i])
@@ -207,7 +216,7 @@ end
 
 
 # Internals for the case where we have a counter move.
-function gethistoryscores_internal_histcount!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int,
+function gethistoryscores_internal_histcount!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
     counter::Move, cm_piece::PieceType, cm_to::Integer)::Nothing
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
@@ -223,7 +232,7 @@ end
 
 
 # Internals for the case where we have a counter and a follow up move.
-function gethistoryscores_internal_histcountfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int,
+function gethistoryscores_internal_histcountfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
     counter::Move, cm_piece::PieceType, cm_to::Integer, follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
@@ -240,7 +249,7 @@ end
 
 
 # Internals for the case where we have a follow up move.
-function gethistoryscores_internal_histfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int,
+function gethistoryscores_internal_histfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
     follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
@@ -252,4 +261,51 @@ function gethistoryscores_internal_histfollow!(thread::Thread, moves::MoveStack,
         scores[i] += thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
     end
     return
+end
+
+
+function gethistory(thread::Thread, move::Move, ply::Int)
+    board = thread.board
+
+    sqr_to = to(move)
+    sqr_from = from(move)
+    move_piece = type(thread.board[sqr_from])
+
+    # extract one move ago
+    if ply > 0
+        @inbounds counter = thread.movestack[ply]
+        @inbounds cm_piece = thread.piecestack[ply]
+        cm_to = to(counter)
+    else
+        counter = MOVE_NONE
+        cm_piece = VOID
+        cm_to = zero(UInt16)
+    end
+
+    # extract move from two moves ago
+    if ply > 1
+        @inbounds follow = thread.movestack[ply - 1]
+        @inbounds fm_piece = thread.piecestack[ply - 1]
+        fm_to = to(follow)
+    else
+        follow = MOVE_NONE
+        fm_piece = VOID
+        fm_to = zero(UInt16)
+    end
+
+    hist = thread.history[thread.board.turn.val][sqr_from][sqr_to]
+
+    if (counter == MOVE_NONE || counter == NULL_MOVE)
+        cmhist = 0
+    else
+        cmhist = thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
+    end
+
+    if (follow == MOVE_NONE || follow == NULL_MOVE)
+        fmhist = 0
+    else
+        fmhist = thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
+    end
+
+    hist, cmhist, fmhist
 end

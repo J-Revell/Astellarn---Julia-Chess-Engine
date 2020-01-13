@@ -1,28 +1,35 @@
-const MAX_PLY = 25
+const MAX_PLY = 40
 
 const Q_FUTILITY_MARGIN = 100
 
 const RAZOR_DEPTH = 1
-const RAZOR_MARGIN = 330
+const RAZOR_MARGIN = 400
 
 const BETA_PRUNE_DEPTH = 8
 const BETA_PRUNE_MARGIN = 85
 
 const SEE_PRUNE_DEPTH = 8
-const SEE_QUIET_MARGIN = -80
+const SEE_QUIET_MARGIN = -190
 const SEE_NOISY_MARGIN = -20
 
 const FUTILITY_PRUNE_DEPTH = 8
-const FUTILITY_MARGIN = 85
+const FUTILITY_MARGIN = 185
 const FUTILITY_MARGIN_NOHIST = 300
+const FUTILITY_LIMIT = @SVector [12000, 6000]
+
+const COUNTER_PRUNE_DEPTH = @SVector [3, 2]
+const COUNTER_PRUNE_LIMIT = @SVector [0, -1000]
+
+const FOLLOW_PRUNE_DEPTH = @SVector [3, 2]
+const FOLLOW_PRUNE_LIMIT = @SVector [-2000, -4000]
 
 const WINDOW_DEPTH = 5
 
 const MATE = 32000
 
 # For late move count, we can add another vector for when eval is improving. At the moment it is static.
-const LATE_MOVE_COUNT = @SVector [0, 3, 5, 9, 15, 23, 32, 42, 55, 69, 84, 101, 120]
-const LATE_MOVE_PRUNE_DEPTH = 13
+const LATE_MOVE_COUNT = @SVector [SVector{13}([0, 2, 4,  7, 11, 16, 22, 29, 37, 46,  56,  67,  79]), SVector{13}([0, 4, 7, 12, 20, 30, 42, 56, 73, 92, 113, 136, 161])]
+const LATE_MOVE_PRUNE_DEPTH = 12
 
 
 function init_reduction_table()
@@ -43,12 +50,13 @@ const LMRTABLE = init_reduction_table()
 
 Probe the tablebase if appropriate, or perform the absearch routine.
 """
-function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::Int
+function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int)::Int
     board = thread.board
     # probe the tablebase
     if (count(occupied(board)) <= 5)
         res = tb_probe_root(board)
         if res !== TB_RESULT_FAILED
+            thread.ss.tbhits += 1
             _eval = TB_GET_WDL(res)
             if iszero(_eval)
                 eval = -MATE
@@ -61,7 +69,6 @@ function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::In
             move_to = TB_GET_TO(res)
             promotion = TB_GET_PROMOTES(res)
             if promotion !== TB_PROMOTES_NONE
-                thread.ss.tbhits += 1
                 if promotion == TB_PROMOTES_QUEEN
                     push!(thread.pv[1], Move(move_from, move_to, __QUEEN_PROMO))
                     return eval
@@ -78,7 +85,6 @@ function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int = 5)::In
             else
                 clear!(thread.pv[1])
                 push!(thread.pv[1], Move(move_from, move_to, __NORMAL_MOVE))
-                thread.ss.tbhits += 1
                 return eval
             end
         end
@@ -99,7 +105,7 @@ end
 
 
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
-    δ = 20
+    δ = 25
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
         β = min(MATE, eval + δ)
@@ -140,16 +146,14 @@ end
 """
     qsearch()
 
-Quiescence search function. Under development.
+Quiescence search function.
 """
 function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::Int
     board = thread.board
     pv = thread.pv
 
     # ensure pv is clear
-    @inbounds pv_current = thread.pv[ply + 1]
-    @inbounds pv_future = thread.pv[ply + 2]
-    clear!(pv_current)
+    clear!(thread.pv[ply + 1])
 
     # default val
     tt_eval = -MATE
@@ -203,7 +207,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         return eval
     end
 
-    @inbounds moveorder = thread.moveorders[ply + 1]
+    moveorder = thread.moveorders[ply + 1]
 
     if ischeck(board)
         # we need evasions
@@ -213,13 +217,21 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         setmargin!(moveorder, max(1, margin))
     end
 
-    # iterate through moves
+    best = qsearch_internal(thread, ttable, α, β, ply, tt_move, best)
+    clear!(moveorder)
+    return best
+end
+
+
+function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, tt_move::Move, best::Int)::Int
     while true
-        move = selectmove!(thread, tt_move, ply, true)
+        move = selectmove!(thread, tt_move, ply, thread.moveorders[ply + 1].type == NOISY_TYPE ? true : false)
         if move == MOVE_NONE
             break
         end
+
         u = apply_move!(thread, move)
+
         eval = -qsearch(thread, ttable, -β, -α, ply + 1)
         undo_move!(thread, move, u)
 
@@ -228,20 +240,18 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
             best = eval
             if eval > α
                 α = best
-                clear!(pv_current)
-                push!(pv_current, move)
-                updatepv!(pv_current, pv_future)
+                clear!(thread.pv[ply + 1])
+                push!(thread.pv[ply + 1], move)
+                updatepv!(thread.pv[ply + 1], thread.pv[ply + 2])
             end
         end
 
         # fail high?
         if α >= β
-            clear!(moveorder)
+            clear!(thread.moveorders[ply + 1])
             return best
         end
-
     end
-    clear!(moveorder)
     return best
 end
 
@@ -253,18 +263,23 @@ Internals of `absearch()` routine.
 """
 function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)::Int
     board = thread.board
-    @inbounds pv_current = thread.pv[ply + 1]
-    @inbounds pv_future = thread.pv[ply + 2]
-    # init vales
+    pv_current = thread.pv[ply + 1]
+    pv_future = thread.pv[ply + 2]
+
+    # Set initial history stats to zero.
+    hist = cmhist = fmhist = 0
+
+    # Initial α value for later computation.
     init_α = α
     clear!(pv_current)
-    # is this the root node?
+
+    # Is this the root node?
     isroot = iszero(ply)
 
-    # is this a pvnode
+    # Is this a pvnode?
     pvnode = β !== α + 1
 
-    # default best val
+    # Best evaluation defaults to -MATE.
     best = -MATE
 
     # default tt_eval, tt_move
@@ -277,7 +292,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # enter quiescence search
-    if iszero(depth) && !ischeck(board)
+    if iszero(depth) #&& !ischeck(board)
         q_eval = qsearch(thread, ttable, α, β, ply)
         return q_eval
     end
@@ -286,17 +301,21 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     thread.ss.seldepth = max(thread.ss.seldepth, ply)
     thread.ss.nodes += 1
 
-    # early exit conditions
+    # If this is not the root node, we can check for early exit conditions.
     if isroot == false
+
+        # Draw checking.
         if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
             return 0
         end
+
+        # Max search depth check.
         if ply >= MAX_PLY
             eval = evaluate(board)
             return eval
         end
 
-        # mate pruning
+        # Check for mating evaluations, and prune for the best mate.
         if α > -MATE + ply
             mate_α = α
         else
@@ -312,7 +331,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
     end
 
-    # probe the transposition table
+    # Probe the transposition table.
     tt_entry = get(ttable.table, board.hash, NO_ENTRY)
     if tt_entry !== NO_ENTRY
         tt_eval = tt_entry.eval
@@ -327,23 +346,24 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
     end
 
-    # probe the syzygy tablebase
+    # If we have less than 5 pieces, we are in the realms of the Syzygy tablebase.
+    # Attempt to probe.
     if (count(occupied(board)) <= 5) && !isroot
         _eval = tb_probe_wdl(board)
         if _eval !== TB_RESULT_FAILED
             thread.ss.tbhits += 1
 
-            # is the tablebase losing
+            # Is the tablebase score losing?
             if iszero(_eval)
                 eval = -MATE + MAX_PLY + ply + 1
                 tt_bound = BOUND_UPPER
 
-            # is the tablebase a draw, blessed / cursed loss and wins are draws
+            # Is the tablebase a draw? Blessed / cursed loss and wins are draws
             elseif 1 <= _eval <= 3
                 eval = 0
                 tt_bound = BOUND_EXACT
 
-            # the tablebase is a win
+            # Else, the tablebase is a win.
             else
                 eval = MATE - MAX_PLY - ply - 1
                 tt_bound = BOUND_LOWER
@@ -360,29 +380,45 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
     end
 
-    # set the eval
+    # Set a static evaluation.
     if tt_eval !== -MATE
-        eval = tt_eval
+        eval = thread.evalstack[ply + 1] = tt_eval
     else
-        eval = evaluate(board)
+        eval = thread.evalstack[ply + 1] = evaluate(board)
     end
 
-    #razoring
+    # Reset killer moves for the upcoming ply.
+    thread.killers[ply + 2][1] = MOVE_NONE
+    thread.killers[ply + 2][0] = MOVE_NONE
+
+    # Razoring.
     if (pvnode === false) && (ischeck(board) === false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
         q_eval = qsearch(thread, ttable, α, β, ply)
         return q_eval
     end
 
-    # beta pruning
+    # Beta pruning.
     if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
         return eval
     end
 
-    # null move pruning
-    if (depth >= 2) && (eval >= β) && !pvnode && (ischeck(board) === false) && !isempty(pawns(board)) && (ply > 0 ? (thread.movestack[ply] !== NULL_MOVE) : true)  && (ply > 1 ? (thread.movestack[ply - 1] !== NULL_MOVE) : true)
-        reduction = fld(depth, 4) + 3 + min(fld(best - β, 100), 3)
+    # Null move pruning.
+    # Check we are greater than depth 2, eval > β.
+    # Not done in a pvnode.
+    # Not done when in check.
+    # Check we have non-pawn material left on the board.
+    # Do not do more than 2 b2b null moves.
+    if (depth >= 2) && (eval >= β) && !pvnode && !ischeck(board) &&
+        !isempty(queens(board) | bishops(board) | knights(board) | rooks(board)) &&
+        (ply > 0 ? (thread.movestack[ply] !== NULL_MOVE) : true)  &&
+        (ply > 1 ? (thread.movestack[ply - 1] !== NULL_MOVE) : true) &&
+        ((tt_entry === NO_ENTRY) || (tt_eval >= β))
+
+        reduction = fld(depth, 5) + 3 + min(fld(eval - β, 150), 3)
+
         u = apply_null!(thread)
-        cand_eval = -absearch(thread, ttable, -β + 1, -β, depth - reduction, ply + 1)
+
+        cand_eval = -absearch(thread, ttable, -β, -β + 1, depth - reduction, ply + 1)
         undo_null!(thread, u)
         if (cand_eval >= β)
             return β
@@ -390,6 +426,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     best_move = MOVE_NONE
+
+    # Check to see if the evaluation history has improved over the last few plies.
+    # We can use this to modify some pruning heuristics later on.
+    improving = ((ply >= 2) && (thread.evalstack[ply + 1] > thread.evalstack[ply - 1])) ? 2 : 1
+
 
     futility_margin = FUTILITY_MARGIN * depth
     see_quiet_margin = SEE_QUIET_MARGIN * depth
@@ -399,7 +440,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     played = 0
     num_quiets = 0
     quiets_tried = thread.moveorders[ply + 1].quietstack
-    @inbounds moveorder = thread.moveorders[ply + 1]
+    moveorder = thread.moveorders[ply + 1]
     setmargin!(moveorder, 0)
     while true
         move = selectmove!(thread, tt_move, ply, skipquiets)
@@ -411,18 +452,35 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         isquiet = !istactical(board, move)
 
         if isquiet
+            hist, cmhist, fmhist = gethistory(thread, move, ply)
             num_quiets += 1
         end
 
         if isquiet && (best > -MATE + MAX_PLY)
+            # Futility pruning
+            if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin <= α) &&
+                (hist + cmhist + fmhist < FUTILITY_LIMIT[improving])
+                skipquiets = true
+            end
+
             # quiet move futility pruning
             if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin + FUTILITY_MARGIN_NOHIST <= α)
                 skipquiets = true
             end
 
             # Late move pruning.
-            if (depth <= LATE_MOVE_PRUNE_DEPTH) && (num_quiets >= LATE_MOVE_COUNT[depth + 1])
+            if (depth <= LATE_MOVE_PRUNE_DEPTH) && (num_quiets >= LATE_MOVE_COUNT[improving][depth + 1])
                 skipquiets = true
+            end
+
+            # Counter move pruning
+            if (depth <= COUNTER_PRUNE_DEPTH[improving]) && (cmhist < COUNTER_PRUNE_LIMIT[improving])
+                continue
+            end
+
+            # Follow up move pruning
+            if (depth <= FOLLOW_PRUNE_DEPTH[improving]) && (fmhist < FOLLOW_PRUNE_LIMIT[improving])
+                continue
             end
         end
 
@@ -439,15 +497,27 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             push!(quiets_tried, move)
         end
 
-        # late move reductions
+        # Late move reduction calculations.
+        # This allows later searches to probe to a lower depth under given scenarios.
         if isquiet && (depth > 2) && (played > 1)
-            reduction = @inbounds LMRTABLE[depth][min(played, 64)]
+            reduction = @inbounds LMRTABLE[min(depth, 64)][min(played, 64)]
             if !pvnode
                 reduction += 1
             end
+            # If we are not improving, increase the reduction depth.
+            if isone(improving)
+                reduction += 1
+            end
+            # Killer moves, and counter moves, are worth looking at more.
+            if moveorder.stage < STAGE_INIT_QUIET
+                reduction -= 1
+            end
+            # Alter if we are moving our king when in check.
             if ischeck(board) && (type(board[from(move)]) === KING)
                 reduction += 1
             end
+            # Adjust on the history
+            reduction -= max(-2, min(2, fld(hist + cmhist + fmhist, 5000)))
             reduction = min(depth - 1, max(reduction, 1))
         else
             reduction = 1
@@ -471,10 +541,10 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             cand_eval = -absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1)
         end
 
-        # revert move and count nodes
+        # Revert move.
         undo_move!(thread, move, u)
 
-        # improvement?
+        # Have we found a better move?
         if cand_eval > best
             best = cand_eval
             best_move = move
@@ -495,19 +565,22 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
     if iszero(played)
         if ischeck(board)
-            # add depth to give an indication of the "fastest" mate
+            # add ply to give an indication of the "fastest" mate
             best = -MATE + ply
         else
+            # Stalemate is a draw.
             best = 0
         end
     end
 
+    # Update the history heuristics.
     if (best >= β) && !istactical(board, best_move) && (best_move !== MOVE_NONE)
         updatehistory!(thread, quiets_tried, ply, depth^2)
     end
 
     clear!(moveorder)
 
+    # Update the transposition table.
     if isroot == false
         tt_bound = best >= β ? BOUND_LOWER : (best > init_α ? BOUND_EXACT : BOUND_UPPER)
         tt_entry = TT_Entry(eval, best_move, depth, tt_bound)
@@ -563,22 +636,22 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     balance = -threshold
 
     if to_piece !== BLANK
-        @inbounds balance += PVALS[type(to_piece).val]
+        @inbounds balance += PVALS_MG[type(to_piece).val]
     end
 
     if move_flag >= 5
-        @inbounds balance += PVALS[type(victim).val] - PVALS[1]
+        @inbounds balance += PVALS_MG[type(victim).val] - PVALS_MG[1]
     end
 
     if move_flag === __ENPASS
-        @inbounds balance += PVALS[1]
+        @inbounds balance += PVALS_MG[1]
     end
 
     if balance < 0
         return false
     end
 
-    @inbounds balance -= PVALS[type(victim).val]
+    @inbounds balance -= PVALS_MG[type(victim).val]
 
     if balance >= 0
         return true
@@ -616,7 +689,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
 
         attackers &= occ
 
-        balance = -balance - 1 - PVALS[victim.val]
+        balance = -balance - 1 - PVALS_MG[victim.val]
         color = !color
 
         if balance >= 0
@@ -640,20 +713,20 @@ end
 # delta pruning
 function optimistic_move_estimator(board::Board)
     # assume pawn at minimum
-    value = PVALS[1]
+    value = PVALS_MG[1]
 
     # find highest val targets
     for i in 5:-1:2
         piecetype = PieceType(i)
         if isempty(board[board.turn] & board[piecetype]) == false
-            @inbounds value = PVALS[i]
+            @inbounds value = PVALS_MG[i]
             break
         end
     end
 
     # promo checks
     if isempty(board[PAWN] & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2)) == false
-        @inbounds value += PVALS[5] - PVALS[1]
+        @inbounds value += PVALS_MG[5] - PVALS_MG[1]
     end
 
     return value

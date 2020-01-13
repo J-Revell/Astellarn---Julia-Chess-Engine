@@ -70,8 +70,10 @@ end
 # [j] => from
 # [k] => to
 # https://www.chessprogramming.org/index.php?title=Butterfly_Boards
-const ButterflyHistTable = MArray{Tuple{2},MArray{Tuple{64},MArray{Tuple{64},Int32,1,64},1,64},1,2}
-const CounterHistTable = MArray{Tuple{6},MArray{Tuple{64},MArray{Tuple{6},MArray{Tuple{64},Int32,1,64},1,6},1,64},1,6}
+const ButterflyHistTable = MArray{Tuple{2},MArray{Tuple{64},MArray{Tuple{64},Int,1,64},1,64},1,2}
+const CounterHistTable = MArray{Tuple{6},MArray{Tuple{64},MArray{Tuple{6},MArray{Tuple{64},Int,1,64},1,6},1,64},1,6}
+const CounterTable = MArray{Tuple{2},MArray{Tuple{6},MArray{Tuple{64},Move,1,64},1,6},1,2}
+
 
 """
     MoveOrder
@@ -83,7 +85,7 @@ mutable struct MoveOrder
     stage::UInt8
     movestack::MoveStack
     quietstack::MoveStack
-    values::Vector{Int32}
+    values::Vector{Int}
     margin::Int
     noisy_size::Int
     quiet_size::Int
@@ -102,7 +104,10 @@ mutable struct Thread
     moveorders::Vector{MoveOrder}
     movestack::MoveStack
     piecestack::PieceStack
+    evalstack::Vector{Int}
     history::ButterflyHistTable
     counterhistory::CounterHistTable
     followhistory::CounterHistTable
+    killers::Vector{MoveStack}
+    cmtable::CounterTable
 end

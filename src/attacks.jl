@@ -127,8 +127,18 @@ Retrieves all the pinned pieces on the board, as a `Bitboard`.
 function findpins(board::Board)
     king = square(kings(board) & friendly(board))
     occ = occupied(board)
-    sliders = (bishopMoves_empty(king) & bishoplike(board)) | (rookMoves_empty(king) & rooklike(board))
+
+    # Find all sliding pieces that xray through to the king.
+    sliders = EMPTY
+    if !isempty(bishoplike(board))
+        sliders |= (bishopMoves_empty(king) & bishoplike(board))
+    end
+    if !isempty(rooklike(board))
+        sliders |= (rookMoves_empty(king) & rooklike(board))
+    end
     sliders &= enemy(board)
+
+    # Find all times where there is only one blocker on the xray path.
     pinned = EMPTY
     for sqr in sliders
         blocking = blockers(sqr, king) & occ

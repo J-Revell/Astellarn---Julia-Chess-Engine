@@ -92,11 +92,9 @@ end
 
 function uci_newgame!(threads::ThreadPool, ttable::TT_Table)
     board = importfen(START_FEN)
+    threads[1] = Thread()
     setthreadpoolboard!(threads, board)
     ttable.table = Dict{UInt64, TT_Entry}()
-    threads[1].history = ButterflyHistTable([[zeros(Int32, 64) for i in 1:64] for j in 1:2])
-    threads[1].counterhistory = CounterHistTable([[[zeros(Int32, 64) for j in 1:6] for k in 1:64] for l in 1:6])
-    threads[1].followhistory = CounterHistTable([[[zeros(Int32, 64) for j in 1:6] for k in 1:64] for l in 1:6])
     return
 end
 
@@ -141,7 +139,7 @@ function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vecto
     nps = nodes/elapsed
 
     ucistring = movetostring(move)
-    @printf(io, "info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", ab_depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval)
+    @printf(io, "info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", threads[1].ss.depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval)
     print(io, join(movetostring.(threads[1].pv[1]), " "))
     print(io, "\n")
     print(io, "bestmove ", ucistring, "\n")

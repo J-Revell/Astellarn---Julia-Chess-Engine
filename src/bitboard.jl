@@ -39,12 +39,7 @@ end
 
 Returns the `Bitboard` representing the square given by an integer `sqr`.
 """
-# function Bitboard(sqr::Integer)
-#     #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
-#     Bitboard(one(UInt) << (sqr - one(eltype(sqr))))
-# end
 function Bitboard(sqr::Integer)
-    #@assert one(eltype(sqr)) <= sqr <= eltype(sqr)(64)
     Bitboard(one(UInt) << (sqr - one(sqr)))
 end
 
@@ -373,6 +368,11 @@ end
 file(bb::Bitboard) = file(square(bb))
 
 
+function fileof(sqr::Integer)
+    mod1(65 - sqr, 8)
+end
+
+
 """
     rank(bb::Bitboard)
     rank(sqr::Int)
@@ -384,6 +384,11 @@ function rank(sqr::Integer)
     @inbounds RANK[fld1(sqr, 8)]
 end
 rank(bb::Bitboard) = rank(square(bb))
+
+
+function rankof(sqr::Integer)
+    fld1(sqr, 8)
+end
 
 
 """

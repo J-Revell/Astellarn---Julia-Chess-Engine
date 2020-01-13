@@ -1,100 +1,41 @@
-const PAWN_EVAL_TABLE = @SVector [
-     0,  0,  0,  0,  0,  0,  0,  0,
-     5, 10, 10,-20,-20, 10, 10,  5,
-     5, -5,-10,  0,  0,-10, -5,  5,
-     0,  0,  0, 20, 20,  0,  0,  0,
-     5,  5, 10, 25, 25, 10,  5,  5,
-    10, 10, 20, 30, 30, 20, 10, 10,
-    50, 50, 50, 50, 50, 50, 50, 50,
-     0,  0,  0,  0,  0,  0,  0,  0
-     ]
+const FILE_TO_QSIDE_MAP = @SVector [1, 2, 3, 4, 4, 3, 2, 1]
 
-const KING_EVAL_TABLE_MG = @SVector [
-     20, 40, 10,  0,  0, 10, 40, 20,
-     20, 20,  0,  0,  0,  0, 20, 20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30
-    ]
 
-const KING_EVAL_TABLE_EG = @SVector [
-    -10, -10, -10, -10, -10, -10, -10, -10,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -10, 0, 15, 15, 15, 15, 0, -10,
-    -10, 0, 15, 30, 30, 15, 0, -10,
-    -10, 0, 15, 30, 30, 15, 0, -10,
-    -10, 0, 15, 15, 15, 15, 0, -10,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -10, -10, -10, -10, -10, -10, -10, -10
-]
+# Computes the game phase, to scale evaluation between midgame and endgame scoring matrices.
+function stage(board::Board)
+    stage = 24 - 4count(queens(board)) - 2count(rooks(board)) - count(knights(board) | bishops(board))
+    stage = fld(stage * 256 + 12, 24)
+end
 
-const BISHOP_EVAL_TABLE = @SVector [
-    -10, -5, 0, 0, 0, 0, -5, -10,
-    0, 5, 5, 5, 5, 5, 5, 0,
-    0, 5, 5, 10, 10, 5, 5, 0,
-    0, 5, 10, 10, 10, 10, 5, 0,
-    0, 5, 10, 10, 10, 10, 5, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    -10, -5, 0, 0, 0, 0, -5, -10
-    ]
 
-const ROOK_EVAL_TABLE = @SVector [
-    0,  0,  0,  5,  5,  0,  0,  0,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-     5, 10, 10, 10, 10, 10, 10,  5,
-     0,  0,  0,  0,  0,  0,  0,  0
-    ]
+# Accesses the piece square tables, applying any scaling according to the game phase.
+function psqt(pt::PieceType, sqr::Int)
+    file = FILE_TO_QSIDE_MAP[fileof(sqr)]
+    rank = rankof(sqr)
+    psqt_vec = PSQT[pt.val][rank][file]
+end
 
-const KNIGHT_EVAL_TABLE = @SVector [
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -20,  5, 10, 15, 15, 10,  5,-20,
-    -20,  0, 15, 20, 20, 15,  0,-20,
-    -20,  5, 15, 20, 20, 15,  5,-20,
-    -20,  0, 10, 15, 15, 10,  0,-20,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50
-    ]
 
-const QUEEN_EVAL_TABLE = @SVector [
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-      0,  0,  5,  5,  5,  5,  0, -5,
-     -5,  0,  5,  5,  5,  5,  0, -5,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
-    ]
-
-const PVALS_MG = @SVector [100, 420, 435, 630, 1200, 5000]
-const PVALS_EG = @SVector [120, 370, 390, 650, 1250, 5000]
-const PVALS = PVALS_MG
-
-const TEMPO_BONUS = 22
-
-const ROOK_OPEN_FILE_BONUS = 15
-const ROOK_SEMIOPEN_FILE_BONUS = 10
-const ROOK_KING_FILE_BONUS = 10
-const ROOK_MOBILITY = @SVector [-90, -45, -10, -5, 0, 0, 0, 5, 10, 15, 20, 24, 26, 30, 60]
-
-const PAWN_SHIELD_BONUS = 10
-const DOUBLE_PAWN_PENALTY = 8
-const ISOLATED_PAWN_PENALTY = 12
-const ISOLATED_SEMIOPEN_PENALTY = 4
-const PAWN_DEFEND_PAWN_BONUS = 10
-const PAWN_DEFEND_MINOR_BONUS = 8
-const PAWN_DEFEND_MAJOR_BONUS = 5
-const PAWN_ATTACK_MINOR_BONUS = 22
-const PAWN_ATTACK_MAJOR_BONUS = 38
+# Scale factor as seen in other engines such as Ethereal and Stockfish. Below modelled on Ethereal's approach.
+function scale_factor(board::Board, eval::Int)
+    if isone(board[WHITEBISHOP]) && isone(board[BLACKBISHOP]) && isone(bishops(board) & LIGHT)
+        if isempty(knights(board) | rooklike(board))
+            return SCALE_OCB_BISHOPS
+        end
+        if isempty(rooklike(board)) && isone(board[WHITEKNIGHT]) && isone(board[BLACKKNIGHT])
+            return SCALE_OCB_ONE_KNIGHT
+        end
+        if isempty(knights(board) | queens(board)) && isone(board[WHITEROOK]) && isone(board[BLACKROOK])
+            return SCALE_OCB_ONE_ROOK
+        end
+    end
+    if (eval > 0) && (count(board[WHITE]) == 2) && ismany(board[WHITEKNIGHT] | board[WHITEBISHOP])
+        return SCALE_DRAW
+    elseif (eval < 0) && (count(board[BLACK]) == 2) && ismany(board[BLACKKNIGHT] | board[BLACKBISHOP])
+        return SCALE_DRAW
+    end
+    return SCALE_NORMAL
+end
 
 
 struct MinorPieceTrap
@@ -158,10 +99,6 @@ function init_knight_traps()
 end
 
 const KNIGHT_TRAP_PATTERNS = init_knight_traps()
-const KNIGHT_TRAP_PENALTY = 50
-const KNIGHT_RAMMED_BONUS = 2
-const KNIGHT_MOBILITY = @SVector [-70, -30, -15, -5, 5, 10, 20, 30, 40]
-
 
 function init_bishop_traps()
     # Trap 1
@@ -218,17 +155,6 @@ function init_bishop_traps()
 end
 
 const BISHOP_TRAP_PATTERNS = init_bishop_traps()
-const BISHOP_TRAP_PENALTY = 110
-const BISHOP_COLOR_PENALTY = 4
-const BISHOP_RAMMED_COLOR_PENALTY = 5
-const BISHOP_PAIR_BONUS = 10
-const BISHOP_MOBILITY = @SVector [-70, -30, -10, 0, 10, 15, 20, 21, 22, 23, 24, 28, 35, 60]
-
-const CASTLE_OPTION_BONUS = 8
-const KING_PAWN_SHIELD_BONUS = 12
-
-const QUEEN_MOBILITY = @SVector [-60, -50, -40, -20, 0, 2, 5, 7, 10, 12, 14, 16, 18, 20,
-                                20, 20, 20, 20, 20, 20, 22, 24, 26, 28, 28, 28, 22, 18]
 
 
 """
@@ -259,6 +185,7 @@ mutable struct EvalAux
     bqueenattacks::Bitboard
     wmobility::Bitboard
     bmobility::Bitboard
+    stage::Int
 end
 
 
@@ -301,9 +228,11 @@ function initEvalAux(board::Board)
     @inbounds wmobility = ~(board[WHITEKING] | bpawnattacks)
     @inbounds bmobility = ~(board[BLACKKING] | wpawnattacks)
 
+    gamestage = stage(board)
+
     EvalAux(wpawns, bpawns, wknights, bknights, wbishops, bbishops, wrooks, brooks, wrammedpawns, brammedpawns,
     wpawnattacks, bpawnattacks, wknightattacks, bknightattacks, wbishopattacks, bbishopattacks, wrookattacks,
-    brookattacks, wqueenattacks, bqueenattacks, wmobility, bmobility)
+    brookattacks, wqueenattacks, bqueenattacks, wmobility, bmobility, gamestage)
 end
 
 
@@ -314,20 +243,25 @@ Naive evaluation function to get the code development going.
 """
 function evaluate(board::Board)
     evalaux = initEvalAux(board::Board)
-    eval = 0
 
-    eval += evaluate_material(board, evalaux)
+    score = 0
+    score += evaluate_material(board, evalaux)
 
-    eval += evaluate_pawns(board, evalaux)
-    eval += evaluate_knights(board, evalaux)
-    eval += evaluate_bishops(board, evalaux)
-    eval += evaluate_rooks(board, evalaux)
-    eval += evaluate_queens(board, evalaux)
-    eval += evaluate_kings(board, evalaux)
+    score += evaluate_pawns(board, evalaux)
+    score += evaluate_knights(board, evalaux)
+    score += evaluate_bishops(board, evalaux)
+    score += evaluate_rooks(board, evalaux)
+    score += evaluate_queens(board, evalaux)
+    score += evaluate_kings(board, evalaux)
 
-    eval += evaluate_pins(board)
-    eval += evaluate_space(board, evalaux)
-    eval += evaluate_threats(board, evalaux)
+    score += evaluate_pins(board)
+    score += evaluate_space(board, evalaux)
+    score += evaluate_threats(board, evalaux)
+
+    scale_f = scale_factor(board, scoreEG(score))
+
+    eval = (256 - evalaux.stage) * scoreMG(score) + evalaux.stage * scoreEG(score) * fld(scale_f, SCALE_NORMAL)
+    eval = fld(eval, 256)
 
     if board.turn == WHITE
         eval += TEMPO_BONUS
@@ -340,58 +274,85 @@ end
 
 
 function evaluate_material(board::Board, evalaux::EvalAux)
-    num_occ = count(occupied(board))
 
     pawn_eval = count(evalaux.wpawns) - count(evalaux.bpawns)
-    pawn_eval *= round(Int, num_occ * PVALS_MG[1]/32 + (32 - num_occ) * PVALS_EG[1]/32)
+    pawn_eval *= PVALS[1]
 
     knight_eval = count(evalaux.wknights) - count(evalaux.bknights)
-    knight_eval *= round(Int, num_occ * PVALS_MG[2]/32 + (32 - num_occ) * PVALS_EG[2]/32)
+    knight_eval *= PVALS[2]
 
     bishop_eval = count(evalaux.wbishops) - count(evalaux.bbishops)
-    bishop_eval *= round(Int, num_occ * PVALS_MG[3]/32 + (32 - num_occ) * PVALS_EG[3]/32)
+    bishop_eval *= PVALS[3]
 
     rook_eval = count(evalaux.wrooks) - count(evalaux.brooks)
-    rook_eval *= round(Int, num_occ * PVALS_MG[4]/32 + (32 - num_occ) * PVALS_EG[4]/32)
+    rook_eval *= PVALS[4]
 
-    pawn_eval + knight_eval + bishop_eval + rook_eval
+    queen_eval = count(board[WHITEQUEEN]) - count(board[BLACKQUEEN])
+    queen_eval *= PVALS[5]
+
+    score = pawn_eval + knight_eval + bishop_eval + rook_eval + queen_eval
 end
+
 
 function evaluate_pawns(board::Board, evalaux::EvalAux)
     w_pawns = evalaux.wpawns
     b_pawns = evalaux.bpawns
     position_eval = 0
+    score = 0
 
     # Below is a cool positional trick I thought of.
     # The evaluation table is symmetrical, so we can use bswap to partially eliminate symmetrical pawn structures (which cancel out mathematically).
     # This saves on the number of iterations we have to perform.
     w_pawn_tmp = w_pawns & ~bswap(b_pawns)
     @inbounds for pawn in w_pawn_tmp
-        position_eval += PAWN_EVAL_TABLE[pawn]
+        score += psqt(PAWN, pawn)
+        rank = rankof(pawn)
+        file = fileof(pawn)
+        if file == 1
+            neighbour = FILE[1] | FILE[2]
+        elseif file == 8
+            neighbour = FILE[7] | FILE[8]
+        else
+            neighbour = FILE[file + 1] | FILE[file] | FILE[file - 1]
+        end
+        passing_ranks = EMPTY
+        for i in (rank+1):8
+            passing_ranks |= RANK[i]
+        end
+        if isempty(b_pawns & neighbour & passing_ranks)
+            score += PASS_PAWN_THREAT[rankof(pawn)]
+        end
     end
 
     b_pawn_tmp = b_pawns & ~bswap(w_pawns)
     @inbounds for pawn in b_pawn_tmp
-        position_eval -= PAWN_EVAL_TABLE[65 - pawn]
+        score -= psqt(PAWN, 65 - pawn)
+        rank = rankof(pawn)
+        file = fileof(pawn)
+        if file == 1
+            neighbour = FILE[1] | FILE[2]
+        elseif file == 8
+            neighbour = FILE[7] | FILE[8]
+        else
+            neighbour = FILE[file + 1] | FILE[file] | FILE[file - 1]
+        end
+        passing_ranks = EMPTY
+        for i in 1:(rank-1)
+            passing_ranks |= RANK[i]
+        end
+        if isempty(w_pawns & neighbour & passing_ranks)
+            score -= PASS_PAWN_THREAT[8 - rankof(pawn)]
+        end
     end
 
     # double pawns
     for file in FILE
-        if file == FILE_A || file == FILE_H
-            penalty = 2DOUBLE_PAWN_PENALTY
-        else
-            penalty = DOUBLE_PAWN_PENALTY
-        end
         if ismany(w_pawns & file)
-            position_eval -= penalty
+            score -= DOUBLE_PAWN_PENALTY
         elseif ismany(b_pawns & file)
-            position_eval += penalty
+            score += DOUBLE_PAWN_PENALTY
         end
     end
-
-    # passed pawn
-    w_pass_threats = w_pawns & (RANK_6 | RANK_7)
-    b_pass_threats = b_pawns & (RANK_2 | RANK_3)
 
     for i in eachindex(FILE)
         neighbour = FILE[i]
@@ -413,25 +374,11 @@ function evaluate_pawns(board::Board, evalaux::EvalAux)
                 position_eval += ISOLATED_SEMIOPEN_PENALTY
             end
         end
-        if !isempty(w_pass_threats & FILE[i]) && isempty(neighbour & RANK_7 & b_pawns)
-            if isone(occupied(board) & RANK_8 & FILE[i])
-                position_eval += 5
-            else
-                position_eval += 15
-            end
-        end
-        if !isempty(b_pass_threats & FILE[i]) && isempty(neighbour & RANK_2 & w_pawns)
-            if isone(occupied(board) & RANK_1 & FILE[i])
-                position_eval -= 5
-            else
-                position_eval -= 15
-            end
-        end
     end
     position_eval += count(evalaux.wpawnattacks & w_pawns) * PAWN_DEFEND_PAWN_BONUS
     position_eval -= count(evalaux.bpawnattacks & b_pawns) * PAWN_DEFEND_PAWN_BONUS
 
-    position_eval
+    makescore(position_eval, position_eval) + score
 end
 
 
@@ -439,11 +386,12 @@ function evaluate_knights(board::Board, evalaux::EvalAux)
     w_knights = evalaux.wknights
     b_knights = evalaux.bknights
 
+    score = 0
     position_eval = 0
     mobility_eval = 0
 
     @inbounds for knight in w_knights
-        position_eval += KNIGHT_EVAL_TABLE[knight]
+        score += psqt(KNIGHT, knight)
         attacks = knightMoves(knight)
         evalaux.wknightattacks |= attacks
         mobility_eval += KNIGHT_MOBILITY[count(attacks & evalaux.wmobility) + 1]
@@ -453,7 +401,7 @@ function evaluate_knights(board::Board, evalaux::EvalAux)
     position_eval -= count(evalaux.bpawnattacks & w_knights) * PAWN_ATTACK_MINOR_BONUS
 
     @inbounds for knight in b_knights
-        position_eval -= KNIGHT_EVAL_TABLE[65 - knight]
+        score -= psqt(KNIGHT, 65 - knight)
         attacks = knightMoves(knight)
         evalaux.bknightattacks |= attacks
         mobility_eval -= KNIGHT_MOBILITY[count(attacks & evalaux.bmobility) + 1]
@@ -495,6 +443,7 @@ function evaluate_knights(board::Board, evalaux::EvalAux)
     threat_eval -= count(evalaux.bknightattacks & board[WHITEQUEEN]) * 42
 
     eval = position_eval + threat_eval + mobility_eval
+    makescore(eval, eval) + score
 end
 
 
@@ -504,12 +453,13 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
 
     position_eval = 0
     mobility_eval = 0
+    score = 0
 
     attacks = EMPTY
     occ = occupied(board)
 
     @inbounds for bishop in w_bishops
-        position_eval += BISHOP_EVAL_TABLE[bishop]
+        score += psqt(BISHOP, bishop)
         attacks = bishopMoves(bishop, occ)
         evalaux.wbishopattacks |= attacks
         mobility_eval += BISHOP_MOBILITY[count(attacks & evalaux.wmobility) + 1]
@@ -519,7 +469,7 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
     position_eval -= count(evalaux.bpawnattacks & w_bishops) * PAWN_ATTACK_MINOR_BONUS
 
     @inbounds for bishop in b_bishops
-        position_eval -= BISHOP_EVAL_TABLE[65 - bishop]
+        score -= psqt(BISHOP, 65 - bishop)
         attacks = bishopMoves(bishop, occ)
         evalaux.bbishopattacks |= attacks
         mobility_eval -= BISHOP_MOBILITY[count(attacks & evalaux.bmobility) + 1]
@@ -566,6 +516,7 @@ function evaluate_bishops(board::Board, evalaux::EvalAux)
     end
 
     eval = position_eval + mobility_eval
+    makescore(eval, eval) + score
 end
 
 
@@ -575,11 +526,11 @@ function evaluate_rooks(board::Board, evalaux::EvalAux)
 
     position_eval = 0
     mobility_eval = 0
-
+    score = 0
 
     occ = occupied(board)
     for rook in w_rooks
-        @inbounds position_eval += ROOK_EVAL_TABLE[rook]
+        @inbounds score += psqt(ROOK, rook)
         rfile = file(rook)
         if isempty(rfile & pawns(board))
             position_eval += ROOK_OPEN_FILE_BONUS
@@ -595,7 +546,7 @@ function evaluate_rooks(board::Board, evalaux::EvalAux)
     end
 
     for rook in b_rooks
-        @inbounds position_eval -= ROOK_EVAL_TABLE[65 - rook]
+        @inbounds score -= psqt(ROOK, 65 - rook)
         rfile = file(rook)
         if isempty(rfile & pawns(board))
             position_eval -= ROOK_OPEN_FILE_BONUS
@@ -616,33 +567,29 @@ function evaluate_rooks(board::Board, evalaux::EvalAux)
     position_eval += count(evalaux.wpawnattacks & b_rooks) * PAWN_ATTACK_MAJOR_BONUS
 
     eval = position_eval + mobility_eval
+    score + makescore(eval, eval)
 end
 
 
 function evaluate_queens(board::Board, evalaux::EvalAux)
     w_queens = board[WHITEQUEEN]
     b_queens = board[BLACKQUEEN]
-    num_occ = count(occupied(board))
-    pval = round(Int, num_occ * PVALS_MG[5]/32 + (32 - num_occ) * PVALS_EG[5]/32)
 
-    material_eval = 0
     position_eval = 0
     mobility_eval = 0
-
-    material_eval += count(w_queens) - count(b_queens)
-    material_eval *= pval
+    score = 0
 
     occ = occupied(board)
 
     @inbounds for queen in w_queens
-        position_eval += QUEEN_EVAL_TABLE[queen]
+        score += psqt(QUEEN, queen)
         attacks = queenMoves(queen, occ)
         evalaux.wqueenattacks |= attacks
         mobility_eval += QUEEN_MOBILITY[count(attacks & evalaux.wmobility) + 1]
     end
 
     @inbounds for queen in b_queens
-        position_eval -= QUEEN_EVAL_TABLE[65 - queen]
+        score -= psqt(QUEEN, 65 - queen)
         attacks = queenMoves(queen, occ)
         evalaux.bqueenattacks |= attacks
         mobility_eval -= QUEEN_MOBILITY[count(attacks & evalaux.bmobility) + 1]
@@ -652,7 +599,8 @@ function evaluate_queens(board::Board, evalaux::EvalAux)
     position_eval -= count(evalaux.bpawnattacks & w_queens) * 2PAWN_ATTACK_MAJOR_BONUS
     position_eval += count(evalaux.wpawnattacks & b_queens) * 2PAWN_ATTACK_MAJOR_BONUS
 
-    eval = material_eval + position_eval + mobility_eval
+    eval = position_eval + mobility_eval
+    score + makescore(eval, eval)
 end
 
 
@@ -660,13 +608,9 @@ function evaluate_kings(board::Board, evalaux::EvalAux)
     w_king = board[WHITEKING]
     b_king = board[BLACKKING]
 
-    ktable_eg = KING_EVAL_TABLE_EG
-    ktable_mg = KING_EVAL_TABLE_MG
-    num_occ = count(occupied(board))
-    ktable = round.(Int, num_occ .* ktable_mg./32 .+ (32 - num_occ) .* ktable_eg./32)
-
     position_eval = 0
     king_safety = 0
+    score = 0
 
     if cancastlekingside(board, WHITE)
         position_eval += CASTLE_OPTION_BONUS
@@ -681,8 +625,8 @@ function evaluate_kings(board::Board, evalaux::EvalAux)
         position_eval -= CASTLE_OPTION_BONUS
     end
 
-    @inbounds position_eval += ktable[square(w_king)]
-    @inbounds position_eval -= ktable[65 - square(b_king)]
+    @inbounds score += psqt(KING, square(w_king))
+    @inbounds score -= psqt(KING, 65 - square(b_king))
 
     # Increase king safety if attacking pieces are non existent
     if isempty(board[BLACKQUEEN])
@@ -741,6 +685,7 @@ function evaluate_kings(board::Board, evalaux::EvalAux)
 
 
     eval = position_eval + king_safety
+    score + makescore(eval, eval)
 end
 
 
@@ -753,11 +698,11 @@ function evaluate_pins(board::Board)
     board.turn = !board.turn
 
     if board.turn == WHITE
-        eval -= count(board.pinned) * 15
-        eval += count(opp_pinned) * 15
+        eval -= count(board.pinned) * PIN_BONUS
+        eval += count(opp_pinned) * PIN_BONUS
     else
-        eval += count(board.pinned) * 15
-        eval -= count(opp_pinned) * 15
+        eval += count(board.pinned) * PIN_BONUS
+        eval -= count(opp_pinned) * PIN_BONUS
     end
 
     # specific additional pin bonus
@@ -766,7 +711,7 @@ function evaluate_pins(board::Board)
     eval -= count(pinned(board) & rooks(board)) * 10
     eval += count(opp_pinned & rooks(board)) * 10
 
-    eval
+    makescore(eval, eval)
 end
 
 
@@ -777,10 +722,10 @@ function evaluate_space(board::Board, evalaux::EvalAux)
     b_filter = (RANK_5 | RANK_6 | RANK_7) & (FILE_C | FILE_D | FILE_E | FILE_F)
     w_attacks = evalaux.wpawnattacks | evalaux.wknightattacks | evalaux.wbishopattacks | evalaux.wrookattacks
     b_attacks = evalaux.bpawnattacks | evalaux.bknightattacks | evalaux.bbishopattacks | evalaux.brookattacks
-    eval += count(w_filter & ~b_attacks) * 4
-    eval -= count(b_filter & ~w_attacks) * 4
+    eval += count(w_filter & ~b_attacks) * SPACE_BONUS
+    eval -= count(b_filter & ~w_attacks) * SPACE_BONUS
 
-    eval
+    makescore(eval, eval)
 end
 
 
@@ -791,10 +736,10 @@ function evaluate_threats(board::Board, evalaux::EvalAux)
     weak_bonus = 0
 
     weak_wpawns = board[WHITEPAWN] & ~w_attacks & b_attacks
-    weak_bonus -= count(weak_wpawns) * 25
+    weak_bonus -= count(weak_wpawns) * WEAK_PAWN_PENALTY
 
     weak_bpawns = board[BLACKPAWN] & ~b_attacks & w_attacks
-    weak_bonus += count(weak_bpawns) * 25
+    weak_bonus += count(weak_bpawns) * WEAK_PAWN_PENALTY
 
-    return weak_bonus
+    makescore(weak_bonus, weak_bonus)
 end
