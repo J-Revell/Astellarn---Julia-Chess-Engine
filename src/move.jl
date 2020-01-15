@@ -159,6 +159,8 @@ function apply_move!(board::Board, move::Move)
     undo_enpass = board.enpass
     undo_halfmovecount = board.halfmovecount
     undo_hash = board.hash
+    undo_psqteval = board.psqteval
+    undo_phash = board.phash
 
     # before we update the enpass
     if board.enpass !== zero(UInt8)
@@ -183,8 +185,8 @@ function apply_move!(board::Board, move::Move)
     board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
-    board.history[board.movecount] = board.hash
-    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_halfmovecount, undo_hash)
+    @inbounds board.history[board.movecount] = board.hash
+    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, undo_captured, undo_halfmovecount, undo_hash, undo_psqteval, undo_phash)
 end
 
 
@@ -233,10 +235,17 @@ function apply_normal!(board::Board, move::Move)
     @inbounds board[sqr_from] = BLANK
     @inbounds board[sqr_to] = p_from
 
+    # Update PSQT
+    board.psqteval -= psqt(p_from, sqr_from)
+    board.psqteval += psqt(p_from, sqr_to)
+
     if p_to !== BLANK
         @inbounds board[type(p_to)] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
         board.hash ⊻= zobkey(p_to, sqr_to)
+
+        # Update PSQT
+        board.psqteval -= psqt(p_to, sqr_to)
     end
 
     if (type(p_from) === PAWN) || (p_to !== BLANK)
@@ -247,6 +256,13 @@ function apply_normal!(board::Board, move::Move)
 
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_from, sqr_to)
+    if type(p_to) == PAWN
+        board.phash ⊻ zobkey(p_to, sqr_to)
+    end
+    if type(p_from) == PAWN
+        board.phash ⊻ zobkey(p_from, sqr_from)
+        board.phash ⊻ zobkey(p_from, sqr_to)
+    end
 
     return p_to
 end
@@ -286,7 +302,16 @@ function apply_enpass!(board::Board, move::Move)
     board.hash ⊻= zobkey(p_from, sqr_to)
     board.hash ⊻= zobkey(p_capt, cap_sqr)
 
+    # Update PSQT
+    board.psqteval -= psqt(p_from, sqr_from)
+    board.psqteval += psqt(p_from, sqr_to)
+    board.psqteval -= psqt(p_capt, cap_sqr)
+
     board.halfmovecount = 0
+
+    board.phash ⊻ zobkey(p_capt, cap_sqr)
+    board.phash ⊻ zobkey(p_from, sqr_from)
+    board.phash ⊻ zobkey(p_from, sqr_to)
 
     return p_capt
 end
@@ -336,6 +361,12 @@ function apply_castle!(board::Board, move::Move)
     board.hash ⊻= zobkey(_rook, r_from)
     board.hash ⊻= zobkey(_rook, r_to)
 
+    # Update PSQT
+    board.psqteval -= psqt(_king, k_from)
+    board.psqteval -= psqt(_rook, r_from)
+    board.psqteval += psqt(_king, k_to)
+    board.psqteval += psqt(_rook, r_to)
+
     board.halfmovecount += 1
 
     return BLANK
@@ -370,15 +401,24 @@ function apply_promo!(board::Board, move::Move)
     p_promo = makepiece(ptype_promo, board.turn)
     @inbounds board[sqr_to] = p_promo
 
+    # Update PSQT
+    board.psqteval -= psqt(makepiece(PAWN, board.turn), sqr_from)
+    board.psqteval += psqt(p_promo, sqr_to)
+
     if p_to !== BLANK
         @inbounds board[type(p_to)] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
         board.hash ⊻= zobkey(p_to, sqr_to)
+
+        # Update PSQT
+        board.psqteval -= psqt(p_to, sqr_to)
     end
 
     p_from = makepiece(PAWN, board.turn)
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_promo, sqr_to)
+
+    board.phash ⊻ zobkey(p_from, sqr_from)
 
     board.halfmovecount = 0
 
@@ -403,6 +443,8 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.halfmovecount = undo.halfmovecount
     board.movecount -= one(UInt16)
     board.hash = undo.hash
+    board.psqteval = undo.psqteval
+    board.phash = undo.phash
     switchturn!(board)
     if (flag(move) === __NORMAL_MOVE) || (flag(move) === __DOUBLE_PAWN)
         undo_normal!(board, move, undo)
@@ -527,6 +569,9 @@ function apply_null!(thread::Thread)
     undo_enpass = board.enpass
     undo_halfmovecount = board.halfmovecount
     undo_hash = board.hash
+    undo_psqteval = board.psqteval
+    undo_phash = board.phash
+
 
     # If the position had an enpassant square, set the key as needed, and turn off the enpass square flag.
     if board.enpass !== zero(UInt8)
@@ -541,8 +586,8 @@ function apply_null!(thread::Thread)
     #board.checkers = kingAttackers(board)
     board.pinned = findpins(board)
     board.movecount += one(board.movecount)
-    board.history[board.movecount] = board.hash
-    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, BLANK, undo_halfmovecount, undo_hash)
+    @inbounds board.history[board.movecount] = board.hash
+    return Undo(undo_checkers, undo_pinned, undo_castling, undo_enpass, BLANK, undo_halfmovecount, undo_hash, undo_psqteval, undo_phash)
 end
 
 
@@ -557,5 +602,7 @@ function undo_null!(thread::Thread, undo::Undo)
     board.halfmovecount = undo.halfmovecount
     board.movecount -= one(UInt16)
     board.hash = undo.hash
+    board.psqteval = undo.psqteval
+    board.phash = undo.phash
     switchturn!(board)
 end

@@ -1,3 +1,12 @@
+struct ZobristHash
+    hash::UInt64
+end
+
+(⊻)(z1::ZobristHash, z2::ZobristHash) = ZobristHash(z1.hash ⊻ z2.hash)
+(⊻)(z1::ZobristHash, z2::Unsigned) = ZobristHash(z1.hash ⊻ z2)
+Base.isequal(z1::ZobristHash, z2::ZobristHash) = isequal(z1.hash, z2.hash)
+
+
 mutable struct XORShiftState
     val::UInt64
 end
@@ -10,7 +19,7 @@ function xorshift_generator()
         seed.val ⊻= seed.val >> 12
         seed.val ⊻= seed.val << 25
         seed.val ⊻= seed.val >> 27
-        return seed.val * UInt64(2685821657736338717)
+        return ZobristHash(seed.val * UInt64(2685821657736338717))
     end
 end
 

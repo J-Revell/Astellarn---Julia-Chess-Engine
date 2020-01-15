@@ -1,13 +1,37 @@
-struct Score
-    val::Int
-end
+#============================ Global Parameters ===============================#
+const MAX_MOVES = 256
+const MAX_PLY = 40
+const MATE = 32000
+const MAX_QUIET_TRACK = 92
 
-makescore(mg::Int, eg::Int) = Int32(mg + (eg << 16))
-scoreMG(s::Integer) = Int(Int32(unsigned(s) & 0x7fff) - Int32(unsigned(s) & 0x8000))
-scoreEG(s::Integer) = Int((s + 0x8000) >> 16)
+#============================== Search Parameters =============================#
+
+
+const Q_FUTILITY_MARGIN = 175
+const RAZOR_DEPTH = 1
+const RAZOR_MARGIN = 400
+const BETA_PRUNE_DEPTH = 8
+const BETA_PRUNE_MARGIN = 85
+const SEE_PRUNE_DEPTH = 8
+const SEE_QUIET_MARGIN = -190
+const SEE_NOISY_MARGIN = -25
+const FUTILITY_PRUNE_DEPTH = 8
+const FUTILITY_MARGIN = 185
+const FUTILITY_MARGIN_NOHIST = 300
+const FUTILITY_LIMIT = @SVector [12000, 6000]
+const COUNTER_PRUNE_DEPTH = @SVector [3, 2]
+const COUNTER_PRUNE_LIMIT = @SVector [0, -1000]
+const FOLLOW_PRUNE_DEPTH = @SVector [3, 2]
+const FOLLOW_PRUNE_LIMIT = @SVector [-2000, -4000]
+const WINDOW_DEPTH = 5
+const LATE_MOVE_COUNT = @SVector [SVector{10}([0, 2, 4,  7, 11, 16, 22, 29, 37, 46]), SVector{10}([0, 4, 7, 12, 20, 30, 42, 56, 73, 92])]
+const LATE_MOVE_PRUNE_DEPTH = 9
+const LMRTABLE = init_reduction_table()
 
 
 #============================ Piece square tables =============================#
+
+
 const PAWN_PSQT = SVector{8}([
     SVector{4}([makescore(  0,  0), makescore(  0,  0), makescore(  0,  0), makescore( 0,   0)]),
     SVector{4}([makescore(  5,-10), makescore(  5, -5), makescore( 10, 10), makescore( 20,  0)]),
@@ -77,71 +101,104 @@ const PSQT = @SVector [PAWN_PSQT, KNIGHT_PSQT, BISHOP_PSQT, ROOK_PSQT, QUEEN_PSQ
 
 
 #=============================== PIECE VALUES =================================#
+
+
 const PVALS = @SVector [makescore(120, 210), makescore(780, 850), makescore(820, 920), makescore(1280, 1380), makescore(2540, 2680), makescore(15000, 15000)]
 const PVALS_MG = SVector{6}(scoreMG.(PVALS))
 
 
 #=============================== Tempo Bonus ==================================#
+
+
 const TEMPO_BONUS = 22
 
 
 #============================= Rook Evaluation ================================#
-const ROOK_OPEN_FILE_BONUS = 15
-const ROOK_SEMIOPEN_FILE_BONUS = 10
+
+
+const ROOK_OPEN_FILE_BONUS = makescore(50, 25)
+const ROOK_SEMIOPEN_FILE_BONUS = makescore(20, 5)
 const ROOK_KING_FILE_BONUS = 10
 
 
 #============================= Pawn Evaluation ================================#
-const PAWN_SHIELD_BONUS = 10
+
+
+const PAWN_SHIELD_BONUS = makescore(17, 3)
 const DOUBLE_PAWN_PENALTY = makescore(10, 55)
-const ISOLATED_PAWN_PENALTY = 12
-const ISOLATED_SEMIOPEN_PENALTY = 4
+const ISOLATED_PAWN_PENALTY = makescore(15, 9)
 const PAWN_DEFEND_PAWN_BONUS = 10
 const PAWN_DEFEND_MINOR_BONUS = 8
 const PAWN_DEFEND_MAJOR_BONUS = 5
-const PAWN_ATTACK_MINOR_BONUS = 22
-const PAWN_ATTACK_MAJOR_BONUS = 38
+const PAWN_ATTACK_MINOR_BONUS = makescore(60, 20)
+const PAWN_ATTACK_MAJOR_BONUS = makescore(70, 25)
 const WEAK_PAWN_PENALTY = 25
 const PASS_PAWN_THREAT = SVector{7}([makescore(0, 0), makescore(10, 30), makescore(20, 35), makescore(15, 40), makescore(60, 70), makescore(170, 180), makescore(275, 260)])
 
 
 #=========================== Knight Evaluation ================================#
+
+
 const KNIGHT_TRAP_PENALTY = 50
 const KNIGHT_RAMMED_BONUS = 2
 
 
 #=========================== Bishop Evaluation ================================#
+
+
 const BISHOP_TRAP_PENALTY = 90
-const BISHOP_COLOR_PENALTY = 4
+const BISHOP_COLOR_PENALTY = makescore(4, 8)
 const BISHOP_RAMMED_COLOR_PENALTY = 5
 const BISHOP_PAIR_BONUS = 10
 
 
 #============================= King Evaluation ================================#
+
+
 const CASTLE_OPTION_BONUS = 8
 const KING_PAWN_SHIELD_BONUS = 12
+const KING_FLANK_ATTACK = makescore(10, 0)
 
 
 #============================ Queen Evaluation ================================#
 
 
 #============================ Space Evaluation ================================#
+
+
 const SPACE_BONUS = 4
 
 
 #============================== Pin Evaluation ================================#
+
+
 const PIN_BONUS = 15
 
 
 #========================= Mobility Evaluation ================================#
-const ROOK_MOBILITY = @SVector [-90, -45, -10, -5, 0, 0, 0, 5, 10, 15, 20, 24, 26, 30, 60]
-const KNIGHT_MOBILITY = @SVector [-70, -30, -15, -5, 5, 10, 20, 30, 40]
-const BISHOP_MOBILITY = @SVector [-70, -30, -10, 0, 10, 15, 20, 21, 22, 23, 24, 28, 35, 60]
-const QUEEN_MOBILITY = @SVector [-60, -50, -40, -20, 0, 2, 5, 7, 10, 12, 14, 16, 18, 20,
-                                20, 20, 20, 20, 20, 20, 22, 24, 26, 28, 28, 28, 22, 18]
+
+
+const KNIGHT_MOBILITY = @SVector [makescore(-60,-80), makescore(-50,-55), makescore(-10,-30), makescore( -5,-15),
+    makescore(  5,  10), makescore( 15, 15), makescore( 20, 25), makescore( 30, 30), makescore( 35, 35)]
+
+const BISHOP_MOBILITY = @SVector [makescore(-50,-60), makescore(-20,-25), makescore( 15, -5), makescore( 25, 15), makescore( 40, 25),
+    makescore( 50, 40), makescore( 55, 55), makescore( 65, 60), makescore( 65, 65), makescore( 70, 75), makescore( 80, 80),
+    makescore( 80, 85), makescore( 90, 90), makescore( 100, 100)]
+
+const ROOK_MOBILITY = @SVector [makescore(-60,-75), makescore(-30,-20), makescore(-15, 30), makescore(-10, 55), makescore( -5, 70), makescore( 0, 80),
+      makescore(  10,110), makescore( 15,120), makescore( 30,130), makescore( 30,140), makescore( 30,155), makescore( 40,165),
+      makescore( 45,165), makescore( 50,170), makescore( 60,170)]
+
+const QUEEN_MOBILITY = @SVector [makescore(-40,-35), makescore(-20,-15), makescore(  5,  10), makescore(  5, 20), makescore( 15, 35), makescore( 20, 55),
+      makescore( 30, 60), makescore( 40, 75), makescore( 45, 80), makescore( 50, 90), makescore( 55, 95), makescore( 60,105),
+      makescore( 60,115), makescore( 65,120), makescore( 70,125), makescore( 70,125), makescore( 70,130), makescore( 75,135),
+      makescore( 80,140), makescore( 90,145), makescore( 90,150), makescore( 100,165), makescore(100,170), makescore(100,175),
+      makescore(105,185), makescore(110,190), makescore(115,205), makescore(115,210)]
 
 
 #============================ SCALING FACTORS =================================#
+
+
 const SCALE_OCB_BISHOPS = 64
 const SCALE_OCB_ONE_KNIGHT = 106
 const SCALE_OCB_ONE_ROOK = 96

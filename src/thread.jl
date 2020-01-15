@@ -1,12 +1,19 @@
 ThreadStats() = ThreadStats(0, 0, 0, 0, time())
 
-Thread() = Thread(Board(), [MoveStack(MAX_PLY + 1) for i in 1:MAX_PLY+1], ThreadStats(), [MoveOrder() for i in 0:MAX_PLY+1], MoveStack(MAX_PLY + 1),
-    PieceStack(MAX_PLY + 1), zeros(Int, MAX_PLY + 1),
+Thread() = Thread(Board(),
+    [MoveStack(MAX_PLY + 1) for i in 1:MAX_PLY+1],
+    ThreadStats(),
+    [MoveOrder() for i in 0:MAX_PLY+1],
+    MoveStack(MAX_PLY + 1),
+    PieceStack(MAX_PLY + 1),
+    zeros(Int, MAX_PLY + 1),
+    [MoveStack(MAX_QUIET_TRACK) for i in 0:MAX_PLY + 1],
     ButterflyHistTable([[zeros(Int, 64) for i in 1:64] for j in 1:2]),
     CounterHistTable([[[zeros(Int, 64) for j in 1:6] for k in 1:64] for l in 1:6]),
     CounterHistTable([[[zeros(Int, 64) for j in 1:6] for k in 1:64] for l in 1:6]),
     repeat([MoveStack([MOVE_NONE, MOVE_NONE], 2)], MAX_PLY + 1),
-    CounterTable([[repeat([MOVE_NONE], 64) for j in 1:6] for k in 1:2]))
+    CounterTable([[repeat([MOVE_NONE], 64) for j in 1:6] for k in 1:2]),
+    PawnTable())
 
 
 const ThreadPool = Vector{Thread}

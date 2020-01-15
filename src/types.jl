@@ -34,7 +34,9 @@ struct Undo
     enpass::UInt8
     captured::Piece
     halfmovecount::UInt16
-    hash::UInt64
+    hash::ZobristHash
+    psqteval::Int32
+    phash::ZobristHash
 end
 
 
@@ -84,12 +86,22 @@ mutable struct MoveOrder
     type::UInt8
     stage::UInt8
     movestack::MoveStack
-    quietstack::MoveStack
     values::Vector{Int}
     margin::Int
     noisy_size::Int
     quiet_size::Int
+    tt_move::Move
+    killer1::Move
+    killer2::Move
+    counter::Move
 end
+
+
+mutable struct PT_Entry
+    score::Int
+end
+
+const PawnTable = Dict{ZobristHash, PT_Entry}
 
 
 """
@@ -105,9 +117,11 @@ mutable struct Thread
     movestack::MoveStack
     piecestack::PieceStack
     evalstack::Vector{Int}
+    quietstack::Vector{MoveStack}
     history::ButterflyHistTable
     counterhistory::CounterHistTable
     followhistory::CounterHistTable
     killers::Vector{MoveStack}
     cmtable::CounterTable
+    ptable::PawnTable
 end

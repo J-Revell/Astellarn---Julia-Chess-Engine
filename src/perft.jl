@@ -1,6 +1,3 @@
-const MAX_MOVES = 200
-
-
 # Internal function to run perft
 function runperft(board::Board, depth::Int, ply::Int, movestack::Vector{MoveStack})
     if isone(depth)
@@ -30,3 +27,4 @@ function perft(board::Board, depth::Int)
     movestack = [MoveStack(MAX_MOVES) for d in 1:depth]
     runperft(board, depth, 0, movestack)
 end
+# Perft also generates zobrist keys, and PSQT + PVAL evaluations alnog the way.

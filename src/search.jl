@@ -1,50 +1,3 @@
-const MAX_PLY = 40
-
-const Q_FUTILITY_MARGIN = 100
-
-const RAZOR_DEPTH = 1
-const RAZOR_MARGIN = 400
-
-const BETA_PRUNE_DEPTH = 8
-const BETA_PRUNE_MARGIN = 85
-
-const SEE_PRUNE_DEPTH = 8
-const SEE_QUIET_MARGIN = -190
-const SEE_NOISY_MARGIN = -20
-
-const FUTILITY_PRUNE_DEPTH = 8
-const FUTILITY_MARGIN = 185
-const FUTILITY_MARGIN_NOHIST = 300
-const FUTILITY_LIMIT = @SVector [12000, 6000]
-
-const COUNTER_PRUNE_DEPTH = @SVector [3, 2]
-const COUNTER_PRUNE_LIMIT = @SVector [0, -1000]
-
-const FOLLOW_PRUNE_DEPTH = @SVector [3, 2]
-const FOLLOW_PRUNE_LIMIT = @SVector [-2000, -4000]
-
-const WINDOW_DEPTH = 5
-
-const MATE = 32000
-
-# For late move count, we can add another vector for when eval is improving. At the moment it is static.
-const LATE_MOVE_COUNT = @SVector [SVector{13}([0, 2, 4,  7, 11, 16, 22, 29, 37, 46,  56,  67,  79]), SVector{13}([0, 4, 7, 12, 20, 30, 42, 56, 73, 92, 113, 136, 161])]
-const LATE_MOVE_PRUNE_DEPTH = 12
-
-
-function init_reduction_table()
-    lmrtable = zeros(Int, (64, 64))
-    for depth in 1:64
-        for played in 1:64
-            lmrtable[depth, played] = floor(Int, 0.6 + log(depth) * log(played) / 2.0)
-        end
-    end
-    lmrtable
-end
-const LMRTABLE = init_reduction_table()
-
-
-
 """
     find_best_move()
 
@@ -169,15 +122,15 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
 
     # max depth cutoff
     if ply >= MAX_PLY
-        return evaluate(board)
+        return evaluate(board, thread.ptable)
     end
 
     # probe the transposition table
     tt_entry = get(ttable.table, board.hash, NO_ENTRY)
     if tt_entry !== NO_ENTRY
-        tt_eval = tt_entry.eval
+        tt_eval = Int(tt_entry.eval)
         tt_move = tt_entry.move
-        tt_value = ttvalue(tt_entry, ply)
+        tt_value = Int(ttvalue(tt_entry, ply))
         if (tt_entry.bound == BOUND_EXACT) ||
             ((tt_entry.bound == BOUND_LOWER) && (tt_value >= β)) ||
             ((tt_entry.bound == BOUND_UPPER) && (tt_value <= α))
@@ -185,36 +138,48 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         end
     end
 
-    if tt_eval !== -MATE
-        eval = tt_eval
+    # We may treat checks in qsearch specially.
+    if ischeck(board)
+        best = -MATE
+        margin = 0
     else
-        eval = evaluate(board)
-    end
+        if tt_eval !== -MATE
+            eval = thread.evalstack[ply + 1] = tt_eval
+        elseif (ply > 0) && (thread.movestack[ply] == NULL_MOVE)
+            eval = thread.evalstack[ply + 1] = -thread.evalstack[ply] + 2*TEMPO_BONUS
+        else
+            eval = thread.evalstack[ply + 1] = evaluate(board, thread.ptable)
+        end
 
-    best = eval
+        best = eval
 
-    # eval pruning
-    if eval > α
-        α = eval
-    end
-    if α >= β
-        return eval
-    end
+        # Evaluation pruning step.
+        if eval > α
+            α = eval
+        end
+        if α >= β
+            return eval
+        end
 
-    # delta pruning
-    margin = α - eval - Q_FUTILITY_MARGIN
-    if optimistic_move_estimator(board) < margin
-        return eval
+        # Delta pruning step.
+        # If a "best case" (but perhaps non-existent) move, plus a small margin, is not enough to raise alpha, we stop.
+        # Rather not perform this when in check.
+        margin = α - eval - Q_FUTILITY_MARGIN
+        if !ischeck(board) && (optimistic_move_estimator(board) < margin)
+            return eval
+        end
     end
 
     moveorder = thread.moveorders[ply + 1]
 
     if ischeck(board)
-        # we need evasions
-        moveorder.type = NORMAL_TYPE
+        # We need evasions, so generate quiet moves.
+        init_normal_moveorder!(thread, tt_move, ply)
+        @inbounds thread.killers[ply + 2][1] = MOVE_NONE
+        @inbounds thread.killers[ply + 2][2] = MOVE_NONE
     else
-        moveorder.type = NOISY_TYPE
-        setmargin!(moveorder, max(1, margin))
+        # We just look at noisy moves.
+        init_noisy_moveorder!(thread, ply, max(1, margin))
     end
 
     best = qsearch_internal(thread, ttable, α, β, ply, tt_move, best)
@@ -224,11 +189,9 @@ end
 
 
 function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, tt_move::Move, best::Int)::Int
-    while true
-        move = selectmove!(thread, tt_move, ply, thread.moveorders[ply + 1].type == NOISY_TYPE ? true : false)
-        if move == MOVE_NONE
-            break
-        end
+    # We can select skipquiets = false during qsearch, as if it's a NOISY type moveorder, quiets are skipped anyway.
+    # Otherwise, quiets are needed to generate king check evasions.
+    while (move = selectmove!(thread, ply, false)) !== MOVE_NONE
 
         u = apply_move!(thread, move)
 
@@ -248,7 +211,6 @@ function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, pl
 
         # fail high?
         if α >= β
-            clear!(thread.moveorders[ply + 1])
             return best
         end
     end
@@ -263,8 +225,8 @@ Internals of `absearch()` routine.
 """
 function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)::Int
     board = thread.board
-    pv_current = thread.pv[ply + 1]
-    pv_future = thread.pv[ply + 2]
+    @inbounds pv_current = thread.pv[ply + 1]
+    @inbounds pv_future = thread.pv[ply + 2]
 
     # Set initial history stats to zero.
     hist = cmhist = fmhist = 0
@@ -291,8 +253,9 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         depth = 0
     end
 
-    # enter quiescence search
-    if iszero(depth) #&& !ischeck(board)
+    # If depth reaches 0, we enter quiescence search.
+    # If we are in check, we prefer to hold off one more ply.
+    if iszero(depth) && !ischeck(board)
         q_eval = qsearch(thread, ttable, α, β, ply)
         return q_eval
     end
@@ -304,18 +267,19 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # If this is not the root node, we can check for early exit conditions.
     if isroot == false
 
-        # Draw checking.
+        # If we detect a draw, we can return an evaluation of zero.
         if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
             return 0
         end
 
-        # Max search depth check.
+        # If we reach the max ply, we evaluate the board here and return.
         if ply >= MAX_PLY
-            eval = evaluate(board)
+            eval = evaluate(board, thread.ptable)
             return eval
         end
 
         # Check for mating evaluations, and prune for the best mate.
+        # This avoids the need to look for sub-optimal continuations.
         if α > -MATE + ply
             mate_α = α
         else
@@ -334,8 +298,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # Probe the transposition table.
     tt_entry = get(ttable.table, board.hash, NO_ENTRY)
     if tt_entry !== NO_ENTRY
-        tt_eval = tt_entry.eval
-        tt_value = ttvalue(tt_entry, ply)
+        tt_eval = Int(tt_entry.eval)
+        tt_value = Int(ttvalue(tt_entry, ply))
         tt_move = tt_entry.move
         if (tt_entry.depth >= depth) && (depth == 0 || (pvnode == false))
             if (tt_entry.bound == BOUND_EXACT) ||
@@ -381,23 +345,28 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # Set a static evaluation.
+    # If the last move was a NULL move, the evaluation is simply a change in 2*TEMPO_BONUS (flip a sign).
     if tt_eval !== -MATE
         eval = thread.evalstack[ply + 1] = tt_eval
+    elseif (ply > 0) && (thread.movestack[ply] == NULL_MOVE)
+        eval = thread.evalstack[ply + 1] = -thread.evalstack[ply] + 2*TEMPO_BONUS
     else
-        eval = thread.evalstack[ply + 1] = evaluate(board)
+        eval = thread.evalstack[ply + 1] = evaluate(board, thread.ptable)
     end
 
     # Reset killer moves for the upcoming ply.
-    thread.killers[ply + 2][1] = MOVE_NONE
-    thread.killers[ply + 2][0] = MOVE_NONE
+    @inbounds thread.killers[ply + 2][1] = MOVE_NONE
+    @inbounds thread.killers[ply + 2][2] = MOVE_NONE
 
     # Razoring.
+    # If the evaluation plus a small margin is still below alpha, we drop into the quiescence search.
     if (pvnode === false) && (ischeck(board) === false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
         q_eval = qsearch(thread, ttable, α, β, ply)
         return q_eval
     end
 
     # Beta pruning.
+    # If the evaluation minus a margin is still better than beta, we can prune here.
     if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
         return eval
     end
@@ -431,23 +400,19 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # We can use this to modify some pruning heuristics later on.
     improving = ((ply >= 2) && (thread.evalstack[ply + 1] > thread.evalstack[ply - 1])) ? 2 : 1
 
-
+    # Set pruning variables used during the main loop.
     futility_margin = FUTILITY_MARGIN * depth
     see_quiet_margin = SEE_QUIET_MARGIN * depth
     see_noisy_margin = SEE_NOISY_MARGIN * depth^2
     skipquiets = false
-
     played = 0
     num_quiets = 0
-    quiets_tried = thread.moveorders[ply + 1].quietstack
-    moveorder = thread.moveorders[ply + 1]
-    setmargin!(moveorder, 0)
-    while true
-        move = selectmove!(thread, tt_move, ply, skipquiets)
 
-        if move == MOVE_NONE
-            break
-        end
+    # Init the move ordering
+    init_normal_moveorder!(thread, tt_move, ply)
+    @inbounds quiets_tried = thread.quietstack[ply + 1]
+    @inbounds moveorder = thread.moveorders[ply + 1]
+    while (move = selectmove!(thread, ply, skipquiets)) !== MOVE_NONE
 
         isquiet = !istactical(board, move)
 
@@ -457,13 +422,13 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         if isquiet && (best > -MATE + MAX_PLY)
-            # Futility pruning
+            # Quiet move futility pruning step, using history.
             if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin <= α) &&
                 (hist + cmhist + fmhist < FUTILITY_LIMIT[improving])
                 skipquiets = true
             end
 
-            # quiet move futility pruning
+            # Quiet move futility pruning, using an additional margin.
             if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin + FUTILITY_MARGIN_NOHIST <= α)
                 skipquiets = true
             end
@@ -493,7 +458,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         u = apply_move!(thread, move)
         played += 1
-        if isquiet
+        if isquiet && (quiets_tried.idx < MAX_QUIET_TRACK)
             push!(quiets_tried, move)
         end
 
@@ -550,6 +515,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             best_move = move
             if cand_eval > α
                 α = cand_eval
+                # Update the PV
                 clear!(pv_current)
                 push!(pv_current, best_move)
                 updatepv!(pv_current, pv_future)
@@ -574,13 +540,16 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # Update the history heuristics.
+    # This is done when a quiet move fails high.
     if (best >= β) && !istactical(board, best_move) && (best_move !== MOVE_NONE)
         updatehistory!(thread, quiets_tried, ply, depth^2)
     end
 
     clear!(moveorder)
+    clear!(quiets_tried)
 
     # Update the transposition table.
+    # We don't do this at the root node.
     if isroot == false
         tt_bound = best >= β ? BOUND_LOWER : (best > init_α ? BOUND_EXACT : BOUND_UPPER)
         tt_entry = TT_Entry(eval, best_move, depth, tt_bound)

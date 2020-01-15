@@ -10,13 +10,13 @@ A function to update the history heuristics stored in `thread`, by passing a lis
 """
 function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthbonus::Int)::Nothing
     colour = thread.board.turn.val
-    best_move = quietstried[quietstried.idx]
+    @inbounds best_move = quietstried[quietstried.idx]
 
     # Extract counter move information.
     # If we haven't made a ply, we can't extract this.
     if ply > 0
-        counter = thread.movestack[ply]
-        cm_piece = thread.piecestack[ply]
+        @inbounds counter = thread.movestack[ply]
+        @inbounds cm_piece = thread.piecestack[ply]
         cm_to = to(counter)
     else
         counter = MOVE_NONE
@@ -27,8 +27,8 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
     # Extract move from 2 moves ago.
     # Must have made more than 1 ply to be able to do this.
     if ply > 1
-        follow = thread.movestack[ply - 1]
-        fm_piece = thread.piecestack[ply - 1]
+        @inbounds follow = thread.movestack[ply - 1]
+        @inbounds fm_piece = thread.piecestack[ply - 1]
         fm_to = to(follow)
     else
         follow = MOVE_NONE
@@ -50,10 +50,10 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
     end
 
     # Set the killer moves.
-    killerstack = thread.killers[ply + 1]
-    if killerstack !== best_move
-        killerstack[2] = killerstack[1]
-        killerstack[1] = best_move
+    @inbounds killerstack = thread.killers[ply + 1]
+    if killerstack[1] !== best_move
+        @inbounds killerstack[2] = killerstack[1]
+        @inbounds killerstack[1] = best_move
     end
 
     # Set the counter move.
@@ -293,18 +293,18 @@ function gethistory(thread::Thread, move::Move, ply::Int)
         fm_to = zero(UInt16)
     end
 
-    hist = thread.history[thread.board.turn.val][sqr_from][sqr_to]
+    @inbounds hist = thread.history[thread.board.turn.val][sqr_from][sqr_to]
 
     if (counter == MOVE_NONE || counter == NULL_MOVE)
         cmhist = 0
     else
-        cmhist = thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
+        @inbounds cmhist = thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
     end
 
     if (follow == MOVE_NONE || follow == NULL_MOVE)
         fmhist = 0
     else
-        fmhist = thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
+        @inbounds fmhist = thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
     end
 
     hist, cmhist, fmhist

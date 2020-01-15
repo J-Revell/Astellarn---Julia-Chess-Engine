@@ -14,17 +14,23 @@ mutable struct Board
     enpass::UInt8
     halfmovecount::UInt16
     movecount::UInt16
-    hash::UInt64
-    history::Vector{UInt64}
+    hash::ZobristHash
+    history::Vector{ZobristHash}
+    psqteval::Int32
+    phash::ZobristHash
 end
 
 function Board(squares::AbstractArray{Piece}, pieces::AbstractArray{Bitboard}, colors::AbstractArray{Bitboard},
-    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, halfmovecount::UInt16,
-    movecount::UInt16, hash::UInt64, history::Vector{UInt64})
+    checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, halfmovecount::UInt16, movecount::UInt16,
+    hash::ZobristHash, history::Vector{ZobristHash}, psqteval::Int32, phash::ZobristHash)
 
-    return Board(MVector(squares...), MVector(pieces...), MVector(colors...), checkers, pinned, turn, castling, enpass, halfmovecount, movecount, hash, history)
+    return Board(MVector(squares...), MVector(pieces...), MVector(colors...),
+        checkers, pinned, turn, castling, enpass, halfmovecount, movecount,
+        hash, history, psqteval, phash)
 end
-Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2), EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16), zero(UInt64), zeros(UInt64, 512))
+Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2),
+    EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16),
+    ZobristHash(zero(UInt64)), ZobristHash.(zeros(UInt64, 512)), zero(Int32), ZobristHash(zero(UInt64)))
 
 
 """
@@ -44,6 +50,8 @@ function copy!(board_1::Board, board_2::Board)
     board_1.halfmovecount = board_2.halfmovecount
     board_1.movecount = board_2.movecount
     board_1.hash = board_2.hash
+    board_1.psqteval = board_2.psqteval
+    board_1.phash = board_2.phash
     copy!(board_1.history, board_2.history)
 end
 
@@ -69,6 +77,10 @@ function add!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
     @inbounds board[color(piece)] |= bb
     @inbounds board[sqr] = piece
     board.hash ⊻= zobkey(piece, sqr)
+    board.psqteval += psqt(piece, sqr)
+    if type(piece) == PAWN
+        board.phash ⊻ zobkey(piece, sqr)
+    end
 end
 add!(board::Board, piece::Piece, bb::Bitboard) = add!(board, piece, bb, square(bb))
 add!(board::Board, piece::Piece, sqr::Integer) = add!(board, piece, Bitboard(sqr), sqr)
@@ -86,6 +98,10 @@ function remove!(board::Board, bb::Bitboard, sqr::Integer)
     board[color(piece)] &= ~bb
     board.squares[sqr] = BLANK
     board.hash ⊻= zobkey(piece, sqr)
+    board.psqteval -= psqt(piece, sqr)
+    if type(piece) == PAWN
+        board.phash ⊻ zobkey(piece, sqr)
+    end
 end
 remove!(board::Board, bb::Bitboard) = remove!(board, bb, square(bb))
 remove!(board::Board, sqr::Integer) = remove!(board, Bitboard(sqr), sqr)
@@ -106,6 +122,14 @@ function addremove!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
     board[sqr] = piece
     board.hash ⊻= zobkey(captured, sqr)
     board.hash ⊻= zobkey(piece, sqr)
+    board.psqteval += psqt(piece, sqr)
+    board.psqteval -= psqt(captured, sqr)
+    if type(piece) == PAWN
+        board.phash ⊻ zobkey(piece, sqr)
+    end
+    if type(captured) == PAWN
+        board.phash ⊻ zobkey(captured, sqr)
+    end
 end
 addremove!(board::Board, piece::Piece, bb::Bitboard) = addremove!(board, piece, bb, square(bb))
 addremove!(board::Board, piece::Piece, sqr::Integer) = addremove!(board, piece, Bitboard(sqr), sqr)
@@ -393,9 +417,9 @@ function isdrawbymaterial(board::Board)
     if piece_count == 2
         return true
     elseif piece_count == 3
-        if count(board[BISHOP]) > 0
+        if isone(bishops(board))
             return true
-        elseif count(board[KNIGHT]) > 0
+        elseif isone(knights(board))
             return true
         end
     end

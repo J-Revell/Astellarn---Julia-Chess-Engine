@@ -67,7 +67,7 @@ function importfen(fen::String)
     board.pinned = findpins(board)
     board.checkers = kingAttackers(board)
 
-    board.history = zeros(UInt64, 512)
+    board.history = ZobristHash.(zeros(UInt64, 512))
     board.history[board.movecount] = board.hash
 
     board

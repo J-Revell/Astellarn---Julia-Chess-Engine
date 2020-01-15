@@ -1,59 +1,41 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.9"
+    const ASTELLARN_VERSION = "v0.1.10"
 
     using Crayons
     using StaticArrays
     using Printf
 
     import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.!, Base.bswap
-    import Base.isempty, Base.isone
+    import Base.isempty, Base.isone, Base.isequal
     import Base.getindex, Base.setindex!, Base.push!
     import Base.iterate, Base.length, Base.eltype, Base.size, Base.IndexStyle
     import Base.copy!
     import Base.show
 
     include("../deps/config.jl")
-
     include("bitboard.jl")
     include("pieces.jl")
-
     include("zobrist.jl")
-
+    include("utils.jl")
+    include("parameters.jl")
     include("board.jl")
-
     include("types.jl")
-
     include("fen.jl")
-
-    include("pawns.jl")
-    include("kings.jl")
-    include("knights.jl")
     include("magic.jl")
-    include("rooks.jl")
-    include("bishops.jl")
-    include("queens.jl")
-
     include("attacks.jl")
-
     include("move.jl")
     include("movegen.jl")
     include("movecount.jl")
-
     include("perft.jl")
-
-    include("parameters.jl")
+    include("masks.jl")
     include("evaluate.jl")
     include("syzygy.jl")
     include("transposition.jl")
-
     include("thread.jl")
     include("moveorder.jl")
     include("history.jl")
     include("search.jl")
-
-    include("engine.jl")
-    include("play.jl")
-
+    include("repl.jl")
     include("uci.jl")
 
 

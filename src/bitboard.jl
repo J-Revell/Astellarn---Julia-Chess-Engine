@@ -348,6 +348,15 @@ const FILE = @SVector [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, F
 
 
 """
+    FILE_TO_QSIDE_MAP
+
+A vector which maps kingside files to their symmetric counterparts on the queenside.
+Used in evalaution with Piece-Square tables.
+"""
+const FILE_TO_QSIDE_MAP = @SVector [1, 2, 3, 4, 4, 3, 2, 1]
+
+
+"""
     RANK
 
 A static vector containing all the `Bitboard` representations of the ranks of the board.
@@ -407,8 +416,54 @@ A `Bitboard` constant representing a full board.
 const FULL = ~EMPTY
 
 
+"""
+    LIGHT
+
+A bitboard representing the 'light' squares of a board.
+"""
 const LIGHT = Bitboard(0xAA55AA55AA55AA55)
+
+
+"""
+    DARK
+
+A bitboard representing the 'dark' squares of a board.
+"""
 const DARK = ~LIGHT
+
+
+"""
+    QUEENSIDE
+
+A bitboard representing the queen side of a board.
+"""
+const QUEENSIDE = FILE_A | FILE_B | FILE_C | FILE_D
+
+
+"""
+    KINGSIDE
+
+A bitboard representing the king side of a board.
+"""
+const KINGSIDE = FILE_E | FILE_F | FILE_G | FILE_H
+
+
+"""
+    CENTERFILES
+
+A bitboard representing the central files of a board.
+"""
+const CENTERFILES = FILE_C | FILE_D | FILE_E | FILE_F
+
+
+"""
+    KINGFLANK
+
+A vector which maps a given file (of a king), to a bitboard representing its respective 'king flank' bitboard.
+"""
+const KINGFLANK = @SVector [QUEENSIDE ⊻ FILE_D, QUEENSIDE, QUEENSIDE,
+      CENTERFILES, CENTERFILES, KINGSIDE, KINGSIDE, KINGSIDE ⊻ FILE_E]
+
 
 # Custom show for bitboard types
 function Base.show(io::IO, bb::Bitboard)
