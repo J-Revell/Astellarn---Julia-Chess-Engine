@@ -23,7 +23,6 @@ end
 
 
 function uci_main()
-    io = stdout
     if iszero(length(ARGS))
         # by default, load starting position
         board = importfen(START_FEN)
@@ -44,11 +43,11 @@ function uci_main()
         line = readline()
 
         if line == "uci"
-            uci_engine(io)
+            uci_engine()
             continue
 
         elseif line == "isready"
-            uci_isready(io)
+            uci_isready()
             continue
 
         elseif line == "ucinewgame"
@@ -60,17 +59,17 @@ function uci_main()
         splitlines = split(line)
 
         if splitlines[1] == "go"
-            uci_go(io, threads, ttable, splitlines)
+            uci_go(threads, ttable, splitlines)
             continue
 
         elseif splitlines[1] == "position"
             uci_position!(threads, splitlines)
 
         elseif splitlines[1] == "perft"
-            uci_perft(io, threads, splitlines)
+            uci_perft(threads, splitlines)
 
         elseif splitlines[1] == "setoption"
-            uci_setoptions(io, threads, splitlines)
+            uci_setoptions(threads, splitlines)
         end
         # additional options currently unsupported
     end
@@ -78,15 +77,13 @@ function uci_main()
 end
 
 
-function uci_engine(io::IO)
-    print(io, "id name Astellarn ", ASTELLARN_VERSION, "\n")
-    print(io, "id author Jeremy Revell\n")
-    print(io, "uciok\n")
+function uci_engine()
+    print("id name Astellarn ", ASTELLARN_VERSION, "\nid author Jeremy Revell\nuciok\n")
 end
 
 
-function uci_isready(io::IO)
-    print(io, "readyok\n")
+function uci_isready()
+    print("readyok\n")
 end
 
 
@@ -99,50 +96,113 @@ function uci_newgame!(threads::ThreadPool, ttable::TT_Table)
 end
 
 
-function uci_perft(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String}})
+function uci_perft(threads::ThreadPool, splitlines::Vector{SubString{String}})
     depth = parse(Int, splitlines[2])
-    time_start = time()
+    start_time = time()
     nodes = perft(threads[1].board, depth)
-    time_stop = time()
-    elapsed = time_stop - time_start
-    @printf(io, "Total time (ms) : %d\n", elapsed*1000)
-    @printf(io, "Nodes searched : %d\n", nodes)
+    stop_time = time()
+    elapsed = stop_time - start_time
     nps = nodes/elapsed
-    @printf(io, "Nodes/second :  %d\n", nps)
+    @printf("Total time (ms) : %d\n", elapsed*1000)
+    @printf("Nodes searched : %d\n", nodes)
+    @printf("Nodes/second :  %d\n", nps)
     return
 end
 
 
-function uci_go(io::IO, threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubString{String}})
-    ab_depth = 6 #temporary default value
+function uci_go(threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubString{String}})
+    # First, take note of the starting time.
+    start_time = time()
 
-    # extract depth
+    # Initialise the default search + time management values.
+    infinite = false
+    depth = wtime = btime = movetime = winc = binc = 0
+    movestogo = -1
+
+    # Extract search and time management parameters from the UCI command.
     for i in eachindex(splitlines)
+        if splitlines[i] == "infinite"
+            infinite = true
+            break # We can break as we expect no more inputs
+        end
+        # The explicit depth.
         if splitlines[i] == "depth"
-            ab_depth = parse(Int, splitlines[i + 1])
-            break
+            depth = parse(Int, splitlines[i + 1])
+            infinite = true # So that we know we are not time limited
+            break # We can assume no more inputs?
+        end
+        # White's clock time.
+        if splitlines[i] == "wtime"
+            wtime = parse(Int, splitlines[i + 1])
+            continue
+        end
+        # Black's clock time.
+        if splitlines[i] == "btime"
+            btime = parse(Int, splitlines[i + 1])
+            continue
+        end
+        # White increment amount.
+        if splitlines[i] == "winc"
+            winc = parse(Int, splitlines[i + 1])
+            continue
+        end
+        # Black increment amount.
+        if splitlines[i] == "binc"
+            binc = parse(Int, splitlines[i + 1])
+            continue
+        end
+        # The movetime we have available.
+        if splitlines[i] == "movetime"
+            movetime = parse(Int, splitlines[i + 1])
+            continue
+        end
+        # Find out the movestogo.
+        if splitlines[i] == "movestogo"
+            movestogo = parse(Int, splitlines[i + 1])
+            continue
         end
     end
 
+    # Which colour's turn is it?
+    if threads[1].board.turn == WHITE
+        clock_time = wtime
+        inc_time = winc
+    else
+        clock_time = btime
+        inc_time = binc
+    end
+
+    # Init the time manager and set to the thread
+    timeman = TimeManagement(MOVE_OVERHEAD, infinite, movetime, depth, start_time, clock_time, inc_time, movestogo, 0, 0)
+    threads[1].timeman = timeman
+    threads[1].stop = false
+
     # following section is a hack, while multithreadding is not supported.
-    threads[1].ss.time_start = time()
     threads[1].ss.nodes = 0
     threads[1].ss.depth = 0
     threads[1].ss.seldepth = 0
     threads[1].ss.tbhits = 0
 
-    eval = find_best_move(threads[1], ttable, ab_depth)
+    # Calling the main search function.
+    if depth == 0
+        depth = 50
+    end
+    eval = find_best_move(threads[1], ttable, depth)
+
+    # Extract the search info and stats.
     move = threads[1].pv[1][1]
     nodes = threads[1].ss.nodes
-    time_stop = time()
-    elapsed = time_stop - threads[1].ss.time_start
-    nps = nodes/elapsed
+    elapsed = elapsedtime(timeman)
+    nps = nodes*1000/elapsed
 
+    # Report back to the UCI
     ucistring = movetostring(move)
-    @printf(io, "info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", threads[1].ss.depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval)
-    print(io, join(movetostring.(threads[1].pv[1]), " "))
-    print(io, "\n")
-    print(io, "bestmove ", ucistring, "\n")
+    if !threads[1].stop
+        @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", threads[1].ss.depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval)
+        print(join(movetostring.(threads[1].pv[1]), " "))
+        print("\n")
+    end
+    print("bestmove ", ucistring, "\n")
     return
 end
 
@@ -179,16 +239,21 @@ function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}
 end
 
 
-function uci_setoptions(io::IO, threads::ThreadPool, splitlines::Vector{SubString{String}})
+function uci_setoptions(threads::ThreadPool, splitlines::Vector{SubString{String}})
     if splitlines[3] == "Threads"
         num_threads = parse(Int, splitlines[5])
         createthreadpool(threads[1].board, num_threads)
-        println(io, "info string set Threads to ", num_threads)
+        println("info string set Threads to ", num_threads)
     end
 
     if splitlines[3] == "SyzygyPath"
         tb_init(splitlines[5])
-        println(io, "info string set SyzygyPath to ", splitlines[5])
+        println("info string set SyzygyPath to ", splitlines[5])
+    end
+
+    if splitlines[3] == "MoveOverhead"
+        global MOVE_OVERHEAD = parse(Int, splitlines[5])
+        println("info string set MoveOverhead to ", splitlines[5])
     end
     return
 end
@@ -197,8 +262,8 @@ end
 # This function is called when the thread (or search) wishes to output stats mid-execution.
 function uci_report(thread::Thread, α::Int, β::Int, value::Int)
     score = max(α, min(β, value))
-    elapsed = time() - thread.ss.time_start
-    nps = thread.ss.nodes / elapsed
+    elapsed = elapsedtime(thread.timeman)
+    nps = thread.ss.nodes*1000 / elapsed
     @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, thread.ss.tbhits, score)
     print(join(movetostring.(thread.pv[1]), " "))
     print("\n")

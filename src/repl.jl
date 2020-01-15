@@ -35,7 +35,7 @@ end
 
 Looks ahead using alpha-beta pruning plus quiescence, alongside a naive evaluation. Selects a move.
 """
-function engine!(board::Board; ab_depth::Int = 3)
+function engine!(board::Board, depth::Int)
     if isdrawbymaterial(board)
         return :DRAW
     end
@@ -44,16 +44,19 @@ function engine!(board::Board; ab_depth::Int = 3)
     end
     thread = Thread()
     copy!(thread.board, board)
-    thread.ss.time_start = time()
+
+    timeman = TimeManagement(100, true, 0, depth, time(), 0, 0, -1, 0, 0)
+    thread.timeman = timeman
+    thread.stop = false
     thread.ss.nodes = 0
     thread.ss.depth = 0
     thread.ss.seldepth = 0
     thread.ss.tbhits = 0
+
     ttable = TT_Table()
-    eval = find_best_move(thread, ttable, ab_depth)
+    eval = find_best_move(thread, ttable, depth)
     move = thread.pv[1][1]
-    nodes = thread.ss.nodes
-    if move == Move()
+    if move == MOVE_NONE
         if ischeck(board)
             if board.turn == WHITE
                 return :BLACK_WINS
@@ -66,91 +69,6 @@ function engine!(board::Board; ab_depth::Int = 3)
     end
     apply_move!(board, move)
     board
-end
-engine!(board) = engine!(board; ab_depth = 3)
-
-
-# play a match beween AI 1 and AI 2.
-function match(N::Int, p1::Function, p2::Function)
-    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    wdb = [0,0,0]
-    for i in 1:N
-        playing = true
-        b = importfen(fen)
-        counter = 0
-        while playing
-            if isodd(counter)
-                sym = p2(b)
-            else
-                sym = p1(b)
-            end
-            if sym == :WHITE_WINS
-                wdb[1]+=1
-                playing = false
-            elseif sym == :DRAW
-                wdb[2]+=1
-                playing = false
-            elseif sym == :BLACK_WINS
-                wdb[3]+=1
-                playing = false
-            end
-            counter += 1
-        end
-        show(b)
-        println(wdb)
-    end
-    wdb
-end
-
-
-# play a match with a list of FEN strings. Plays a game from each side.
-function match(openings::Vector{String}, p1::Function, p2::Function)
-    p1_d_p2 = [0,0,0]
-    for i in eachindex(openings)
-        playing = true
-        b = importfen(openings[i])
-        while playing
-            if b.turn == WHITE
-                sym = p1(b)
-            else
-                sym = p2(b)
-            end
-            if sym == :WHITE_WINS
-                p1_d_p2[1]+=1
-                playing = false
-            elseif sym == :DRAW
-                p1_d_p2[2]+=1
-                playing = false
-            elseif sym == :BLACK_WINS
-                p1_d_p2[3]+=1
-                playing = false
-            end
-        end
-        show(b)
-        println(p1_d_p2)
-        playing = true
-        b = importfen(openings[i])
-        while playing
-            if b.turn == BLACK
-                sym = p1(b)
-            else
-                sym = p2(b)
-            end
-            if sym == :WHITE_WINS
-                p1_d_p2[3]+=1
-                playing = false
-            elseif sym == :DRAW
-                p1_d_p2[2]+=1
-                playing = false
-            elseif sym == :BLACK_WINS
-                p1_d_p2[1]+=1
-                playing = false
-            end
-        end
-        show(b)
-        println(p1_d_p2)
-    end
-    p1_d_p2
 end
 
 
@@ -314,7 +232,7 @@ end
 Play the best engine move on the global board.
 """
 macro engine()
-    engine!(_globalboard)
+    engine!(_globalboard, 10)
 end
 
 
@@ -324,7 +242,7 @@ end
 Play the best engine move on the global board, evaluated at a depth 'n::Int'.
 """
 macro engine(depth::Int)
-    engine!(_globalboard, ab_depth = depth)
+    engine!(_globalboard, depth)
 end
 
 

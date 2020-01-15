@@ -103,4 +103,37 @@ function tb_probe_root(board::Board)::UInt32
 end
 
 
-#tb_init(SYZYGY_PATH)
+# Called at the root node if a TB result is returned
+function interpret_syzygy(thread::Thread, res::UInt32)
+    thread.ss.tbhits += 1
+    _eval = TB_GET_WDL(res)
+    if iszero(_eval)
+        eval = -MATE
+    elseif 1 <= _eval <= 3 # blessed / cursed loss and wins are draws
+        eval = 0
+    else
+        eval = MATE
+    end
+    move_from = TB_GET_FROM(res)
+    move_to = TB_GET_TO(res)
+    promotion = TB_GET_PROMOTES(res)
+    if promotion !== TB_PROMOTES_NONE
+        if promotion == TB_PROMOTES_QUEEN
+            push!(thread.pv[1], Move(move_from, move_to, __QUEEN_PROMO))
+            return eval
+        elseif promotion == TB_PROMOTES_ROOK
+            push!(thread.pv[1], Move(move_from, move_to, __ROOK_PROMO))
+            return eval
+        elseif promotion == TB_PROMOTES_BISHOP
+            push!(thread.pv[1], Move(move_from, move_to, __BISHOP_PROMO))
+            return eval
+        elseif promotion == TB_PROMOTES_KNIGHT
+            push!(thread.pv[1], Move(move_from, move_to, __KNIGHT_PROMO))
+            return eval
+        end
+    else
+        clear!(thread.pv[1])
+        push!(thread.pv[1], Move(move_from, move_to, __NORMAL_MOVE))
+        return eval
+    end
+end

@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.1.10"
+    const ASTELLARN_VERSION = "v0.2.0"
 
     using Crayons
     using StaticArrays
@@ -16,6 +16,7 @@ module Astellarn
     include("bitboard.jl")
     include("pieces.jl")
     include("zobrist.jl")
+    include("timeman.jl")
     include("utils.jl")
     include("parameters.jl")
     include("board.jl")

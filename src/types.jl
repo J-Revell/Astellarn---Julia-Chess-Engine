@@ -61,7 +61,6 @@ mutable struct ThreadStats
     seldepth::Int
     nodes::Int
     tbhits::Int
-    time_start::Float64
 end
 
 
@@ -110,6 +109,7 @@ const PawnTable = Dict{ZobristHash, PT_Entry}
 `DataType` used to store information used by the thread during its search.
 """
 mutable struct Thread
+    timeman::TimeManagement
     board::Board
     pv::Vector{MoveStack} # 1st element is the PV, rest are preallocated tmp PVs
     ss::ThreadStats
@@ -124,4 +124,5 @@ mutable struct Thread
     killers::Vector{MoveStack}
     cmtable::CounterTable
     ptable::PawnTable
+    stop::Bool
 end

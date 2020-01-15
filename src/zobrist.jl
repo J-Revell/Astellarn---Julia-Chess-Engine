@@ -11,7 +11,7 @@ mutable struct XORShiftState
     val::UInt64
 end
 
-const __XORSHIFT_SEED = XORShiftState(UInt64(1070372))
+__XORSHIFT_SEED = XORShiftState(UInt64(1070372))
 
 # inspired from Ethereal
 function xorshift_generator()

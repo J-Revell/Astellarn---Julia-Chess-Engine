@@ -13,13 +13,25 @@ Written in Julia, implementing the UCI protocol, with Syzygy tablebase support v
 
 ### Engine features:
 * Alpha-beta search.
+  - Iterative deepening.
+  - Aspiration windows.
+  - Futility pruning.
+  - Late move reductions.
+  - Razoring.
+  - Null-move pruning.
 * Quiescence search.
+  - Delta-pruning.
 * Static exchange evaluation.
-* Delta-pruning.
-* Futility pruning.
-* Late move reductions.
-* Razoring.
-* Syzygy tablebase probing via Fathom.
+* Move Ordering.
+  - Killer moves.
+  - Counter moves.
+  - History heuristics.
+  - MVV-LVA heuristics.
+* Syzygy tablebase probing via Fathom (c-library).
+* Transposition hash tables.
+* Pawn hash tables.
+* (In development) Time management function.
+
 
 ### Julia functionality:
 * FEN position import.
@@ -70,6 +82,10 @@ Astellarn.jl is compatible with the UCI protocol for chess, supplying the functi
   - Razoring added.
   - Implemented aspiration windows.
   - Implemented iterative deepening.
+  - Pawn hash tables.
+  - Killer move, counter move, and history heuristics.
+  - Improved evaluation.
+  - Added time management (v0.2.0)
 * Dec 2019:
   - Perft support added.
   - Implemented core alpha-beta search.
@@ -90,6 +106,7 @@ Astellarn.jl is compatible with the UCI protocol for chess, supplying the functi
 * Sophisticated evaluation.
 * Tuning.
 * Multithreading (Julia support is experimental)
+* Better time management.
 
 ### Cool things:
 * Ethereal Engine (https://github.com/AndyGrant/Ethereal)

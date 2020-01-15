@@ -1,62 +1,73 @@
 """
+    isearlytermination(thread::Thread)
+
+Check if we have met a termination condition for the thread.
+"""
+function isearlytermination(thread::Thread)
+    # Ensure, minimum depth 1 searched.
+    # Ensure, minumum 1023+ nodes searched.
+    # And that time management is up.
+    (thread.ss.depth > 1) && ((thread.ss.nodes & 1023) == 1023) && (elapsedtime(thread.timeman) > thread.timeman.max_time) &&
+    (!thread.timeman.isinfinite) && (thread.timeman.depth == 0)
+end
+
+
+"""
     find_best_move()
 
 Probe the tablebase if appropriate, or perform the absearch routine.
 """
-function find_best_move(thread::Thread, ttable::TT_Table, ab_depth::Int)::Int
+function find_best_move(thread::Thread, ttable::TT_Table, depth::Int)::Int
     board = thread.board
-    # probe the tablebase
+
+    # Probe the syzygy tablebase.
+    # At present, it is assumed 5 men tablebases are available.
+    # Also assumes we want to always probe.
     if (count(occupied(board)) <= 5)
         res = tb_probe_root(board)
         if res !== TB_RESULT_FAILED
-            thread.ss.tbhits += 1
-            _eval = TB_GET_WDL(res)
-            if iszero(_eval)
-                eval = -MATE
-            elseif 1 <= _eval <= 3 # blessed / cursed loss and wins are draws
-                eval = 0
-            else
-                eval = MATE
-            end
-            move_from = TB_GET_FROM(res)
-            move_to = TB_GET_TO(res)
-            promotion = TB_GET_PROMOTES(res)
-            if promotion !== TB_PROMOTES_NONE
-                if promotion == TB_PROMOTES_QUEEN
-                    push!(thread.pv[1], Move(move_from, move_to, __QUEEN_PROMO))
-                    return eval
-                elseif promotion == TB_PROMOTES_ROOK
-                    push!(thread.pv[1], Move(move_from, move_to, __ROOK_PROMO))
-                    return eval
-                elseif promotion == TB_PROMOTES_BISHOP
-                    push!(thread.pv[1], Move(move_from, move_to, __BISHOP_PROMO))
-                    return eval
-                elseif promotion == TB_PROMOTES_KNIGHT
-                    push!(thread.pv[1], Move(move_from, move_to, __KNIGHT_PROMO))
-                    return eval
-                end
-            else
-                clear!(thread.pv[1])
-                push!(thread.pv[1], Move(move_from, move_to, __NORMAL_MOVE))
-                return eval
-            end
+            # Extract the move to the PV and return an evaluation.
+            return interpret_syzygy(thread, res)
         end
     end
 
-    # else we do a search
-    return iterative_deepening(thread, ttable, ab_depth)
+    ABORT_SIGNAL[] = false
+    initTimeManagement!(thread.timeman)
+
+    # If no tablebase result found, we proceed with iterative deepening and absearch.
+    eval = iterative_deepening(thread, ttable, depth)
+    ABORT_SIGNAL[] = true
+    return eval
 end
 
 
+"""
+    iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)
+
+Performs the iterative deepening approach to absearch, and forms the main core of the engine routine.
+"""
 function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)::Int
     eval = -MATE
+
+    # We iterate through depths until we either:
+    # a) reach the maximum depth, or
+    # b) hit a time management constraint.
     for depth in 1:max_depth
         eval = aspiration_window(thread, ttable, depth, eval)
+        if (!thread.timeman.isinfinite && elapsedtime(thread.timeman) > thread.timeman.max_time) ||
+            (thread.timeman.depth !== 0 && depth >= thread.timeman.depth) || istermination(thread.timeman)
+            break
+        end
     end
     return eval
 end
 
 
+"""
+    aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)
+
+When operating within the iterative deepening framework, aspiration windows are used via calls to this function.
+"""
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
     δ = 25
     if depth >= WINDOW_DEPTH
@@ -66,15 +77,18 @@ function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::I
     return aspiration_window_internal(thread, ttable, depth, eval, -MATE, MATE, δ)
 end
 
+
+# The internals of aspiration_window
 function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int, eval::Int, α::Int, β::Int, δ::Int)::Int
-    while true
+    eval = eval
+    while !thread.stop
         eval = absearch(thread, ttable, α, β, depth, 0)
 
         # reporting
         thread.ss.depth = depth
 
         # window cond met
-        if α < eval < β
+        if ((α < eval < β) || (elapsedtime(thread.timeman) > 2.5)) && !thread.stop
             uci_report(thread, α, β, eval)
             return eval
         end
@@ -92,6 +106,7 @@ function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int
         # expand window
         δ += fld(δ, 2)
     end
+    return eval
 end
 
 
@@ -115,12 +130,18 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     thread.ss.seldepth = max(thread.ss.seldepth, ply)
     thread.ss.nodes += 1
 
-    # draw checks
+    # Check for abort signal, or TimeManagement criteria.
+    if isearlytermination(thread) || (ABORT_SIGNAL[] == true)
+        thread.stop = true
+        return 0
+    end
+
+    # Check if the current position is drawn. (Ignoring stalemate)
     if isdrawbymaterial(board) || is50moverule(board)
         return 0
     end
 
-    # max depth cutoff
+    # If we have reached the maximum search ply depth, we stop here.
     if ply >= MAX_PLY
         return evaluate(board, thread.ptable)
     end
@@ -188,18 +209,20 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
 end
 
 
+# The internals of qsearch.
 function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, tt_move::Move, best::Int)::Int
     # We can select skipquiets = false during qsearch, as if it's a NOISY type moveorder, quiets are skipped anyway.
     # Otherwise, quiets are needed to generate king check evasions.
-    while (move = selectmove!(thread, ply, false)) !== MOVE_NONE
+    while ((move = selectmove!(thread, ply, false)) !== MOVE_NONE) && !thread.stop
 
         u = apply_move!(thread, move)
 
         eval = -qsearch(thread, ttable, -β, -α, ply + 1)
         undo_move!(thread, move, u)
 
-        # check for improvements
-        if eval > best
+        # Check for improvements, and update PV.
+        # Ensure we met no stop signals.
+        if (eval > best) && (!thread.stop)
             best = eval
             if eval > α
                 α = best
@@ -210,7 +233,7 @@ function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, pl
         end
 
         # fail high?
-        if α >= β
+        if (α >= β) && !thread.stop
             return best
         end
     end
@@ -221,7 +244,7 @@ end
 """
     absearch()
 
-Internals of `absearch()` routine.
+The main alpha-beta search function, containing all the pruning heuristics.
 """
 function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)::Int
     board = thread.board
@@ -263,6 +286,12 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # update thread details
     thread.ss.seldepth = max(thread.ss.seldepth, ply)
     thread.ss.nodes += 1
+
+    # Check for abort signal, or TimeManagement criteria.
+    if isearlytermination(thread) || (ABORT_SIGNAL[] == true)
+        thread.stop = true
+        return evaluate(board, thread.ptable)
+    end
 
     # If this is not the root node, we can check for early exit conditions.
     if isroot == false
@@ -412,7 +441,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     init_normal_moveorder!(thread, tt_move, ply)
     @inbounds quiets_tried = thread.quietstack[ply + 1]
     @inbounds moveorder = thread.moveorders[ply + 1]
-    while (move = selectmove!(thread, ply, skipquiets)) !== MOVE_NONE
+    while ((move = selectmove!(thread, ply, skipquiets)) !== MOVE_NONE) && !thread.stop
 
         isquiet = !istactical(board, move)
 
@@ -510,7 +539,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         undo_move!(thread, move, u)
 
         # Have we found a better move?
-        if cand_eval > best
+        # Ensure we encountered no stops, and update the PV.
+        if (cand_eval > best) && (!thread.stop)
             best = cand_eval
             best_move = move
             if cand_eval > α
@@ -520,13 +550,12 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
                 push!(pv_current, best_move)
                 updatepv!(pv_current, pv_future)
 
-                # fail high?
+                # Did we fail high? Then we can break.
                 if α >= β
                     break
                 end
             end
         end
-
     end
 
     if iszero(played)
@@ -555,7 +584,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         tt_entry = TT_Entry(eval, best_move, depth, tt_bound)
         setTTentry!(ttable, board.hash, tt_entry)
     end
-
     return best
 end
 
