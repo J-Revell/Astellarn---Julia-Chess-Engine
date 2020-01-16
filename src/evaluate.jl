@@ -1,14 +1,12 @@
 #====================== Auxilliary precomputation =============================#
 """
-    EvalInfoImmutable
+    EvalInfo
 
 EvalAux is an auxilliary data structure for storing useful computations for the evaluation of the board.
 """
-struct EvalInfoImmutable
+struct EvalInfo
     wrammedpawns::Bitboard
     brammedpawns::Bitboard
-    wpawnattacks::Bitboard
-    bpawnattacks::Bitboard
     wmobility::Bitboard
     bmobility::Bitboard
     stage::Int
@@ -16,19 +14,23 @@ end
 
 
 """
-    EvalInfoMutable
+    EvalAttackInfo
 
 EvalAux is an auxilliary data structure for storing useful computations for the evaluation of the board.
 """
-mutable struct EvalInfoMutable
+mutable struct EvalAttackInfo
+    wpawnattacks::Bitboard
     wknightattacks::Bitboard
-    bknightattacks::Bitboard
     wbishopattacks::Bitboard
-    bbishopattacks::Bitboard
     wrookattacks::Bitboard
-    brookattacks::Bitboard
     wqueenattacks::Bitboard
+    wkingattacks::Bitboard
+    bpawnattacks::Bitboard
+    bknightattacks::Bitboard
+    bbishopattacks::Bitboard
+    brookattacks::Bitboard
     bqueenattacks::Bitboard
+    bkingattacks::Bitboard
 end
 
 
@@ -59,15 +61,22 @@ function initEvalInfo(board::Board)
     wqueenattacks = EMPTY
     bqueenattacks = EMPTY
 
+    wkingattacks = EMPTY
+    bkingattacks = EMPTY
+
     # mobility regions
     wmobility = ~(board[WHITEKING] | bpawnattacks)
     bmobility = ~(board[BLACKKING] | wpawnattacks)
 
     gamestage = stage(board)
 
-    eii = EvalInfoImmutable(wrammedpawns, brammedpawns, wpawnattacks, bpawnattacks, wmobility, bmobility, gamestage)
-    eim = EvalInfoMutable(wknightattacks, bknightattacks, wbishopattacks, bbishopattacks, wrookattacks, brookattacks, wqueenattacks, bqueenattacks)
-    eii, eim
+    # wattacks = [wpawnattacks, wknightattacks, wbishopattacks, wrookattacks, wqueenattacks, wkingattacks]
+    # battacks = [bpawnattacks, bknightattacks, bbishopattacks, brookattacks, bqueenattacks, bkingattacks]
+    # allattacks = [EMPTY, EMPTY]
+
+    ei = EvalInfo(wrammedpawns, brammedpawns, wmobility, bmobility, gamestage)
+    ea = EvalAttackInfo(wpawnattacks, wknightattacks, wbishopattacks, wrookattacks, wqueenattacks, wkingattacks, bpawnattacks, bknightattacks, bbishopattacks, brookattacks, bqueenattacks, bkingattacks)
+    ei, ea
 end
 
 
@@ -113,25 +122,41 @@ end
 Naive evaluation function to get the code development going.
 """
 function evaluate(board::Board, ptable::PawnTable)
-    eii, eim = initEvalInfo(board::Board)
+    ei, ea = initEvalInfo(board::Board)
 
     score = 0
     score += board.psqteval
 
-    score += evaluate_pawns(board, eii, eim, ptable)
-    score += evaluate_knights(board, eii, eim)
-    score += evaluate_bishops(board, eii, eim)
-    score += evaluate_rooks(board, eii, eim)
-    score += evaluate_queens(board, eii, eim)
-    score += evaluate_kings(board, eii, eim)
+    if (pt_entry = get(ptable, board.phash, false)) !== false
+        score += pt_entry.score
+    end
+
+    v = fld(scoreEG(score) + scoreMG(score), 2)
+    if abs(v) > LAZY_THRESH
+        if board.turn == WHITE
+            return v
+        else
+            return -v
+        end
+    end
+
+    if pt_entry == false
+        score += evaluate_pawns(board, ei, ea, ptable)
+    end
+    score += evaluate_knights(board, ei, ea)
+    score += evaluate_bishops(board, ei, ea)
+    score += evaluate_rooks(board, ei, ea)
+    score += evaluate_queens(board, ei, ea)
+    score += evaluate_kings(board, ei, ea)
+
 
     score += evaluate_pins(board)
-    score += evaluate_space(board, eii, eim)
-    score += evaluate_threats(board, eii, eim)
+    score += evaluate_space(board, ei, ea)
+    score += evaluate_threats(board, ei, ea)
 
     scale_f = scale_factor(board, scoreEG(score))
 
-    eval = (256 - eii.stage) * scoreMG(score) + eii.stage * scoreEG(score) * fld(scale_f, SCALE_NORMAL)
+    eval = (256 - ei.stage) * scoreMG(score) + ei.stage * scoreEG(score) * fld(scale_f, SCALE_NORMAL)
     eval = fld(eval, 256)
 
     if board.turn == WHITE
@@ -144,7 +169,7 @@ function evaluate(board::Board, ptable::PawnTable)
 end
 
 
-function evaluate_pawns(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable, ptable::PawnTable)
+function evaluate_pawns(board::Board, ei::EvalInfo, ea::EvalAttackInfo, ptable::PawnTable)
 
     if (pt_entry = get(ptable, board.phash, false)) !== false
         return pt_entry.score
@@ -187,8 +212,8 @@ function evaluate_pawns(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
         end
     end
 
-    position_eval += count(eii.wpawnattacks & w_pawns) * PAWN_DEFEND_PAWN_BONUS
-    position_eval -= count(eii.bpawnattacks & b_pawns) * PAWN_DEFEND_PAWN_BONUS
+    position_eval += count(ea.wpawnattacks & w_pawns) * PAWN_DEFEND_PAWN_BONUS
+    position_eval -= count(ea.bpawnattacks & b_pawns) * PAWN_DEFEND_PAWN_BONUS
 
     result = makescore(position_eval, position_eval) + score
     ptable[board.phash] = PT_Entry(result)
@@ -196,7 +221,7 @@ function evaluate_pawns(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
 end
 
 
-function evaluate_knights(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
+function evaluate_knights(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     w_knights = (board[WHITE] & board[KNIGHT])
     b_knights = (board[BLACK] & board[KNIGHT])
 
@@ -205,24 +230,20 @@ function evaluate_knights(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMut
 
     @inbounds for knight in w_knights
         attacks = knightMoves(knight)
-        eim.wknightattacks |= attacks
-        score += KNIGHT_MOBILITY[count(attacks & eii.wmobility) + 1]
+        ea.wknightattacks |= attacks
+        score += KNIGHT_MOBILITY[count(attacks & ei.wmobility) + 1]
     end
     score += count((w_knights << 8) & board[WHITE] & board[PAWN]) * PAWN_SHIELD_BONUS
-    position_eval += count(eii.wpawnattacks & w_knights) * PAWN_DEFEND_MINOR_BONUS
-    score -= count(eii.bpawnattacks & w_knights) * PAWN_ATTACK_MINOR_BONUS
 
     @inbounds for knight in b_knights
         attacks = knightMoves(knight)
-        eim.bknightattacks |= attacks
-        score -= KNIGHT_MOBILITY[count(attacks & eii.bmobility) + 1]
+        ea.bknightattacks |= attacks
+        score -= KNIGHT_MOBILITY[count(attacks & ei.bmobility) + 1]
     end
     score -= count((b_knights >> 8) & board[BLACK] & board[PAWN]) * PAWN_SHIELD_BONUS
-    position_eval -= count(eii.bpawnattacks & b_knights) * PAWN_DEFEND_MINOR_BONUS
-    score += count(eii.wpawnattacks & b_knights) * PAWN_ATTACK_MINOR_BONUS
 
     # bonus for knights in rammed positions
-    num_rammed = count(eii.wrammedpawns)
+    num_rammed = count(ei.wrammedpawns)
     position_eval += div(count(w_knights) * KNIGHT_RAMMED_BONUS * num_rammed^2, 4)
     position_eval -= div(count(b_knights) * KNIGHT_RAMMED_BONUS * num_rammed^2, 4)
 
@@ -238,27 +259,12 @@ function evaluate_knights(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMut
         end
     end
 
-    position_eval += count(eim.wknightattacks & (board[WHITE] & board[BISHOP])) * 10
-    position_eval -= count(eim.bknightattacks & (board[BLACK] & board[BISHOP])) * 10
-    position_eval += count(eim.wknightattacks & (board[WHITE] & board[ROOK])) * 7
-    position_eval -= count(eim.bknightattacks & (board[BLACK] & board[ROOK])) * 7
-    position_eval += count(eim.wknightattacks & board[WHITEQUEEN]) * 5
-    position_eval -= count(eim.bknightattacks & board[BLACKQUEEN]) * 5
-
-    threat_eval = 0
-    threat_eval += count(eim.wknightattacks & (board[BLACK] & board[BISHOP])) * 15
-    threat_eval -= count(eim.bknightattacks & (board[WHITE] & board[BISHOP])) * 15
-    threat_eval += count(eim.wknightattacks & (board[BLACK] & board[ROOK])) * 28
-    threat_eval -= count(eim.bknightattacks & (board[WHITE] & board[ROOK])) * 28
-    threat_eval += count(eim.wknightattacks & board[BLACKQUEEN]) * 42
-    threat_eval -= count(eim.bknightattacks & board[WHITEQUEEN]) * 42
-
-    eval = position_eval + threat_eval
+    eval = position_eval
     makescore(eval, eval) + score
 end
 
 
-function evaluate_bishops(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
+function evaluate_bishops(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     w_bishops = (board[WHITE] & board[BISHOP])
     b_bishops = (board[BLACK] & board[BISHOP])
 
@@ -270,23 +276,19 @@ function evaluate_bishops(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMut
 
     @inbounds for bishop in w_bishops
         attacks = bishopMoves(bishop, occ)
-        eim.wbishopattacks |= attacks
-        score += BISHOP_MOBILITY[count(attacks & eii.wmobility) + 1]
+        ea.wbishopattacks |= attacks
+        score += BISHOP_MOBILITY[count(attacks & ei.wmobility) + 1]
     end
     # Add a bonus for being behind a pawn.
     score += count((w_bishops << 8) & board[WHITE] & board[PAWN]) * PAWN_SHIELD_BONUS
-    position_eval += count(eii.wpawnattacks & w_bishops) * PAWN_DEFEND_MINOR_BONUS
-    score -= count(eii.bpawnattacks & w_bishops) * PAWN_ATTACK_MINOR_BONUS
 
     @inbounds for bishop in b_bishops
         attacks = bishopMoves(bishop, occ)
-        eim.bbishopattacks |= attacks
-        score -= BISHOP_MOBILITY[count(attacks & eii.bmobility) + 1]
+        ea.bbishopattacks |= attacks
+        score -= BISHOP_MOBILITY[count(attacks & ei.bmobility) + 1]
     end
     # Add a bonus for being behind a pawn
     score -= count((b_bishops >> 8) & board[BLACK] & board[PAWN]) * PAWN_SHIELD_BONUS
-    position_eval -= count(eii.bpawnattacks & b_bishops) * PAWN_DEFEND_MINOR_BONUS
-    score += count(eii.wpawnattacks & b_bishops) * PAWN_ATTACK_MINOR_BONUS
 
     for trap in BISHOP_TRAP_PATTERNS[1]
         if ((board[BLACK] & board[PAWN] & trap.pawnmask) == trap.pawnmask) && !isempty(w_bishops & trap.minormask)
@@ -310,19 +312,19 @@ function evaluate_bishops(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMut
     # penalty for bishops on colour of own pawns
     if !isempty(w_bishops & LIGHT)
         score -= BISHOP_COLOR_PENALTY * count(board[WHITE] & board[PAWN] & LIGHT)
-        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(eii.wrammedpawns & LIGHT)
+        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(ei.wrammedpawns & LIGHT)
     end
     if !isempty(w_bishops & DARK)
         score -= BISHOP_COLOR_PENALTY * count(board[WHITE] & board[PAWN] & DARK)
-        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(eii.wrammedpawns & DARK)
+        position_eval -= BISHOP_RAMMED_COLOR_PENALTY * count(ei.wrammedpawns & DARK)
     end
     if !isempty(b_bishops & LIGHT)
         score += BISHOP_COLOR_PENALTY * count(board[BLACK] & board[PAWN] & LIGHT)
-        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(eii.brammedpawns & LIGHT)
+        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(ei.brammedpawns & LIGHT)
     end
     if !isempty(b_bishops & DARK)
         score += BISHOP_COLOR_PENALTY * count(board[BLACK] & board[PAWN] & DARK)
-        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(eii.brammedpawns & DARK)
+        position_eval += BISHOP_RAMMED_COLOR_PENALTY * count(ei.brammedpawns & DARK)
     end
 
     eval = position_eval
@@ -330,7 +332,7 @@ function evaluate_bishops(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMut
 end
 
 
-function evaluate_rooks(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
+function evaluate_rooks(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     w_rooks = (board[WHITE] & board[ROOK])
     b_rooks = (board[BLACK] & board[ROOK])
 
@@ -349,8 +351,8 @@ function evaluate_rooks(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
             position_eval += ROOK_KING_FILE_BONUS
         end
         attacks = rookMoves(rook, occ)
-        eim.wrookattacks |= attacks
-        score += ROOK_MOBILITY[count(attacks & eii.wmobility) + 1]
+        ea.wrookattacks |= attacks
+        score += ROOK_MOBILITY[count(attacks & ei.wmobility) + 1]
     end
 
     for rook in b_rooks
@@ -364,21 +366,16 @@ function evaluate_rooks(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
             position_eval -= ROOK_KING_FILE_BONUS
         end
         attacks = rookMoves(rook, occ)
-        eim.brookattacks |= attacks
-        score -= ROOK_MOBILITY[count(attacks & eii.bmobility) + 1]
+        ea.brookattacks |= attacks
+        score -= ROOK_MOBILITY[count(attacks & ei.bmobility) + 1]
     end
-
-    position_eval += count(eii.wpawnattacks & w_rooks) * PAWN_DEFEND_MAJOR_BONUS
-    score -= count(eii.bpawnattacks & w_rooks) * PAWN_ATTACK_MAJOR_BONUS
-    position_eval -= count(eii.bpawnattacks & b_rooks) * PAWN_DEFEND_MAJOR_BONUS
-    score += count(eii.wpawnattacks & b_rooks) * PAWN_ATTACK_MAJOR_BONUS
 
     eval = position_eval
     score + makescore(eval, eval)
 end
 
 
-function evaluate_queens(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
+function evaluate_queens(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     w_queens = board[WHITEQUEEN]
     b_queens = board[BLACKQUEEN]
 
@@ -389,30 +386,28 @@ function evaluate_queens(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMuta
 
     @inbounds for queen in w_queens
         attacks = queenMoves(queen, occ)
-        eim.wqueenattacks |= attacks
-        score += QUEEN_MOBILITY[count(attacks & eii.wmobility) + 1]
+        ea.wqueenattacks |= attacks
+        score += QUEEN_MOBILITY[count(attacks & ei.wmobility) + 1]
     end
 
     @inbounds for queen in b_queens
         attacks = queenMoves(queen, occ)
-        eim.bqueenattacks |= attacks
-        score -= QUEEN_MOBILITY[count(attacks & eii.bmobility) + 1]
+        ea.bqueenattacks |= attacks
+        score -= QUEEN_MOBILITY[count(attacks & ei.bmobility) + 1]
     end
-
-    # attacked by a pawn?
-    score -= count(eii.bpawnattacks & w_queens) * PAWN_ATTACK_MAJOR_BONUS
-    score += count(eii.wpawnattacks & b_queens) * PAWN_ATTACK_MAJOR_BONUS
 
     eval = position_eval
     score + makescore(eval, eval)
 end
 
 
-function evaluate_kings(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
+function evaluate_kings(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     w_king = board[WHITEKING]
     b_king = board[BLACKKING]
     w_king_sqr = square(w_king)
     b_king_sqr = square(b_king)
+    ea.wkingattacks |= kingMoves(w_king_sqr)
+    ea.bkingattacks |= kingMoves(b_king_sqr)
 
     position_eval = 0
     king_safety = 0
@@ -457,12 +452,9 @@ function evaluate_kings(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
         king_safety -= 5
     end
 
-    wkingattacks = kingMoves(w_king_sqr)
-    bkingattacks = kingMoves(b_king_sqr)
-
     # Increase king safety for each pawn surrounding him
-    king_safety += count(wkingattacks & board[WHITE] & board[PAWN]) * KING_PAWN_SHIELD_BONUS
-    king_safety -= count(bkingattacks & board[BLACK] & board[PAWN]) * KING_PAWN_SHIELD_BONUS
+    king_safety += count(ea.wkingattacks & board[WHITE] & board[PAWN]) * KING_PAWN_SHIELD_BONUS
+    king_safety -= count(ea.bkingattacks & board[BLACK] & board[PAWN]) * KING_PAWN_SHIELD_BONUS
 
 
     # decrease king safety if on an open file, with enemy rooks or queens on the board.
@@ -474,18 +466,18 @@ function evaluate_kings(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
     end
 
     # decrease king safety if a neighbouring knight can deliver a check
-    if !isempty(knightMoves(square(w_king)) & eim.bknightattacks)
+    if !isempty(knightMoves(square(w_king)) & ea.bknightattacks)
         king_safety -= 10
     end
-    if !isempty(knightMoves(square(b_king)) & eim.wknightattacks)
+    if !isempty(knightMoves(square(b_king)) & ea.wknightattacks)
         king_safety += 10
     end
 
     # decrease safety if neighbouring squares are attacked
-    b_attacks = eii.bpawnattacks | eim.bknightattacks | eim.bbishopattacks | eim.brookattacks | eim.bqueenattacks
-    w_attacks = eii.wpawnattacks | eim.wknightattacks | eim.wbishopattacks | eim.wrookattacks | eim.wqueenattacks
-    king_safety -= 9 * count(b_attacks & wkingattacks) * div(15, (count(wkingattacks) + 1))
-    king_safety += 9 * count(w_attacks & bkingattacks) * div(15, (count(bkingattacks) + 1))
+    b_attacks = ea.bpawnattacks | ea.bknightattacks | ea.bbishopattacks | ea.brookattacks | ea.bqueenattacks
+    w_attacks = ea.wpawnattacks | ea.wknightattacks | ea.wbishopattacks | ea.wrookattacks | ea.wqueenattacks
+    king_safety -= 9 * count(b_attacks & ea.wkingattacks) * div(15, (count(ea.wkingattacks) + 1))
+    king_safety += 9 * count(w_attacks & ea.bkingattacks) * div(15, (count(ea.bkingattacks) + 1))
 
     # Score the number of attacks on our king's flank
     score -= count(b_attacks & KINGFLANK[fileof(w_king_sqr)]) * KING_FLANK_ATTACK
@@ -522,13 +514,13 @@ function evaluate_pins(board::Board)
 end
 
 
-function evaluate_space(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
+function evaluate_space(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     eval = 0
 
     w_filter = (RANK_2 | RANK_3 | RANK_4) & CENTERFILES
     b_filter = (RANK_5 | RANK_6 | RANK_7) & CENTERFILES
-    w_attacks = eii.wpawnattacks | eim.wknightattacks | eim.wbishopattacks | eim.wrookattacks
-    b_attacks = eii.bpawnattacks | eim.bknightattacks | eim.bbishopattacks | eim.brookattacks
+    w_attacks = ea.wpawnattacks | ea.wknightattacks | ea.wbishopattacks | ea.wrookattacks | ea.wqueenattacks | ea.wkingattacks
+    b_attacks = ea.bpawnattacks | ea.bknightattacks | ea.bbishopattacks | ea.brookattacks | ea.bqueenattacks | ea.bkingattacks
     eval += count(w_filter & ~b_attacks) * SPACE_BONUS
     eval -= count(b_filter & ~w_attacks) * SPACE_BONUS
 
@@ -536,17 +528,139 @@ function evaluate_space(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutab
 end
 
 
-function evaluate_threats(board::Board, eii::EvalInfoImmutable, eim::EvalInfoMutable)
-    w_attacks = eii.wpawnattacks | eim.wknightattacks | eim.wbishopattacks | eim.wrookattacks
-    b_attacks = eii.bpawnattacks | eim.bknightattacks | eim.bbishopattacks | eim.brookattacks
+function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
+    w_attacks = ea.wpawnattacks
+    w_double_attacks = w_attacks & ea.wknightattacks
+    w_attacks |= ea.wknightattacks
+    w_double_attacks |= w_attacks & ea.wbishopattacks
+    w_attacks |= ea.wbishopattacks
+    w_double_attacks |= w_attacks & ea.wrookattacks
+    w_attacks |= ea.wrookattacks
+    w_double_attacks |= w_attacks & ea.wqueenattacks
+    w_attacks |= ea.wqueenattacks
+    w_double_attacks |= w_attacks & ea.wkingattacks
+    w_attacks |= ea.wkingattacks
 
-    weak_bonus = 0
+    b_attacks = ea.bpawnattacks
+    b_double_attacks = b_attacks & ea.bknightattacks
+    b_attacks |= ea.bknightattacks
+    b_double_attacks |= b_attacks & ea.bbishopattacks
+    b_attacks |= ea.bbishopattacks
+    b_double_attacks |= b_attacks & ea.brookattacks
+    b_attacks |= ea.brookattacks
+    b_double_attacks |= b_attacks & ea.bqueenattacks
+    b_attacks |= ea.bqueenattacks
+    b_double_attacks |= b_attacks & ea.bkingattacks
+    b_attacks |= ea.bkingattacks
 
-    weak_wpawns = board[WHITEPAWN] & ~w_attacks & b_attacks
-    weak_bonus -= count(weak_wpawns) * WEAK_PAWN_PENALTY
+    score = 0
 
-    weak_bpawns = board[BLACKPAWN] & ~b_attacks & w_attacks
-    weak_bonus += count(weak_bpawns) * WEAK_PAWN_PENALTY
+    #=================== below are newer evaluation terms ==================#
+    # if board.turn == WHITE
+    #     weak = b_attacks & (~w_attacks | ea.wqueenattacks | ea.wkingattacks) & ~w_double_attacks
+    # else
+    #     weak = w_attacks & (~b_attacks | ea.bqueenattacks | ea.bkingattacks)
+    # end
 
-    makescore(weak_bonus, weak_bonus)
+
+    #========================= Evaluation w.r.t. white ========================#
+    # strongly protected by the enemy.
+    strongly_protected = ea.bpawnattacks | (b_double_attacks & ~w_double_attacks)
+    # well defended by the enemy
+    defended = (board[BLACK] & ~pawns(board)) & strongly_protected
+    # not well defended by the enemy
+    weak = board[BLACK] & ~strongly_protected & w_attacks
+
+    # Case where our opponent is hanging pieces
+    case = ~b_attacks | ((board[BLACK] & ~pawns(board)) & w_double_attacks)
+    # Bonus if opponent is hanging pieces
+    score += HANGING_BONUS * count(weak & case)
+
+    if !isempty(weak & ea.wkingattacks)
+        score += THREAT_BY_KING
+    end
+
+    # Case where our opponent is defended or weak, and attacked by a bishop or knight.
+    case = (defended | weak) & (ea.wknightattacks | ea.wbishopattacks)
+    case_pawns = count(case & pawns(board))
+    case_knights = count(case & knights(board))
+    case_bishops = count(case & bishops(board))
+    case_rooks = count(case & rooks(board))
+    case_queens = count(case & queens(board))
+    score += THREAT_BY_MINOR[1] * case_pawns
+    score += THREAT_BY_MINOR[2] * case_knights
+    score += THREAT_BY_MINOR[3] * case_bishops
+    score += THREAT_BY_MINOR[4] * case_rooks
+    score += THREAT_BY_MINOR[5] * case_queens
+
+    # Case where our opponent is weak and attacked by our rook
+    case = weak & ea.wrookattacks
+    case_pawns = count(case & pawns(board))
+    case_knights = count(case & knights(board))
+    case_bishops = count(case & bishops(board))
+    case_rooks = count(case & rooks(board))
+    case_queens = count(case & queens(board))
+    score += THREAT_BY_ROOK[1] * case_pawns
+    score += THREAT_BY_ROOK[2] * case_knights
+    score += THREAT_BY_ROOK[3] * case_bishops
+    score += THREAT_BY_ROOK[4] * case_rooks
+    score += THREAT_BY_ROOK[5] * case_queens
+
+    safe = ~b_attacks | w_attacks
+    case = pawns(board) & board[WHITE] & safe
+    case = pawnCapturesWhite(case, board[BLACK] & ~pawns(board))
+    score += THREAT_BY_PAWN * count(case)
+
+
+    #========================= Evaluation w.r.t. black ========================#
+
+    # strongly protected by the enemy.
+    strongly_protected = ea.wpawnattacks | (w_double_attacks & ~b_double_attacks)
+    # well defended by the enemy
+    defended = (board[WHITE] & ~pawns(board)) & strongly_protected
+    # not well defended by the enemy
+    weak = board[WHITE] & ~strongly_protected & b_attacks
+
+    # Case where our opponent is hanging pieces
+    case = ~w_attacks | ((board[WHITE] & ~pawns(board)) & b_double_attacks)
+    # Bonus if opponent is hanging pieces
+    score -= HANGING_BONUS * count(weak & case)
+
+    if !isempty(weak & ea.bkingattacks)
+        score -= THREAT_BY_KING
+    end
+
+    # Case where our opponent is defended or weak, and attacked by a bishop or knight.
+    case = (defended | weak) & (ea.bknightattacks | ea.bbishopattacks)
+    case_pawns = count(case & pawns(board))
+    case_knights = count(case & knights(board))
+    case_bishops = count(case & bishops(board))
+    case_rooks = count(case & rooks(board))
+    case_queens = count(case & queens(board))
+    score -= THREAT_BY_MINOR[1] * case_pawns
+    score -= THREAT_BY_MINOR[2] * case_knights
+    score -= THREAT_BY_MINOR[3] * case_bishops
+    score -= THREAT_BY_MINOR[4] * case_rooks
+    score -= THREAT_BY_MINOR[5] * case_queens
+
+    # Case where our opponent is weak and attacked by our rook
+    case = weak & ea.brookattacks
+    case_pawns = count(case & pawns(board))
+    case_knights = count(case & knights(board))
+    case_bishops = count(case & bishops(board))
+    case_rooks = count(case & rooks(board))
+    case_queens = count(case & queens(board))
+    score -= THREAT_BY_ROOK[1] * case_pawns
+    score -= THREAT_BY_ROOK[2] * case_knights
+    score -= THREAT_BY_ROOK[3] * case_bishops
+    score -= THREAT_BY_ROOK[4] * case_rooks
+    score -= THREAT_BY_ROOK[5] * case_queens
+
+    safe = ~w_attacks | b_attacks
+    case = pawns(board) & board[BLACK] & safe
+    case = pawnCapturesBlack(case, board[WHITE] & ~pawns(board))
+    score -= THREAT_BY_PAWN * count(case)
+
+
+    score
 end

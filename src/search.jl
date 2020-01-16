@@ -52,8 +52,15 @@ function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)::
     # We iterate through depths until we either:
     # a) reach the maximum depth, or
     # b) hit a time management constraint.
+    best_move = MOVE_NONE
     for depth in 1:max_depth
         eval = aspiration_window(thread, ttable, depth, eval)
+        if thread.stop
+            thread.pv[1].list[1] = best_move
+            break
+        else
+            best_move = thread.pv[1][1]
+        end
         if (!thread.timeman.isinfinite && elapsedtime(thread.timeman) > thread.timeman.max_time) ||
             (thread.timeman.depth !== 0 && depth >= thread.timeman.depth) || istermination(thread.timeman)
             break

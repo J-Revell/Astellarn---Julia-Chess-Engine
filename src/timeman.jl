@@ -23,8 +23,8 @@ elapsedtime(timeman::TimeManagement) = (time() - timeman.start_time) * 1000
 # Not all time management features are supported yet.
 function initTimeManagement!(timeman::TimeManagement)
     if timeman.movestogo == -1
-        timeman.ideal_time = fld(timeman.clock_time + 20*timeman.inc_time, 50)
-        timeman.max_time = 10 * fld(timeman.clock_time + 20*timeman.inc_time, 50)
+        timeman.ideal_time = fld(timeman.clock_time + 20*timeman.inc_time, 45)
+        timeman.max_time = 10 * fld(timeman.clock_time + 20*timeman.inc_time, 45)
     end
     timeman.ideal_time = min(timeman.ideal_time, timeman.clock_time - MOVE_OVERHEAD)
     timeman.max_time = min(timeman.max_time, timeman.clock_time - MOVE_OVERHEAD)

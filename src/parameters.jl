@@ -130,10 +130,6 @@ const PAWN_SHIELD_BONUS = makescore(17, 3)
 const DOUBLE_PAWN_PENALTY = makescore(10, 55)
 const ISOLATED_PAWN_PENALTY = makescore(15, 9)
 const PAWN_DEFEND_PAWN_BONUS = 10
-const PAWN_DEFEND_MINOR_BONUS = 8
-const PAWN_DEFEND_MAJOR_BONUS = 5
-const PAWN_ATTACK_MINOR_BONUS = makescore(60, 20)
-const PAWN_ATTACK_MAJOR_BONUS = makescore(70, 25)
 const WEAK_PAWN_PENALTY = 25
 const PASS_PAWN_THREAT = SVector{7}([makescore(0, 0), makescore(10, 30), makescore(20, 35), makescore(15, 40), makescore(60, 70), makescore(170, 180), makescore(275, 260)])
 
@@ -165,16 +161,17 @@ const KING_FLANK_ATTACK = makescore(10, 0)
 #============================ Queen Evaluation ================================#
 
 
-#============================ Space Evaluation ================================#
+#============================ Other Evaluation ================================#
 
 
 const SPACE_BONUS = 4
-
-
-#============================== Pin Evaluation ================================#
-
-
 const PIN_BONUS = 15
+const HANGING_BONUS = makescore(70, 35)
+const THREAT_BY_KING = makescore(25, 90)
+const THREAT_BY_MINOR = @SVector [makescore(5, 30), makescore(60, 40), makescore(80, 55), makescore(90, 120), makescore(80, 160)]
+const THREAT_BY_ROOK = @SVector [makescore(5, 45), makescore(40, 70), makescore(40, 60), makescore(0, 40), makescore(50, 40)]
+const THREAT_BY_PAWN = makescore(170, 95)
+const LAZY_THRESH = 1450
 
 
 #========================= Mobility Evaluation ================================#
