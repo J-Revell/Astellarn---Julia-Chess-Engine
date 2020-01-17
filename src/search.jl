@@ -89,14 +89,14 @@ end
 function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int, eval::Int, α::Int, β::Int, δ::Int)::Int
     eval = eval
     while !thread.stop
-        eval = absearch(thread, ttable, α, β, depth, 0)
+        eval = absearch(thread, ttable, α, β, depth, 0, false)
 
         # reporting
         thread.ss.depth = depth
 
         # window cond met
         if ((α < eval < β) || (elapsedtime(thread.timeman) > 2.5)) && !thread.stop
-            uci_report(thread, α, β, eval)
+            uci_report(thread, ttable, α, β, eval)
             return eval
         end
 
@@ -154,7 +154,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     end
 
     # probe the transposition table
-    tt_entry = get(ttable.table, board.hash, NO_ENTRY)
+    tt_entry = getTTentry(ttable, board.hash)
     if tt_entry !== NO_ENTRY
         tt_eval = Int(tt_entry.eval)
         tt_move = tt_entry.move
@@ -253,7 +253,7 @@ end
 
 The main alpha-beta search function, containing all the pruning heuristics.
 """
-function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int)::Int
+function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int, ply::Int, cutnode::Bool)::Int
     board = thread.board
     @inbounds pv_current = thread.pv[ply + 1]
     @inbounds pv_future = thread.pv[ply + 2]
@@ -332,7 +332,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # Probe the transposition table.
-    tt_entry = get(ttable.table, board.hash, NO_ENTRY)
+    tt_entry = getTTentry(ttable, board.hash)
     if tt_entry !== NO_ENTRY
         tt_eval = Int(tt_entry.eval)
         tt_value = Int(ttvalue(tt_entry, ply))
@@ -370,11 +370,11 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             end
 
             # add to transposition table
-            tt_entry = TT_Entry(eval, MOVE_NONE, MAX_PLY - 1, tt_bound)
-            if (tt_entry.bound == BOUND_EXACT) ||
-                ((tt_entry.bound == BOUND_LOWER) && (eval >= β)) ||
-                ((tt_entry.bound == BOUND_UPPER) && (eval <= α))
-                setTTentry!(ttable, board.hash, tt_entry)
+            if (tt_bound == BOUND_EXACT) ||
+                ((tt_bound == BOUND_LOWER) && (eval >= β)) ||
+                ((tt_bound == BOUND_UPPER) && (eval <= α))
+                #tt_entry = TT_Entry(eval, MOVE_NONE, MAX_PLY - 1, tt_bound)
+                setTTentry!(ttable, board.hash, eval, MOVE_NONE, MAX_PLY - 1, tt_bound)
                 return eval
             end
         end
@@ -396,14 +396,14 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
     # Razoring.
     # If the evaluation plus a small margin is still below alpha, we drop into the quiescence search.
-    if (pvnode === false) && (ischeck(board) === false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN < α)
+    if (pvnode === false) && (ischeck(board) === false) && (depth <= RAZOR_DEPTH) && (eval + RAZOR_MARGIN <= α)
         q_eval = qsearch(thread, ttable, α, β, ply)
         return q_eval
     end
 
     # Beta pruning.
     # If the evaluation minus a margin is still better than beta, we can prune here.
-    if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth > β)
+    if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth >= β)
         return eval
     end
 
@@ -414,16 +414,16 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # Check we have non-pawn material left on the board.
     # Do not do more than 2 b2b null moves.
     if (depth >= 2) && (eval >= β) && !pvnode && !ischeck(board) &&
-        !isempty(queens(board) | bishops(board) | knights(board) | rooks(board)) &&
         (ply > 0 ? (thread.movestack[ply] !== NULL_MOVE) : true)  &&
         (ply > 1 ? (thread.movestack[ply - 1] !== NULL_MOVE) : true) &&
-        ((tt_entry === NO_ENTRY) || (tt_eval >= β))
+        ((tt_entry === NO_ENTRY) || (tt_eval >= β)) &&
+        has_non_pawn_material(board)
 
         reduction = fld(depth, 5) + 3 + min(fld(eval - β, 150), 3)
 
         u = apply_null!(thread)
 
-        cand_eval = -absearch(thread, ttable, -β, -β + 1, depth - reduction, ply + 1)
+        cand_eval = -absearch(thread, ttable, -β, -β + 1, depth - reduction, ply + 1, !cutnode)
         undo_null!(thread, u)
         if (cand_eval >= β)
             return β
@@ -444,6 +444,18 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     played = 0
     num_quiets = 0
 
+    # Internal iterative deepening step.
+    # Aim is to perform a quick search to fill the transposition table with potential moves.
+    if (depth > 6) && (tt_move === MOVE_NONE)
+        absearch(thread, ttable, α, β, depth - 7, ply + 1, cutnode)
+        tt_entry = getTTentry(ttable, board.hash)
+        if tt_entry !== NO_ENTRY
+            #tt_eval = Int(tt_entry.eval)
+            #tt_value = Int(ttvalue(tt_entry, ply))
+            tt_move = tt_entry.move
+        end
+    end
+
     # Init the move ordering
     init_normal_moveorder!(thread, tt_move, ply)
     @inbounds quiets_tried = thread.quietstack[ply + 1]
@@ -452,12 +464,16 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         isquiet = !istactical(board, move)
 
+        # If we pick a quiet move, extract the history statistics.
         if isquiet
             hist, cmhist, fmhist = gethistory(thread, move, ply)
             num_quiets += 1
         end
 
-        if isquiet && (best > -MATE + MAX_PLY)
+        # Quiet move pruning steps.
+        # We require that a non-mating line exists before pruning.
+        # Opt not to prune if there is only king + pawn material remaining.
+        if isquiet && (best > -MATE + MAX_PLY) && has_non_pawn_material(board)
             # Quiet move futility pruning step, using history.
             if (depth <= FUTILITY_PRUNE_DEPTH) && (eval + futility_margin <= α) &&
                 (hist + cmhist + fmhist < FUTILITY_LIMIT[improving])
@@ -487,8 +503,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # Prune moves which fail the static exchange evaluator.
         # Only ran if our best evaluation is not a mating line.
-        if (static_exchange_evaluator(board, move, isquiet ? see_quiet_margin : see_noisy_margin) == false) &&
-            (depth <= SEE_PRUNE_DEPTH) && (best > -MATE + MAX_PLY) && (moveorder.stage > STAGE_GOOD_NOISY)
+        if (moveorder.stage > STAGE_GOOD_NOISY) && (depth <= SEE_PRUNE_DEPTH) && (best > -MATE + MAX_PLY) &&
+            (static_exchange_evaluator(board, move, isquiet ? see_quiet_margin : see_noisy_margin) == false)
             continue
         end
 
@@ -508,6 +524,10 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             # If we are not improving, increase the reduction depth.
             if isone(improving)
                 reduction += 1
+            end
+            # Add reductions for cutnodes
+            if cutnode
+                reduction += 2
             end
             # Killer moves, and counter moves, are worth looking at more.
             if moveorder.stage < STAGE_INIT_QUIET
@@ -533,13 +553,13 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # perform search, taking into account LMR
         if reduction !== 1
-            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1)
+            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - reduction, ply + 1, true)
         end
         if ((reduction !== 1) && (cand_eval > α)) || (reduction == 1 && !(pvnode && played == 1))
-            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1)
+            cand_eval = -absearch(thread, ttable, -α - 1, -α, newdepth - 1, ply + 1, !cutnode)
         end
-        if (pvnode && (played == 1 || cand_eval > α))
-            cand_eval = -absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1)
+        if (pvnode && (played == 1 || ((cand_eval > α) && (isroot || cand_eval < β))))
+            cand_eval = -absearch(thread, ttable, -β, -α, newdepth - 1, ply + 1, false)
         end
 
         # Revert move.
@@ -577,7 +597,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
     # Update the history heuristics.
     # This is done when a quiet move fails high.
-    if (best >= β) && !istactical(board, best_move) && (best_move !== MOVE_NONE)
+    if (best >= β) && (best_move !== MOVE_NONE) && !istactical(board, best_move)
         updatehistory!(thread, quiets_tried, ply, depth^2)
     end
 
@@ -588,8 +608,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # We don't do this at the root node.
     if isroot == false
         tt_bound = best >= β ? BOUND_LOWER : (best > init_α ? BOUND_EXACT : BOUND_UPPER)
-        tt_entry = TT_Entry(eval, best_move, depth, tt_bound)
-        setTTentry!(ttable, board.hash, tt_entry)
+        #tt_entry = TT_Entry(eval, best_move, depth, tt_bound)
+        setTTentry!(ttable, board.hash, eval, best_move, depth, tt_bound)
     end
     return best
 end
@@ -729,7 +749,7 @@ function optimistic_move_estimator(board::Board)
     end
 
     # promo checks
-    if isempty(board[PAWN] & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2)) == false
+    if isempty(pawns(board) & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2)) == false
         @inbounds value += PVALS_MG[5] - PVALS_MG[1]
     end
 

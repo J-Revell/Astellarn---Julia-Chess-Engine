@@ -209,13 +209,15 @@ end
 # internal functions to build bishop moves
 function build_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard, common::MoveGenCommon)
     build_free_bishop_moves!(movestack, board, targets, common::MoveGenCommon)
-    build_pinned_bishop_moves!(movestack, board, targets, common::MoveGenCommon)
+    if !isempty(pinned(board))
+        build_pinned_bishop_moves!(movestack, board, targets, common::MoveGenCommon)
+    end
     return
 end
 
 
 function build_free_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard, common::MoveGenCommon)
-    occ = occupied(board)
+    occ = common.occ
     for bishop in (bishoplike(board) & common.friends & common.unpinned)
         push_normal!(movestack, bishop, bishopMoves(bishop, occ) & targets)
     end
@@ -241,7 +243,9 @@ end
 # internal functions to build rook moves
 function build_rook_moves!(movestack::MoveStack, board::Board, targets::Bitboard, common::MoveGenCommon)
     build_free_rook_moves!(movestack, board, targets, common)
-    build_pinned_rook_moves!(movestack, board, targets, common)
+    if !isempty(pinned(board))
+        build_pinned_rook_moves!(movestack, board, targets, common)
+    end
     return
 end
 

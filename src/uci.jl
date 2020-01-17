@@ -69,7 +69,7 @@ function uci_main()
             uci_perft(threads, splitlines)
 
         elseif splitlines[1] == "setoption"
-            uci_setoptions(threads, splitlines)
+            uci_setoptions(threads, splitlines, ttable)
         end
         # additional options currently unsupported
     end
@@ -194,11 +194,12 @@ function uci_go(threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubStr
     nodes = threads[1].ss.nodes
     elapsed = elapsedtime(timeman)
     nps = nodes*1000/elapsed
+    hf = hashfull(ttable)
 
     # Report back to the UCI
     ucistring = movetostring(move)
     if !threads[1].stop
-        @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", threads[1].ss.depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval)
+        @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d hashfull %d pv ", threads[1].ss.depth, threads[1].ss.seldepth, nodes, nps, threads[1].ss.tbhits, eval, hf)
         print(join(movetostring.(threads[1].pv[1]), " "))
         print("\n")
     end
@@ -239,7 +240,14 @@ function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}
 end
 
 
-function uci_setoptions(threads::ThreadPool, splitlines::Vector{SubString{String}})
+function uci_setoptions(threads::ThreadPool, splitlines::Vector{SubString{String}}, ttable::TT_Table)
+    if splitlines[3] == "Hash"
+        newtable = TT_Table(parse(Int, splitlines[5]))
+        ttable.table = newtable.table
+        ttable.hashmask = newtable.hashmask
+        println("info string set Hash to ", splitlines[5])
+    end
+
     if splitlines[3] == "Threads"
         num_threads = parse(Int, splitlines[5])
         createthreadpool(threads[1].board, num_threads)
@@ -260,11 +268,12 @@ end
 
 
 # This function is called when the thread (or search) wishes to output stats mid-execution.
-function uci_report(thread::Thread, α::Int, β::Int, value::Int)
+function uci_report(thread::Thread, ttable::TT_Table, α::Int, β::Int, value::Int)
     score = max(α, min(β, value))
     elapsed = elapsedtime(thread.timeman)
     nps = thread.ss.nodes*1000 / elapsed
-    @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, thread.ss.tbhits, score)
+    hf = hashfull(ttable)
+    @printf("info depth %d seldepth %d nodes %d nps %d tbhits %d score cp %d hashfull %d pv ", thread.ss.depth, thread.ss.seldepth, thread.ss.nodes, nps, thread.ss.tbhits, score, hf)
     print(join(movetostring.(thread.pv[1]), " "))
     print("\n")
     return

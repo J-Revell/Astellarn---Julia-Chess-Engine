@@ -180,7 +180,7 @@ friendly(board::Board) = @inbounds board[board.turn]
 
 Return the positions, as a `Bitboard`, of all the occupied squares on the board.
 """
-occupied(board::Board) = @inbounds board[WHITE] | board[BLACK]
+occupied(board::Board) = white(board) | black(board)
 
 
 """
@@ -226,11 +226,26 @@ end
 
 
 """
+    white(board::Board)
+
+Get the location of all the white pieces on the board, as a `Bitboard`.
+"""
+white(board::Board) = @inbounds board.colors[1]
+
+
+"""
+    black(board::Board)
+
+Get the location of all the black pieces on the board, as a `Bitboard`.
+"""
+black(board::Board) = @inbounds board.colors[2]
+
+"""
     pawns(board::Board)
 
 Get the location of all the pawns on the `board`, as a `Bitboard`.
 """
-pawns(board::Board) = @inbounds board[PAWN]
+pawns(board::Board) = @inbounds board.pieces[1]
 
 
 """
@@ -238,7 +253,7 @@ pawns(board::Board) = @inbounds board[PAWN]
 
 Get the location of all the knights on the `board`, as a `Bitboard`.
 """
-knights(board::Board) = @inbounds board[KNIGHT]
+knights(board::Board) = @inbounds board.pieces[2]
 
 
 """
@@ -246,7 +261,7 @@ knights(board::Board) = @inbounds board[KNIGHT]
 
 Get the location of all the bishops on the `board`, as a `Bitboard`.
 """
-bishops(board::Board) = @inbounds board[BISHOP]
+bishops(board::Board) = @inbounds board.pieces[3]
 
 
 """
@@ -254,7 +269,7 @@ bishops(board::Board) = @inbounds board[BISHOP]
 
 Get the location of all the rooks on the `board`, as a `Bitboard`.
 """
-rooks(board::Board) = @inbounds board[ROOK]
+rooks(board::Board) = @inbounds board.pieces[4]
 
 
 """
@@ -262,7 +277,7 @@ rooks(board::Board) = @inbounds board[ROOK]
 
 Get the location of all the queens on the `board`, as a `Bitboard`.
 """
-queens(board::Board) = @inbounds board[QUEEN]
+queens(board::Board) = @inbounds board.pieces[5]
 
 
 """
@@ -270,7 +285,7 @@ queens(board::Board) = @inbounds board[QUEEN]
 
 Get the location of all the kings on the `board`, as a `Bitboard`.
 """
-kings(board::Board) = @inbounds board[KING]
+kings(board::Board) = @inbounds board.pieces[6]
 
 
 """
@@ -338,7 +353,14 @@ cancastlequeenside(board::Board, color::Color) = isone((board.castling >> (color
 cancastlequeenside(board::Board) = cancastlequeenside(board, board.turn)
 
 
-# is the position legal
+"""
+    has_non_pawn_material(board::Board)
+
+Check if a position has non-pawn material left.
+"""
+has_non_pawn_material(board::Board) = !isempty(knights(board)) || !isempty(bishops(board)) || !isempty(rooks(board)) || !isempty(queens(board))
+
+
 """
     islegal(board::Board)
 
@@ -413,7 +435,7 @@ end
 Detects draws by insufficient material. Returns `true` if the position is drawn.
 """
 function isdrawbymaterial(board::Board)
-    piece_count = count(board[WHITE]) + count(board[BLACK])
+    piece_count = count(white(board)) + count(black(board))
     if piece_count == 2
         return true
     elseif piece_count == 3

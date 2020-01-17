@@ -3,3 +3,4 @@ src/transposition2.jl
 deps/tbprobe.so
 deps/config.jl
 deps/build.log
+builddir/

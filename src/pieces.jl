@@ -15,7 +15,7 @@ end
 
 
 # Allows a preallocation for PieceStack
-PieceStack(size::Int) = PieceStack(Vector{PieceType}(undef, size), 0)
+PieceStack(size::Int) = PieceStack(repeat([VOID], size), 0)
 
 
 # define useful array methods for PieceStack

@@ -39,7 +39,7 @@ end
 function idx_bestmove(moveorder::MoveOrder, idx_start::Int, idx_end::Int)
     best = idx_start
     for i in (idx_start + 1):idx_end
-        if moveorder.values[i] > moveorder.values[best]
+        if moveorder.values[i] >= moveorder.values[best]
             best = i
         end
     end
@@ -120,7 +120,7 @@ function init_normal_moveorder!(thread::Thread, tt_move::Move, ply::Int)
     if (previous_move === MOVE_NONE || previous_move === NULL_MOVE)
          moveorder.counter = MOVE_NONE
     else
-        @inbounds  moveorder.counter = thread.cmtable[(!board.turn).val][previous_piece.val][previous_to]
+        @inbounds moveorder.counter = thread.cmtable[(!board.turn).val][previous_piece.val][previous_to]
     end
     @inbounds moveorder.killer1 = thread.killers[ply + 1][1]
     @inbounds moveorder.killer2 = thread.killers[ply + 1][2]

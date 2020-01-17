@@ -99,7 +99,8 @@ end
 
 
 # Allows a preallocation for MoveStack
-MoveStack(size::Int) = MoveStack(Vector{Move}(undef, size), 0)
+# MoveStack(size::Int) = MoveStack(Vector{Move}(undef, size), 0)
+MoveStack(size::Int) = MoveStack(repeat([MOVE_NONE], size), 0)
 
 
 # define useful array methods for MoveStack

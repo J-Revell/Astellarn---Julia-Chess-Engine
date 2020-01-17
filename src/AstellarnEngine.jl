@@ -6,4 +6,7 @@
 using Astellarn
 
 # start the uci loop
-uci_main()
+Base.@ccallable function julia_main()::Cint
+    uci_main()
+    return 0
+end

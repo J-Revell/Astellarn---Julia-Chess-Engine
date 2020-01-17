@@ -457,12 +457,25 @@ const CENTERFILES = FILE_C | FILE_D | FILE_E | FILE_F
 
 
 """
+    CENTRAL_SQUARES
+
+A bitboard representing the central 4 squares of a board.
+"""
+const CENTRAL_SQUARES = (RANK_4 | RANK_5) & (FILE_D | FILE_E)
+
+
+"""
     KINGFLANK
 
 A vector which maps a given file (of a king), to a bitboard representing its respective 'king flank' bitboard.
 """
 const KINGFLANK = @SVector [QUEENSIDE ⊻ FILE_D, QUEENSIDE, QUEENSIDE,
       CENTERFILES, CENTERFILES, KINGSIDE, KINGSIDE, KINGSIDE ⊻ FILE_E]
+
+
+distance(sqr1::Int, sqr2::Int) = max(abs(fileof(sqr1) - fileof(sqr2)), abs(rankof(sqr1) - rankof(sqr2)))
+
+const DISTANCE_BETWEEN = [distance(sqr1, sqr2) for sqr1 in 1:64, sqr2 in 1:64]
 
 
 # Custom show for bitboard types

@@ -1,6 +1,6 @@
 #============================ Global Parameters ===============================#
 const MAX_MOVES = 256
-const MAX_PLY = 40
+const MAX_PLY = 128
 const MATE = 32000
 const MAX_QUIET_TRACK = 92
 MOVE_OVERHEAD = 100 # But it's not constant, and we don't declare it as such otherwise the compiler may hard-code it.
@@ -11,9 +11,9 @@ ABORT_SIGNAL = Base.Threads.Atomic{Bool}(false)
 
 const Q_FUTILITY_MARGIN = 175
 const RAZOR_DEPTH = 1
-const RAZOR_MARGIN = 400
+const RAZOR_MARGIN = 500
 const BETA_PRUNE_DEPTH = 8
-const BETA_PRUNE_MARGIN = 85
+const BETA_PRUNE_MARGIN = 185
 const SEE_PRUNE_DEPTH = 8
 const SEE_QUIET_MARGIN = -190
 const SEE_NOISY_MARGIN = -25
@@ -121,6 +121,7 @@ const TEMPO_BONUS = 22
 const ROOK_OPEN_FILE_BONUS = makescore(50, 25)
 const ROOK_SEMIOPEN_FILE_BONUS = makescore(20, 5)
 const ROOK_KING_FILE_BONUS = 10
+const ROOK_ON_QUEEN_FILE = makescore(8, 5)
 
 
 #============================= Pawn Evaluation ================================#
@@ -139,15 +140,19 @@ const PASS_PAWN_THREAT = SVector{7}([makescore(0, 0), makescore(10, 30), makesco
 
 const KNIGHT_TRAP_PENALTY = 50
 const KNIGHT_RAMMED_BONUS = 2
+const KNIGHT_OUTPOST_BONUS = makescore(60, 40)
+const KNIGHT_POTENTIAL_OUTPOST_BONUS = makescore(30, 10)
 
 
 #=========================== Bishop Evaluation ================================#
 
 
-const BISHOP_TRAP_PENALTY = 90
+const BISHOP_TRAP_PENALTY = 80
 const BISHOP_COLOR_PENALTY = makescore(4, 8)
 const BISHOP_RAMMED_COLOR_PENALTY = 5
 const BISHOP_PAIR_BONUS = 10
+const BISHOP_OUTPOST_BONUS = makescore(30, 20)
+const BISHOP_CENTRAL_CONTROL = makescore(40, 0)
 
 
 #============================= King Evaluation ================================#
@@ -156,6 +161,7 @@ const BISHOP_PAIR_BONUS = 10
 const CASTLE_OPTION_BONUS = 8
 const KING_PAWN_SHIELD_BONUS = 12
 const KING_FLANK_ATTACK = makescore(10, 0)
+const PAWNLESS_FLANK = makescore(20, 95)
 
 
 #============================ Queen Evaluation ================================#
@@ -171,7 +177,7 @@ const THREAT_BY_KING = makescore(25, 90)
 const THREAT_BY_MINOR = @SVector [makescore(5, 30), makescore(60, 40), makescore(80, 55), makescore(90, 120), makescore(80, 160)]
 const THREAT_BY_ROOK = @SVector [makescore(5, 45), makescore(40, 70), makescore(40, 60), makescore(0, 40), makescore(50, 40)]
 const THREAT_BY_PAWN = makescore(170, 95)
-const LAZY_THRESH = 1450
+const LAZY_THRESH = 1600
 
 
 #========================= Mobility Evaluation ================================#
