@@ -153,7 +153,18 @@ function init_passed_pawn_masks()
     mask
 end
 
+function init_connected_pawn_masks()
+    mask = [[EMPTY for i in 1:64] for j in 1:2]
+    for sqr in 9:56
+        mask[1][sqr] = pawnAttacks(BLACK, sqr) | pawnAttacks(BLACK, sqr + 8)
+        mask[2][sqr] = pawnAttacks(WHITE, sqr) | pawnAttacks(WHITE, sqr - 8)
+    end
+    mask
+end
+
+
 
 const KNIGHT_TRAP_PATTERNS = init_knight_traps()
 const BISHOP_TRAP_PATTERNS = init_bishop_traps()
 const PASSED_PAWN_MASKS = SArray{Tuple{2}, SArray{Tuple{64}, Bitboard, 1, 64}, 1, 2}(init_passed_pawn_masks())
+const CONNECTED_PAWN_MASKS = SArray{Tuple{2}, SArray{Tuple{64}, Bitboard, 1, 64}, 1, 2}(init_connected_pawn_masks())

@@ -14,7 +14,7 @@ Thread() = Thread(TimeManagement(),
     CounterHistTable([[[zeros(Int, 64) for j in 1:6] for k in 1:64] for l in 1:6]),
     repeat([MoveStack([MOVE_NONE, MOVE_NONE], 2)], MAX_PLY + 1),
     CounterTable([[repeat([MOVE_NONE], 64) for j in 1:6] for k in 1:2]),
-    PawnTable(),
+    PawnKingTable(),
     false)
 
 

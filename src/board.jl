@@ -17,16 +17,16 @@ mutable struct Board
     hash::ZobristHash
     history::Vector{ZobristHash}
     psqteval::Int32
-    phash::ZobristHash
+    pkhash::ZobristHash
 end
 
 function Board(squares::AbstractArray{Piece}, pieces::AbstractArray{Bitboard}, colors::AbstractArray{Bitboard},
     checkers::Bitboard, pinned::Bitboard, turn::Color, castling::UInt8, enpass::UInt8, halfmovecount::UInt16, movecount::UInt16,
-    hash::ZobristHash, history::Vector{ZobristHash}, psqteval::Int32, phash::ZobristHash)
+    hash::ZobristHash, history::Vector{ZobristHash}, psqteval::Int32, pkhash::ZobristHash)
 
     return Board(MVector(squares...), MVector(pieces...), MVector(colors...),
         checkers, pinned, turn, castling, enpass, halfmovecount, movecount,
-        hash, history, psqteval, phash)
+        hash, history, psqteval, pkhash)
 end
 Board() = Board(repeat([BLANK], 64), repeat([EMPTY], 6), repeat([EMPTY], 2),
     EMPTY, EMPTY, WHITE, zero(UInt8), zero(UInt8), zero(UInt16), zero(UInt16),
@@ -51,7 +51,7 @@ function copy!(board_1::Board, board_2::Board)
     board_1.movecount = board_2.movecount
     board_1.hash = board_2.hash
     board_1.psqteval = board_2.psqteval
-    board_1.phash = board_2.phash
+    board_1.pkhash = board_2.pkhash
     copy!(board_1.history, board_2.history)
 end
 
@@ -78,8 +78,8 @@ function add!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
     @inbounds board[sqr] = piece
     board.hash ⊻= zobkey(piece, sqr)
     board.psqteval += psqt(piece, sqr)
-    if type(piece) == PAWN
-        board.phash ⊻ zobkey(piece, sqr)
+    if type(piece) == PAWN || type(piece) == KING
+        board.pkhash ⊻= zobkey(piece, sqr)
     end
 end
 add!(board::Board, piece::Piece, bb::Bitboard) = add!(board, piece, bb, square(bb))
@@ -100,7 +100,7 @@ function remove!(board::Board, bb::Bitboard, sqr::Integer)
     board.hash ⊻= zobkey(piece, sqr)
     board.psqteval -= psqt(piece, sqr)
     if type(piece) == PAWN
-        board.phash ⊻ zobkey(piece, sqr)
+        board.pkhash ⊻= zobkey(piece, sqr)
     end
 end
 remove!(board::Board, bb::Bitboard) = remove!(board, bb, square(bb))
@@ -125,10 +125,10 @@ function addremove!(board::Board, piece::Piece, bb::Bitboard, sqr::Integer)
     board.psqteval += psqt(piece, sqr)
     board.psqteval -= psqt(captured, sqr)
     if type(piece) == PAWN
-        board.phash ⊻ zobkey(piece, sqr)
+        board.pkhash ⊻= zobkey(piece, sqr)
     end
     if type(captured) == PAWN
-        board.phash ⊻ zobkey(captured, sqr)
+        board.pkhash ⊻= zobkey(captured, sqr)
     end
 end
 addremove!(board::Board, piece::Piece, bb::Bitboard) = addremove!(board, piece, bb, square(bb))

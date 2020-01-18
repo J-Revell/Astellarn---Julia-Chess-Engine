@@ -36,7 +36,7 @@ struct Undo
     halfmovecount::UInt16
     hash::ZobristHash
     psqteval::Int32
-    phash::ZobristHash
+    pkhash::ZobristHash
 end
 
 
@@ -96,11 +96,11 @@ mutable struct MoveOrder
 end
 
 
-mutable struct PT_Entry
+mutable struct PKT_Entry
     score::Int
 end
 
-const PawnTable = Dict{ZobristHash, PT_Entry}
+const PawnKingTable = Dict{ZobristHash, PKT_Entry}
 
 
 """
@@ -123,6 +123,6 @@ mutable struct Thread
     followhistory::CounterHistTable
     killers::Vector{MoveStack}
     cmtable::CounterTable
-    ptable::PawnTable
+    pktable::PawnKingTable
     stop::Bool
 end

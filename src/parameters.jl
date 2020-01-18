@@ -9,7 +9,7 @@ ABORT_SIGNAL = Base.Threads.Atomic{Bool}(false)
 #============================== Search Parameters =============================#
 
 
-const Q_FUTILITY_MARGIN = 175
+const Q_FUTILITY_MARGIN = 150
 const RAZOR_DEPTH = 1
 const RAZOR_MARGIN = 500
 const BETA_PRUNE_DEPTH = 8
@@ -18,7 +18,7 @@ const SEE_PRUNE_DEPTH = 8
 const SEE_QUIET_MARGIN = -190
 const SEE_NOISY_MARGIN = -25
 const FUTILITY_PRUNE_DEPTH = 8
-const FUTILITY_MARGIN = 185
+const FUTILITY_MARGIN = 200
 const FUTILITY_MARGIN_NOHIST = 300
 const FUTILITY_LIMIT = @SVector [12000, 6000]
 const COUNTER_PRUNE_DEPTH = @SVector [3, 2]
@@ -29,6 +29,8 @@ const WINDOW_DEPTH = 5
 const LATE_MOVE_COUNT = @SVector [SVector{10}([0, 2, 4,  7, 11, 16, 22, 29, 37, 46]), SVector{10}([0, 4, 7, 12, 20, 30, 42, 56, 73, 92])]
 const LATE_MOVE_PRUNE_DEPTH = 9
 const LMRTABLE = init_reduction_table()
+const PROBCUT_DEPTH = 5
+const PROBCUT_MARGIN = 190
 
 
 #============================ Piece square tables =============================#
@@ -133,13 +135,22 @@ const ISOLATED_PAWN_PENALTY = makescore(15, 9)
 const PAWN_DEFEND_PAWN_BONUS = 10
 const WEAK_PAWN_PENALTY = 25
 const PASS_PAWN_THREAT = SVector{7}([makescore(0, 0), makescore(10, 30), makescore(20, 35), makescore(15, 40), makescore(60, 70), makescore(170, 180), makescore(275, 260)])
+const CONNECTED_PAWN_PSQT = SVector{8}([
+    SVector{4}([makescore(   0,  0), makescore(   0,  0), makescore(   0,  0), makescore(   0,  0)]),
+    SVector{4}([makescore(   0,-10), makescore(  10,  0), makescore(   5,  0), makescore(   5, 15)]),
+    SVector{4}([makescore(  15,  0), makescore(   30, 0), makescore(  20, 10), makescore(  25, 15)]),
+    SVector{4}([makescore(  10,  0), makescore(  25,  5), makescore(  10, 10), makescore(  15, 20)]),
+    SVector{4}([makescore(  15,  8), makescore(  20, 15), makescore(  25, 20), makescore(  30, 20)]),
+    SVector{4}([makescore(  60, 25), makescore(  51, 50), makescore(  70, 55), makescore(  85, 60)]),
+    SVector{4}([makescore( 110,  0), makescore( 205, 10), makescore( 230, 30), makescore( 240, 50)]),
+    SVector{4}([makescore(   0,  0), makescore(   0,  0), makescore(   0,  0), makescore(   0,  0)])])
 
 
 #=========================== Knight Evaluation ================================#
 
 
-const KNIGHT_TRAP_PENALTY = 50
-const KNIGHT_RAMMED_BONUS = 2
+const KNIGHT_TRAP_PENALTY = makescore(50, 50)
+const KNIGHT_RAMMED_BONUS = makescore(2, 2)
 const KNIGHT_OUTPOST_BONUS = makescore(60, 40)
 const KNIGHT_POTENTIAL_OUTPOST_BONUS = makescore(30, 10)
 
@@ -147,10 +158,10 @@ const KNIGHT_POTENTIAL_OUTPOST_BONUS = makescore(30, 10)
 #=========================== Bishop Evaluation ================================#
 
 
-const BISHOP_TRAP_PENALTY = 80
-const BISHOP_COLOR_PENALTY = makescore(4, 8)
-const BISHOP_RAMMED_COLOR_PENALTY = 5
-const BISHOP_PAIR_BONUS = 10
+const BISHOP_TRAP_PENALTY = makescore(80, 80)
+const BISHOP_COLOR_PENALTY = makescore(2, 2)
+const BISHOP_RAMMED_COLOR_PENALTY = makescore(5, 10)
+const BISHOP_PAIR_BONUS = makescore(20, 60)
 const BISHOP_OUTPOST_BONUS = makescore(30, 20)
 const BISHOP_CENTRAL_CONTROL = makescore(40, 0)
 
@@ -158,7 +169,7 @@ const BISHOP_CENTRAL_CONTROL = makescore(40, 0)
 #============================= King Evaluation ================================#
 
 
-const CASTLE_OPTION_BONUS = 8
+const CASTLE_OPTION_BONUS = makescore(10, 0)
 const KING_PAWN_SHIELD_BONUS = 12
 const KING_FLANK_ATTACK = makescore(10, 0)
 const PAWNLESS_FLANK = makescore(20, 95)
@@ -178,6 +189,12 @@ const THREAT_BY_MINOR = @SVector [makescore(5, 30), makescore(60, 40), makescore
 const THREAT_BY_ROOK = @SVector [makescore(5, 45), makescore(40, 70), makescore(40, 60), makescore(0, 40), makescore(50, 40)]
 const THREAT_BY_PAWN = makescore(170, 95)
 const LAZY_THRESH = 1600
+const MINOR_KING_PROTECTION = makescore(8, 6)
+const RESTRICTION_BONUS = makescore(6, 6)
+const KNIGHT_SAFE_CHECK = 100
+const QUEEN_SAFE_CHECK  = 80
+const BISHOP_SAFE_CHECK = 65
+const ROOK_SAFE_CHECK   = 110
 
 
 #========================= Mobility Evaluation ================================#

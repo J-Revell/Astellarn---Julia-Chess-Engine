@@ -150,7 +150,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
 
     # If we have reached the maximum search ply depth, we stop here.
     if ply >= MAX_PLY
-        return evaluate(board, thread.ptable)
+        return evaluate(board, thread.pktable)
     end
 
     # probe the transposition table
@@ -176,7 +176,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         elseif (ply > 0) && (thread.movestack[ply] == NULL_MOVE)
             eval = thread.evalstack[ply + 1] = -thread.evalstack[ply] + 2*TEMPO_BONUS
         else
-            eval = thread.evalstack[ply + 1] = evaluate(board, thread.ptable)
+            eval = thread.evalstack[ply + 1] = evaluate(board, thread.pktable)
         end
 
         best = eval
@@ -207,6 +207,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
         @inbounds thread.killers[ply + 2][2] = MOVE_NONE
     else
         # We just look at noisy moves.
+        # We make sure that the moves satisfy a SEE margin.
         init_noisy_moveorder!(thread, ply, max(1, margin))
     end
 
@@ -297,7 +298,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # Check for abort signal, or TimeManagement criteria.
     if isearlytermination(thread) || (ABORT_SIGNAL[] == true)
         thread.stop = true
-        return evaluate(board, thread.ptable)
+        return evaluate(board, thread.pktable)
     end
 
     # If this is not the root node, we can check for early exit conditions.
@@ -310,7 +311,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # If we reach the max ply, we evaluate the board here and return.
         if ply >= MAX_PLY
-            eval = evaluate(board, thread.ptable)
+            eval = evaluate(board, thread.pktable)
             return eval
         end
 
@@ -387,7 +388,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     elseif (ply > 0) && (thread.movestack[ply] == NULL_MOVE)
         eval = thread.evalstack[ply + 1] = -thread.evalstack[ply] + 2*TEMPO_BONUS
     else
-        eval = thread.evalstack[ply + 1] = evaluate(board, thread.ptable)
+        eval = thread.evalstack[ply + 1] = evaluate(board, thread.pktable)
     end
 
     # Reset killer moves for the upcoming ply.
@@ -401,9 +402,14 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         return q_eval
     end
 
+    # Check to see if the evaluation history has improved over the last few plies.
+    # We can use this to modify some pruning heuristics later on.
+    improving = ((ply >= 2) && (thread.evalstack[ply + 1] > thread.evalstack[ply - 1])) ? 2 : 1
+
+
     # Beta pruning.
     # If the evaluation minus a margin is still better than beta, we can prune here.
-    if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * depth >= β)
+    if (pvnode === false) && (ischeck(board) === false) && (depth <= BETA_PRUNE_DEPTH) && (eval - BETA_PRUNE_MARGIN * (depth - improving + 1) >= β)
         return eval
     end
 
@@ -432,17 +438,40 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
     best_move = MOVE_NONE
 
-    # Check to see if the evaluation history has improved over the last few plies.
-    # We can use this to modify some pruning heuristics later on.
-    improving = ((ply >= 2) && (thread.evalstack[ply + 1] > thread.evalstack[ply - 1])) ? 2 : 1
-
     # Set pruning variables used during the main loop.
-    futility_margin = FUTILITY_MARGIN * depth
+    futility_margin = FUTILITY_MARGIN * (depth - improving + 1)
     see_quiet_margin = SEE_QUIET_MARGIN * depth
     see_noisy_margin = SEE_NOISY_MARGIN * depth^2
     skipquiets = false
     played = 0
     num_quiets = 0
+
+    # Probcut pruning.
+    # We are not in a PV-node.
+    # A potential exists on the board such that it can beat β plus a margin.
+    if !pvnode &&  (depth >= PROBCUT_DEPTH) && (abs(β) < (MATE - MAX_PLY)) &&
+        (eval + optimistic_move_estimator(board) >= β + PROBCUT_MARGIN)
+        probcut_count = 0
+        raised_β = min(β + PROBCUT_MARGIN, MATE - MAX_PLY - 1)
+        init_noisy_moveorder!(thread, ply, raised_β - eval)
+        while ((move = selectmove!(thread, ply, false)) !== MOVE_NONE) && !thread.stop && (probcut_count < 2 + (cutnode ? 2 : 0))
+
+            u = apply_move!(thread, move)
+            # We check that the move holds in a qsearch.
+            eval = -qsearch(thread, ttable, -β, -β + 1, ply + 1)
+            # If it holds, and is above raised β, we do a fuller search.
+            if eval >= raised_β
+                eval = -absearch(thread, ttable, -β, -β + 1, depth - 4, ply + 1, !cutnode)
+            end
+            undo_move!(thread, move, u)
+
+            if (eval >= raised_β)
+                clear!(thread.moveorders[ply + 1])
+                return eval
+            end
+        end
+        clear!(thread.moveorders[ply + 1])
+    end
 
     # Internal iterative deepening step.
     # Aim is to perform a quick search to fill the transposition table with potential moves.
@@ -450,8 +479,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         absearch(thread, ttable, α, β, depth - 7, ply + 1, cutnode)
         tt_entry = getTTentry(ttable, board.hash)
         if tt_entry !== NO_ENTRY
-            #tt_eval = Int(tt_entry.eval)
-            #tt_value = Int(ttvalue(tt_entry, ply))
             tt_move = tt_entry.move
         end
     end
@@ -545,7 +572,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         # do we need an extension?
-        if ischeck(board) && (isroot === false)
+        if (ischeck(board))# || (isquiet && num_quiets <= 4 && cmhist >= 10000 && fmhist >= 10000)) && (isroot === false)
             newdepth = depth + 1
         else
             newdepth = depth
@@ -608,7 +635,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # We don't do this at the root node.
     if isroot == false
         tt_bound = best >= β ? BOUND_LOWER : (best > init_α ? BOUND_EXACT : BOUND_UPPER)
-        #tt_entry = TT_Entry(eval, best_move, depth, tt_bound)
         setTTentry!(ttable, board.hash, eval, best_move, depth, tt_bound)
     end
     return best
