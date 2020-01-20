@@ -5,7 +5,7 @@ const FLAGS = [:__NORMAL_MOVE, :__DOUBLE_PAWN, :__KING_CASTLE, :__QUEEN_CASTLE, 
     :__KNIGHT_PROMO, :__BISHOP_PROMO, :__ROOK_PROMO, :__QUEEN_PROMO]
 
 for (num, flag) in enumerate(FLAGS)
-    @eval const $flag = UInt16($num - 1)
+    @eval const $flag = UInt16($num - 1) << 12
 end
 
 
@@ -45,7 +45,7 @@ const NULL_MOVE = Move(0xffff)
 Encode a move, giving the from & to squares, alongside the promotion flag.
 """
 function Move(move_from::Integer, move_to::Integer, move_flag::Integer)
-    Move((move_from - one(move_from)) | ((move_to - one(move_from)) << 6) | ((move_flag) << 12))
+    Move((move_from - one(move_from)) | ((move_to - one(move_from)) << 6) | move_flag)
 end
 
 
@@ -78,7 +78,7 @@ to(move::Move) = ((move.val >> 6) & 0x003f) + 0x0001
 
 Given a move, return any special flags, as an `Integer`.
 """
-flag(move::Move) = move.val >> 12
+flag(move::Move) = move.val & 0xf000 #>> 12
 
 
 function istactical(board::Board, move::Move)
@@ -394,7 +394,7 @@ function apply_promo!(board::Board, move::Move)
     bb_to = Bitboard(sqr_to)
 
     p_to = piece(board, sqr_to)
-    ptype_promo = PieceType(flag(move) - 3)
+    ptype_promo = PieceType((flag(move)>>12) - 3)
 
     @inbounds board[PAWN] ⊻= bb_from
     @inbounds board[ptype_promo] ⊻= bb_to
@@ -545,7 +545,7 @@ function undo_promo!(board::Board, move::Move, undo::Undo)
     bb_to = Bitboard(sqr_to)
 
     p_to = undo.captured
-    ptype_promo = PieceType(flag(move) - 3)
+    ptype_promo = PieceType((flag(move) >> 12) - 3)
 
     @inbounds board[PAWN] ⊻= bb_from
     @inbounds board[ptype_promo] ⊻= bb_to

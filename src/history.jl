@@ -74,15 +74,16 @@ function updatehistory_internal_count!(thread::Thread, quietstried::MoveStack, b
         sqr_from = from(move)
         move_piece = type(thread.board[sqr_from])
 
+        fldabs_common = fld(abs(δ), HistoryDivide)
+        mul_common = HistoryMultiply * δ
+
         # Update the butterfly table. (History heuristics)
-        entry = thread.history[colour][sqr_from][sqr_to]
-        entry += HistoryMultiply * δ - entry * fld(abs(δ), HistoryDivide)
-        thread.history[colour][sqr_from][sqr_to] = entry
+        entry = thread.history[colour][sqr_from]
+        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
 
         # Update the counter move history table.
-        entry_c = thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
-        entry_c += HistoryMultiply * δ - entry_c * fld(abs(δ), HistoryDivide)
-        thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to] = entry_c
+        entry_c = thread.counterhistory[cm_piece.val][cm_to][move_piece.val]
+        entry_c[sqr_to] += muladd(-entry_c[sqr_to], fldabs_common, mul_common)
     end
     return
 end
@@ -97,15 +98,16 @@ function updatehistory_internal_follow!(thread::Thread, quietstried::MoveStack, 
         sqr_from = from(move)
         move_piece = type(thread.board[sqr_from])
 
+        fldabs_common = fld(abs(δ), HistoryDivide)
+        mul_common = HistoryMultiply * δ
+
         # Update the butterfly table. (History heuristics)
-        entry = thread.history[colour][sqr_from][sqr_to]
-        entry += HistoryMultiply * δ - entry * fld(abs(δ), HistoryDivide)
-        thread.history[colour][sqr_from][sqr_to] = entry
+        entry = thread.history[colour][sqr_from]
+        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
 
         # Update the follow up move history table.
-        entry_f = thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
-        entry_f += HistoryMultiply * δ - entry_f * fld(abs(δ), HistoryDivide)
-        thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to] = entry_f
+        entry_f = thread.followhistory[fm_piece.val][fm_to][move_piece.val]
+        entry_f[sqr_to] += muladd(-entry_f[sqr_to], fldabs_common, mul_common)
     end
     return
 end
@@ -120,20 +122,20 @@ function updatehistory_internal_countfollow!(thread::Thread, quietstried::MoveSt
         sqr_from = from(move)
         move_piece = type(thread.board[sqr_from])
 
+        fldabs_common = fld(abs(δ), HistoryDivide)
+        mul_common = HistoryMultiply * δ
+
         # Update the butterfly table. (History heuristics)
-        entry = thread.history[colour][sqr_from][sqr_to]
-        entry += HistoryMultiply * δ - entry * fld(abs(δ), HistoryDivide)
-        thread.history[colour][sqr_from][sqr_to] = entry
+        entry = thread.history[colour][sqr_from]
+        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
 
         # Update the counter move history table.
-        entry_c = thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
-        entry_c += HistoryMultiply * δ - entry_c * fld(abs(δ), HistoryDivide)
-        thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to] = entry_c
+        entry_c = thread.counterhistory[cm_piece.val][cm_to][move_piece.val]
+        entry_c[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
 
         # Update the follow up move history table.
-        entry_f = thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
-        entry_f += HistoryMultiply * δ - entry_f * fld(abs(δ), HistoryDivide)
-        thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to] = entry_f
+        entry_f = thread.followhistory[fm_piece.val][fm_to][move_piece.val]
+        entry_f[sqr_to] += muladd(-entry_f[sqr_to], fldabs_common, mul_common)
     end
     return
 end
@@ -146,10 +148,12 @@ function updatehistory_internal!(thread::Thread, quietstried::MoveStack, bonus::
         sqr_to = to(move)
         sqr_from = from(move)
 
+        fldabs_common = fld(abs(δ), HistoryDivide)
+        mul_common = HistoryMultiply * δ
+
         # Update the butterfly table. (History heuristics)
-        entry = thread.history[colour][sqr_from][sqr_to]
-        entry += HistoryMultiply * δ - entry * fld(abs(δ), HistoryDivide)
-        thread.history[colour][sqr_from][sqr_to] = entry
+        entry = thread.history[colour][sqr_from]
+        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
     end
     return
 end

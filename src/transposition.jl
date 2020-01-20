@@ -20,8 +20,10 @@ end
 TT_Table() = TT_Table(16)
 
 
-# Chess engines usually face memory restrictions, as we can't possibly hash and store all positions.
-# The below function aims to cap the hash memory size, by restricting the keys in the dict.
+#=
+Chess engines usually face memory restrictions, as we can't possibly hash and store all positions.
+The below function aims to cap the hash memory size, by restricting the keys in the dict.
+=#
 function TT_Table(size_MB::Int)
     bytes = size_MB << 20
 
@@ -36,7 +38,6 @@ function TT_Table(size_MB::Int)
     end
     # We shift right again as we "overshifted" by one in the while loop.
     size >>= 1
-    #
     size -= 1
 
     TT_Table(Dict{UInt32, TT_Entry}(), UInt64(size))
@@ -51,11 +52,6 @@ function getTTentry(tt::TT_Table, hash::ZobristHash)
         return NO_ENTRY
     end
 end
-
-
-# function hasTTentry(tt::TT_Table, hash::ZobristHash)
-#     haskey(tt.table, UInt32(hash.hash & tt.hashmask))
-# end
 
 
 function setTTentry!(tt::TT_Table, hash::ZobristHash, eval::Integer, move::Move, depth::Integer, bound::UInt8)
@@ -84,4 +80,24 @@ function hashfull(tt::TT_Table)
         end
     end
     fld(full,3)
+end
+
+
+function getPKentry(pktable::PawnKingTable, pkhash::ZobristHash)
+    key16 = UInt16(pkhash.hash >> 48)
+    if (res = get(pktable, key16, PKT_BLANK)) !== PKT_BLANK
+        if res.pkhash === pkhash
+            return res
+        end
+    end
+    return PKT_BLANK
+end
+
+
+const PKT_BLANK = PKT_Entry(ZobristHash(0), 0)
+
+
+function storePKentry!(pktable::PawnKingTable, pkhash::ZobristHash, eval::Int)
+    key16 = UInt16(pkhash.hash >> 48)
+    pktable[key16] = PKT_Entry(pkhash, eval)
 end

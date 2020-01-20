@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.2.3"
+    const ASTELLARN_VERSION = "v0.2.4"
 
     using Crayons
     using StaticArrays
@@ -53,8 +53,6 @@ module Astellarn
     export PAWN, KNIGHT, BISHOP, ROOK, KING, QUEEN
     export WHITEPAWN, WHITEKNIGHT, WHITEBISHOP, WHITEROOK, WHITEQUEEN, WHITEKING
     export BLACKPAWN, BLACKKNIGHT, BLACKBISHOP, BLACKROOK, BLACKQUEEN, BLACKKING
-
-    #export tb_init
 
     export uci_main
 

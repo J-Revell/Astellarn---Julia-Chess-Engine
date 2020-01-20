@@ -48,7 +48,25 @@ Performs the iterative deepening approach to absearch, and forms the main core o
 """
 function iterative_deepening(thread::Thread, ttable::TT_Table, max_depth::Int)::Int
     eval = -MATE
-
+    # Below is an idea to reduce history heuristic "noise" between searches.
+    # Testing shows some benefit.
+    for i in 1:2
+        for j in 1:64
+            @inbounds @simd for k in 1:64
+                thread.history[i][j][k] = fld(thread.history[i][j][k], 2)
+            end
+        end
+    end
+    for i in 1:6
+        for j in 1:64
+            for k in 1:6
+                @inbounds @simd for l in 1:64
+                    thread.counterhistory[i][j][k][l] = fld(thread.counterhistory[i][j][k][l], 2)
+                    thread.followhistory[i][j][k][l] = fld(thread.followhistory[i][j][k][l], 2)
+                end
+            end
+        end
+    end
     # We iterate through depths until we either:
     # a) reach the maximum depth, or
     # b) hit a time management constraint.
@@ -76,7 +94,7 @@ end
 When operating within the iterative deepening framework, aspiration windows are used via calls to this function.
 """
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
-    δ = 25
+    δ = 21
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
         β = min(MATE, eval + δ)
@@ -111,7 +129,7 @@ function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int
         end
 
         # expand window
-        δ += fld(δ, 2)
+        δ += fld(δ, 2) + 5
     end
     return eval
 end
@@ -439,7 +457,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     best_move = MOVE_NONE
 
     # Set pruning variables used during the main loop.
-    futility_margin = FUTILITY_MARGIN * (depth - improving + 1)
+    futility_margin = FUTILITY_MARGIN * depth
     see_quiet_margin = SEE_QUIET_MARGIN * depth
     see_noisy_margin = SEE_NOISY_MARGIN * depth^2
     skipquiets = false
@@ -655,7 +673,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
 
     from_piece = piece(board, from_sqr)
     to_piece = piece(board, to_sqr)
-    victim = (move_flag < 5) ? from_piece : makepiece(PieceType(flag(move) - 3), board.turn)
+    victim = (move_flag < __KNIGHT_PROMO) ? from_piece : makepiece(PieceType((move_flag >> 12) - 3), board.turn)
 
     occ = occupied(board)
     occ ⊻= (Bitboard(from_sqr) | Bitboard(to_sqr))
@@ -689,7 +707,7 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         @inbounds balance += PVALS_MG[type(to_piece).val]
     end
 
-    if move_flag >= 5
+    if move_flag >= __KNIGHT_PROMO
         @inbounds balance += PVALS_MG[type(victim).val] - PVALS_MG[1]
     end
 

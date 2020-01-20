@@ -71,10 +71,11 @@ end
 # [j] => from
 # [k] => to
 # https://www.chessprogramming.org/index.php?title=Butterfly_Boards
-const ButterflyHistTable = MArray{Tuple{2},MArray{Tuple{64},MArray{Tuple{64},Int,1,64},1,64},1,2}
-const CounterHistTable = MArray{Tuple{6},MArray{Tuple{64},MArray{Tuple{6},MArray{Tuple{64},Int,1,64},1,6},1,64},1,6}
+# const ButterflyHistTable = MArray{Tuple{2},MArray{Tuple{64},MArray{Tuple{64},Int,1,64},1,64},1,2}
+# const CounterHistTable = MArray{Tuple{6},MArray{Tuple{64},MArray{Tuple{6},MArray{Tuple{64},Int,1,64},1,6},1,64},1,6}
 const CounterTable = MArray{Tuple{2},MArray{Tuple{6},MArray{Tuple{64},Move,1,64},1,6},1,2}
-
+const ButterflyHistTable =  Vector{Vector{Vector{Int}}}
+const CounterHistTable = Vector{Vector{Vector{Vector{Int}}}}
 
 """
     MoveOrder
@@ -97,10 +98,12 @@ end
 
 
 mutable struct PKT_Entry
+    pkhash::ZobristHash
     score::Int
 end
 
-const PawnKingTable = Dict{ZobristHash, PKT_Entry}
+
+const PawnKingTable = Dict{UInt16, PKT_Entry}
 
 
 """

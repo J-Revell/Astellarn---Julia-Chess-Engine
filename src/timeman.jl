@@ -25,6 +25,9 @@ function initTimeManagement!(timeman::TimeManagement)
     if timeman.movestogo == -1
         timeman.ideal_time = fld(timeman.clock_time + 20*timeman.inc_time, 45)
         timeman.max_time = 10 * fld(timeman.clock_time + 20*timeman.inc_time, 45)
+    else
+        timeman.ideal_time = fld(timeman.clock_time, timeman.movestogo + 5) + timeman.inc_time
+        timeman.max_time = 10 * fld(timeman.clock_time, timeman.movestogo + 10) + timeman.inc_time
     end
     timeman.ideal_time = min(timeman.ideal_time, timeman.clock_time - MOVE_OVERHEAD)
     timeman.max_time = min(timeman.max_time, timeman.clock_time - MOVE_OVERHEAD)

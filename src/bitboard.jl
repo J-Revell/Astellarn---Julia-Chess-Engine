@@ -364,6 +364,11 @@ A static vector containing all the `Bitboard` representations of the ranks of th
 const RANK = @SVector [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8]
 
 
+function fileof(sqr::Integer)
+    ((64 - sqr) & 7) + 1
+end
+
+
 """
     file(bb::Bitboard)
     file(sqr::Int)
@@ -372,13 +377,13 @@ Get the `Bitboard` representing the file of the given square.
 Input is given as either an `Integer` type, or a `Bitboard` - assuming it contains only one square.
 """
 function file(sqr::Integer)
-    @inbounds FILE[mod1(65 - sqr, 8)]
+    @inbounds FILE[fileof(sqr)]
 end
 file(bb::Bitboard) = file(square(bb))
 
 
-function fileof(sqr::Integer)
-    mod1(65 - sqr, 8)
+function rankof(sqr::Integer)
+    ((sqr - 1) >> 3) + 1
 end
 
 
@@ -390,14 +395,9 @@ Get the `Bitboard` representing the rank of the given square.
 Input is given as either an `Integer` type, or a `Bitboard` - assuming it contains only one square.
 """
 function rank(sqr::Integer)
-    @inbounds RANK[fld1(sqr, 8)]
+    @inbounds RANK[rankof(sqr)]
 end
 rank(bb::Bitboard) = rank(square(bb))
-
-
-function rankof(sqr::Integer)
-    fld1(sqr, 8)
-end
 
 
 """

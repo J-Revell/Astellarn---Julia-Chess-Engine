@@ -37,21 +37,23 @@ end
 
 # find the index of the best scored move in the movestack
 function idx_bestmove(moveorder::MoveOrder, idx_start::Int, idx_end::Int)
-    best = idx_start
-    for i in (idx_start + 1):idx_end
-        if moveorder.values[i] >= moveorder.values[best]
-            best = i
+    best_idx = idx_start
+    best_val = moveorder.values[best_idx]
+    @inbounds for i in (idx_start + 1):idx_end
+        if (cv = moveorder.values[i]) >= best_val
+            best_idx = i
+            best_val = cv
         end
     end
-    return best
+    return best_idx
 end
 
 
 function popmove!(moveorder::MoveOrder, idx::Int)
     move = moveorder.movestack[idx]
-    for i in idx:moveorder.movestack.idx
-        @inbounds moveorder.movestack.list[i] = moveorder.movestack.list[i + 1]
-        @inbounds moveorder.values[i] = moveorder.values[i + 1]
+    @inbounds for i in idx:moveorder.movestack.idx
+        moveorder.movestack.list[i] = moveorder.movestack.list[i + 1]
+        moveorder.values[i] = moveorder.values[i + 1]
     end
     moveorder.movestack.idx -= 1
     if idx <= moveorder.noisy_size
@@ -62,19 +64,28 @@ function popmove!(moveorder::MoveOrder, idx::Int)
     return move
 end
 
+# function sortmoves!(moveorder::MoveOrder, idx_start::Int, idx_end::Int)
+#     idx = Vector{Int}(undef, max(0, idx_end-idx_start+1))
+#     m = view(moveorder.movestack, idx_start:idx_end)
+#     v = view(moveorder.values, idx_start:idx_end)
+#     sortperm!(idx, v, rev = true)
+#     permute!(m, idx)
+#     permute!(v, idx)
+# end
 
 function MVVLVA!(moveorder::MoveOrder, board::Board)
     @inbounds for i in 1:moveorder.noisy_size
         sqr_from = from(moveorder.movestack[i])
+        sqr_to = to(moveorder.movestack[i])
         ptype_from = type(board[sqr_from])
-        ptype_to = type(board[sqr_from])
+        ptype_to = type(board[sqr_to])
 
         if ptype_to !== VOID
-            moveorder.values[i] = MVVLVA_VALS[ptype_to.val] - ptype_to.val
+            moveorder.values[i] = MVVLVA_VALS[ptype_to.val] - ptype_from.val
         end
 
         if flag(moveorder.movestack[i]) === __ENPASS
-            moveorder.values[i] += MVVLVA_VALS[1] - one(Int32)
+            moveorder.values[i] = MVVLVA_VALS[1] - one(Int32)
         end
 
         if flag(moveorder.movestack[i]) === __QUEEN_PROMO
@@ -152,6 +163,7 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
     # Score the moves using MVV-LVA heuristics.
     if moveorder.stage === STAGE_INIT_NOISY
         MVVLVA!(moveorder, board)
+        # sortmoves!(moveorder, 1, moveorder.noisy_size)
         moveorder.stage = STAGE_GOOD_NOISY
     end
 
@@ -223,6 +235,7 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
     # Score using the history heuristics.
     if moveorder.stage === STAGE_INIT_QUIET
         gethistoryscores!(thread, moveorder.movestack, moveorder.values, moveorder.noisy_size + 1, moveorder.movestack.idx, ply)
+        # sortmoves!(moveorder, moveorder.noisy_size + 1, moveorder.movestack.idx)
         moveorder.stage = STAGE_QUIET
     end
 

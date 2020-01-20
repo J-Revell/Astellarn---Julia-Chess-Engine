@@ -42,38 +42,24 @@ function initEvalInfo(board::Board)
     # check for rammed pawns
     wrammedpawns = pawnAdvance(bpawns, wpawns, BLACK)
     brammedpawns = pawnAdvance(wpawns, bpawns, WHITE)
-    # wrammedpawns = bswap(bpawns) & wpawns
-    # brammedpawns = bswap(wrammedpawns)
+
 
     # generate list of all positions attacked by a pawn
     wpawnattacks = pawnCapturesWhite(wpawns, FULL)
     bpawnattacks = pawnCapturesBlack(bpawns, FULL)
 
     # generate list of all positions attacked by a knight
-    wknightattacks = bknightattacks = EMPTY #knightMove_all(wknights)
-    #bknightattacks = EMPTY #knightMove_all(bknights)
-
+    wknightattacks = bknightattacks = EMPTY
     wbishopattacks = bbishopattacks = EMPTY
-    #bbishopattacks = EMPTY
-
     wrookattacks = brookattacks = EMPTY
-    #brookattacks = EMPTY
-
     wqueenattacks = bqueenattacks = EMPTY
-    #bqueenattacks = EMPTY
-
     wkingattacks = bkingattacks = EMPTY
-    #bkingattacks = EMPTY
 
     # mobility regions
     wmobility = ~((white(board) & kings(board)) | bpawnattacks)
     bmobility = ~((black(board) & kings(board)) | wpawnattacks)
 
     gamestage = stage(board)
-
-    # wattacks = [wpawnattacks, wknightattacks, wbishopattacks, wrookattacks, wqueenattacks, wkingattacks]
-    # battacks = [bpawnattacks, bknightattacks, bbishopattacks, brookattacks, bqueenattacks, bkingattacks]
-    # allattacks = [EMPTY, EMPTY]
 
     ei = EvalInfo(wrammedpawns, brammedpawns, wmobility, bmobility, gamestage)
     ea = EvalAttackInfo(wpawnattacks, wknightattacks, wbishopattacks, wrookattacks, wqueenattacks, wkingattacks, bpawnattacks, bknightattacks, bbishopattacks, brookattacks, bqueenattacks, bkingattacks)
@@ -122,35 +108,32 @@ end
 
 Naive evaluation function to get the code development going.
 """
-function evaluate(board::Board, ptable::PawnKingTable)
+function evaluate(board::Board, pktable::PawnKingTable)
     ei, ea = initEvalInfo(board)
 
     score = 0
     score += board.psqteval
 
-    if (pt_entry = get(ptable, board.pkhash, false)) !== false
-        score += pt_entry.score
+    if (pkt_entry = getPKentry(pktable, board.pkhash)) !== PKT_BLANK
+        score += pkt_entry.score
+    else
+        score += evaluate_pawns(board, ei, ea, pktable)
     end
 
-    # v = fld(scoreEG(score) + scoreMG(score), 2)
-    # if abs(v) > LAZY_THRESH
-    #     if board.turn == WHITE
-    #         return v
-    #     else
-    #         return -v
-    #     end
-    # end
-
-    if pt_entry == false
-        score += evaluate_pawns(board, ei, ea, ptable)
+    v = fld(scoreEG(score) + scoreMG(score), 2)
+    if abs(v) > LAZY_THRESH
+        if board.turn == WHITE
+            return v
+        else
+            return -v
+        end
     end
+
     score += evaluate_knights(board, ei, ea)
     score += evaluate_bishops(board, ei, ea)
     score += evaluate_rooks(board, ei, ea)
     score += evaluate_queens(board, ei, ea)
     score += evaluate_kings(board, ei, ea)
-
-
     score += evaluate_pins(board)
     score += evaluate_space(board, ei, ea)
     score += evaluate_threats(board, ei, ea)
@@ -260,7 +243,7 @@ function evaluate_pawns(board::Board, ei::EvalInfo, ea::EvalAttackInfo, pktable:
     end
 
 
-    pktable[board.pkhash] = PKT_Entry(score)
+    storePKentry!(pktable, board.pkhash, score)
     return score
 end
 
@@ -504,18 +487,6 @@ function evaluate_kings(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         score -= CASTLE_OPTION_BONUS
     end
 
-
-    # Increase king safety for each pawn surrounding him
-    # king_safety += count(ea.wkingattacks & white(board) & pawns(board)) * KING_PAWN_SHIELD_BONUS
-    # king_safety -= count(ea.bkingattacks & black(board) & pawns(board)) * KING_PAWN_SHIELD_BONUS
-    # if isempty(pawns(board) & KINGFLANK[fileof(w_king_sqr)])
-    #     score -= PAWNLESS_FLANK
-    # end
-    # if isempty(pawns(board) & KINGFLANK[fileof(b_king_sqr)])
-    #     score += PAWNLESS_FLANK
-    # end
-
-
     # decrease king safety if on an open file, with enemy rooks or queens on the board.
     if !isempty((black(board) & rooks(board)) | board[BLACKQUEEN]) && isempty(file(w_king_sqr) & pawns(board))
         king_safety -= 15
@@ -607,14 +578,6 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     occ = occupied(board)
 
     score = 0
-
-    #=================== below are newer evaluation terms ==================#
-    # if board.turn == WHITE
-    #     weak = b_attacks & (~w_attacks | ea.wqueenattacks | ea.wkingattacks) & ~w_double_attacks
-    # else
-    #     weak = w_attacks & (~b_attacks | ea.bqueenattacks | ea.bkingattacks)
-    # end
-
 
     #========================= Evaluation w.r.t. white ========================#
     # strongly protected by the enemy.
