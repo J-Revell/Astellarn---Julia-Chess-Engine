@@ -36,7 +36,7 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
         fm_to = zero(UInt16)
     end
 
-    bonus = max(depthbonus, HistoryMaximum)
+    bonus = min(depthbonus, HistoryMaximum)
 
     # Below, the decision to split the cases up into 4 functions is so that the compiler can allow for SIMD optimisations.
     if (counter !== MOVE_NONE) && (counter !== NULL_MOVE) && (follow !== MOVE_NONE) && (follow !== NULL_MOVE)

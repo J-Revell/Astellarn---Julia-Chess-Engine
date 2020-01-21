@@ -195,10 +195,16 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
         end
     end
 
+    # If noisy type, we can stop here.
+    if moveorder.type === NOISY_TYPE
+        return MOVE_NONE
+    end
+
     # If skipquiets flag is set, now is the time to skip a few stages.
-    if skipquiets || (moveorder.type === NOISY_TYPE)
+    if skipquiets
         moveorder.stage = STAGE_BAD_NOISY
     end
+
 
     # First killer move stage.
     if moveorder.stage === STAGE_KILLER_1
@@ -242,7 +248,7 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
     # Pick the best quiet moves.
     # Do not play TT move twice.
     if moveorder.stage === STAGE_QUIET
-        if moveorder.quiet_size > 0
+        if moveorder.quiet_size !== 0
             idx = idx_bestmove(moveorder, moveorder.noisy_size + 1, moveorder.movestack.idx)
             move = popmove!(moveorder, idx)
             if (move == moveorder.tt_move) || ((move == moveorder.killer1) ||
@@ -258,7 +264,7 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
 
     # Lastly, if we are left with noisy moves that failed STAGE_GOOD_NOISY, we can pick them now.
     if moveorder.stage === STAGE_BAD_NOISY
-        if (moveorder.noisy_size > 0) && (moveorder.type !== NOISY_TYPE)
+        if (moveorder.noisy_size !== 0)
             move = popmove!(moveorder, 1)
             if (move == moveorder.tt_move) || (!skipquiets && ((move == moveorder.killer1) ||
                 (move == moveorder.killer2) || (move == moveorder.counter)))

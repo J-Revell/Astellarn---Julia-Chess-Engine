@@ -195,6 +195,10 @@ const KNIGHT_SAFE_CHECK = 100
 const QUEEN_SAFE_CHECK  = 80
 const BISHOP_SAFE_CHECK = 65
 const ROOK_SAFE_CHECK   = 110
+const KING_FLANK_DEFEND = makescore(2, 0)
+const KING_BOX_WEAK = makescore(7, 0)
+const UNSAFE_CHECK = makescore(4, 0)
+const KNIGHT_ON_QUEEN = makescore(15, 10)
 
 
 #========================= Mobility Evaluation ================================#

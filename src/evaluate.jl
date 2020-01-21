@@ -2,7 +2,7 @@
 """
     EvalInfo
 
-EvalAux is an auxilliary data structure for storing useful computations for the evaluation of the board.
+EvalInfo is an auxilliary data structure for storing useful computations for the evaluation of the board.
 """
 struct EvalInfo
     wrammedpawns::Bitboard
@@ -16,7 +16,7 @@ end
 """
     EvalAttackInfo
 
-EvalAux is an auxilliary data structure for storing useful computations for the evaluation of the board.
+EvalAttackInfo is an auxilliary data structure for storing useful computations for the evaluation of the board.
 """
 mutable struct EvalAttackInfo
     wpawnattacks::Bitboard
@@ -471,7 +471,6 @@ function evaluate_kings(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     ea.wkingattacks |= kingMoves(w_king_sqr)
     ea.bkingattacks |= kingMoves(b_king_sqr)
 
-    king_safety = 0
     score = 0
 
     if cancastlekingside(board, WHITE)
@@ -487,26 +486,7 @@ function evaluate_kings(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         score -= CASTLE_OPTION_BONUS
     end
 
-    # decrease king safety if on an open file, with enemy rooks or queens on the board.
-    if !isempty((black(board) & rooks(board)) | board[BLACKQUEEN]) && isempty(file(w_king_sqr) & pawns(board))
-        king_safety -= 15
-    end
-    if !isempty((white(board) & rooks(board)) | board[WHITEQUEEN]) && isempty(file(b_king_sqr) & pawns(board))
-        king_safety += 15
-    end
-
-    # decrease safety if neighbouring squares are attacked
-    b_attacks = ea.bpawnattacks | ea.bknightattacks | ea.bbishopattacks | ea.brookattacks | ea.bqueenattacks
-    w_attacks = ea.wpawnattacks | ea.wknightattacks | ea.wbishopattacks | ea.wrookattacks | ea.wqueenattacks
-    king_safety -= 9 * count(b_attacks & ea.wkingattacks) * div(15, (count(ea.wkingattacks) + 1))
-    king_safety += 9 * count(w_attacks & ea.bkingattacks) * div(15, (count(ea.bkingattacks) + 1))
-
-    # Score the number of attacks on our king's flank
-    score -= count(b_attacks & KINGFLANK[fileof(w_king_sqr)]) * KING_FLANK_ATTACK
-    score += count(w_attacks & KINGFLANK[fileof(b_king_sqr)]) * KING_FLANK_ATTACK
-
-    eval = king_safety
-    score + makescore(eval, eval)
+    score
 end
 
 
@@ -626,48 +606,85 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     case = b_attacks & ~strongly_protected & w_attacks
     score += count(case) * RESTRICTION_BONUS
 
-
+    # Find squares which are safe
     safe = ~b_attacks | w_attacks
+
+    # Case where we have safe pawn attacks
     case = pawns(board) & white(board) & safe
     case = pawnCapturesWhite(case, black(board) & ~pawns(board))
     score += THREAT_BY_PAWN * count(case)
 
     # Evaluate if there are pieces that can reach a checking square, while being safe.
     # King Danger evaluations.
+    # As WHITE, we are seeing how in danger the BLACK king is.
     b_king_sqr = square(black(board) & kings(board))
+    b_king_box = ea.bkingattacks | Bitboard(b_king_sqr)
     safe = ~white(board) & (~b_attacks | (weak & w_double_attacks))
-    knightcheck_sqrs = knightMoves(b_king_sqr) & safe & ea.wknightattacks
-    bishopcheck_sqrs = bishopMoves(b_king_sqr, occ) & safe & ea.wbishopattacks
-    rookcheck_sqrs   = rookMoves(b_king_sqr, occ) & safe & ea.wrookattacks
-    queencheck_sqrs  = (rookcheck_sqrs | bishopcheck_sqrs) & safe & ea.wqueenattacks
+    king_bishop_moves = bishopMoves(b_king_sqr, occ)
+    king_rook_moves = rookMoves(b_king_sqr, occ)
+    king_knight_moves = knightMoves(b_king_sqr)
+    knightcheck_sqrs = king_knight_moves & safe & ea.wknightattacks
+    rookcheck_sqrs   = king_rook_moves & safe & ea.wrookattacks
+    # Remove rook checks from queen checks, because they are more valuable.
+    # Don't count if queens trade.
+    queencheck_sqrs  = (king_rook_moves | king_bishop_moves) & safe & ea.wqueenattacks & ~rookcheck_sqrs & ~ea.bqueenattacks
+    # Remove queen checks from bishop checks, because they are more valuable.
+    bishopcheck_sqrs = king_bishop_moves & safe & ea.wbishopattacks & ~queencheck_sqrs
+
     king_danger = 0
+    unsafechecks = EMPTY
     if !isempty(knightcheck_sqrs)
         king_danger += KNIGHT_SAFE_CHECK
+    else
+        unsafechecks |= king_knight_moves & ea.wknightattacks
     end
     if !isempty(bishopcheck_sqrs)
         king_danger += BISHOP_SAFE_CHECK
+    else
+        unsafechecks |= king_bishop_moves & ea.wbishopattacks
     end
     if !isempty(rookcheck_sqrs)
         king_danger += ROOK_SAFE_CHECK
+    else
+        unsafechecks |= king_rook_moves & ea.wrookattacks
     end
     if !isempty(queencheck_sqrs)
         king_danger += QUEEN_SAFE_CHECK
     end
     if isempty(board[WHITEQUEEN])
-        king_danger -= 100
+        king_danger -= 80
     end
     if isempty(board[WHITEROOK])
-        king_danger -= 50
+        king_danger -= 40
     end
     if isempty(board[WHITEBISHOP])
-        king_danger -= 20
+        king_danger -= 15
     end
     if isempty(board[WHITEKNIGHT])
         king_danger -= 20
     end
+    king_danger += 9 * count(w_attacks & ea.bkingattacks)
     if king_danger > 0
         score += makescore(king_danger, fld(king_danger, 2))
     end
+    # Score the number of attacks on the king's flank
+    camp = FULL ⊻ RANK_1 ⊻ RANK_2 ⊻ RANK_3
+    king_flank_attacks = w_attacks & KINGFLANK[fileof(b_king_sqr)] & camp
+    king_flank_double_attacks = king_flank_attacks & w_double_attacks
+    score += (count(king_flank_attacks) + count(king_flank_double_attacks)) * KING_FLANK_ATTACK
+    king_flank_defence = b_attacks & KINGFLANK[fileof(b_king_sqr)] & camp
+    score -= count(king_flank_defence) * KING_FLANK_DEFEND
+    score += count(b_king_box & weak)^2 * KING_BOX_WEAK
+    score += count(unsafechecks)^2 * UNSAFE_CHECK
+
+    # Threats on black queen
+    black_queens = black(board) & queens(board)
+    if isone(black_queens)
+        safe = ei.wmobility & ~strongly_protected
+        case = ea.wknightattacks & knightMoves(square(black_queens)) & safe
+        score += count(case) * KNIGHT_ON_QUEEN
+    end
+
 
 
     #========================= Evaluation w.r.t. black ========================#
@@ -725,39 +742,73 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
 
     # Evaluate if there are pieces that can reach a checking square, while being safe.
     # King Danger evaluations.
+    # As BLACK, we are seeing how in danger the WHITE king is.
     w_king_sqr = square(white(board) & kings(board))
+    w_king_box = ea.wkingattacks | Bitboard(w_king_sqr)
     safe = ~black(board) & (~w_attacks | (weak & b_double_attacks))
-    knightcheck_sqrs = knightMoves(w_king_sqr) & safe & ea.bknightattacks
-    bishopcheck_sqrs = bishopMoves(w_king_sqr, occ) & safe & ea.bbishopattacks
-    rookcheck_sqrs   = rookMoves(w_king_sqr, occ) & safe & ea.brookattacks
-    queencheck_sqrs  = (rookcheck_sqrs | bishopcheck_sqrs) & safe & ea.bqueenattacks
+    king_bishop_moves = bishopMoves(w_king_sqr, occ)
+    king_rook_moves = rookMoves(w_king_sqr, occ)
+    king_knight_moves = knightMoves(w_king_sqr)
+    knightcheck_sqrs = king_knight_moves & safe & ea.bknightattacks
+    rookcheck_sqrs   = king_rook_moves & safe & ea.brookattacks
+    # Remove rook checks from queen checks, because they are more valuable.
+    # Don't count if queens trade.
+    queencheck_sqrs  = (king_rook_moves | king_bishop_moves) & safe & ea.bqueenattacks & ~rookcheck_sqrs & ~ea.wqueenattacks
+    # Remove queen checks from bishop checks, because they are more valuable.
+    bishopcheck_sqrs = king_bishop_moves & safe & ea.bbishopattacks & ~queencheck_sqrs
+
     king_danger = 0
+    unsafechecks = EMPTY
     if !isempty(knightcheck_sqrs)
         king_danger += KNIGHT_SAFE_CHECK
+    else
+        unsafechecks |= king_knight_moves & ea.bknightattacks
     end
     if !isempty(bishopcheck_sqrs)
         king_danger += BISHOP_SAFE_CHECK
+    else
+        unsafechecks |= king_bishop_moves & ea.bbishopattacks
     end
     if !isempty(rookcheck_sqrs)
         king_danger += ROOK_SAFE_CHECK
+    else
+        unsafechecks |= king_rook_moves & ea.brookattacks
     end
     if !isempty(queencheck_sqrs)
         king_danger += QUEEN_SAFE_CHECK
     end
     if isempty(board[BLACKQUEEN])
-        king_danger -= 100
+        king_danger -= 80
     end
     if isempty(board[BLACKROOK])
-        king_danger -= 50
+        king_danger -= 40
     end
     if isempty(board[BLACKBISHOP])
-        king_danger -= 20
+        king_danger -= 15
     end
     if isempty(board[BLACKKNIGHT])
         king_danger -= 20
     end
+    king_danger += 9 * count(b_attacks & ea.wkingattacks)
     if king_danger > 0
         score -= makescore(king_danger, fld(king_danger, 2))
+    end
+    # Count king flank attacks
+    king_flank_attackers = b_attacks & KINGFLANK[fileof(w_king_sqr)] & (FULL ⊻ RANK_8 ⊻ RANK_7 ⊻ RANK_6)
+    king_flank_double_attacks = king_flank_attacks & b_double_attacks
+    score -= (count(king_flank_attacks) + count(king_flank_double_attacks)) * KING_FLANK_ATTACK
+    king_flank_defence = w_attacks & KINGFLANK[fileof(b_king_sqr)] & camp
+    score += count(king_flank_defence) * KING_FLANK_DEFEND
+    # King ring attack bonus
+    score -= count(w_king_box & weak)^2 * KING_BOX_WEAK
+    score -= count(unsafechecks)^2 * UNSAFE_CHECK
+
+    # Attacks on white queen
+    white_queens = white(board) & queens(board)
+    if isone(white_queens)
+        safe = ei.bmobility & ~strongly_protected
+        case = ea.bknightattacks & knightMoves(square(white_queens)) & safe
+        score -= count(case) * KNIGHT_ON_QUEEN
     end
 
     score

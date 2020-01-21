@@ -472,8 +472,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         probcut_count = 0
         raised_β = min(β + PROBCUT_MARGIN, MATE - MAX_PLY - 1)
         init_noisy_moveorder!(thread, ply, raised_β - eval)
-        while ((move = selectmove!(thread, ply, false)) !== MOVE_NONE) && !thread.stop && (probcut_count < 2 + (cutnode ? 2 : 0))
-
+        while ((move = selectmove!(thread, ply, true)) !== MOVE_NONE) && !thread.stop && (probcut_count < 2 + (cutnode ? 2 : 0))
+            probcut_count += 1
             u = apply_move!(thread, move)
             # We check that the move holds in a qsearch.
             eval = -qsearch(thread, ttable, -β, -β + 1, ply + 1)
@@ -590,7 +590,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         # do we need an extension?
-        if (ischeck(board))# || (isquiet && num_quiets <= 4 && cmhist >= 10000 && fmhist >= 10000)) && (isroot === false)
+        if ischeck(board) && !isroot
             newdepth = depth + 1
         else
             newdepth = depth
