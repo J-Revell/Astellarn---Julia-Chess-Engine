@@ -94,10 +94,10 @@ function getPKentry(pktable::PawnKingTable, pkhash::ZobristHash)
 end
 
 
-const PKT_BLANK = PKT_Entry(ZobristHash(0), 0)
+const PKT_BLANK = PKT_Entry(ZobristHash(0), EMPTY, 0)
 
 
-function storePKentry!(pktable::PawnKingTable, pkhash::ZobristHash, eval::Int)
+function storePKentry!(pktable::PawnKingTable, pkhash::ZobristHash, passed::Bitboard, eval::Int)
     key16 = UInt16(pkhash.hash >> 48)
-    pktable[key16] = PKT_Entry(pkhash, eval)
+    pktable[key16] = PKT_Entry(pkhash, passed, eval)
 end

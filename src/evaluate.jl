@@ -31,6 +31,7 @@ mutable struct EvalAttackInfo
     brookattacks::Bitboard
     bqueenattacks::Bitboard
     bkingattacks::Bitboard
+    passed::Bitboard
 end
 
 
@@ -59,10 +60,12 @@ function initEvalInfo(board::Board)
     wmobility = ~((white(board) & kings(board)) | bpawnattacks)
     bmobility = ~((black(board) & kings(board)) | wpawnattacks)
 
+    passed = EMPTY
+
     gamestage = stage(board)
 
     ei = EvalInfo(wrammedpawns, brammedpawns, wmobility, bmobility, gamestage)
-    ea = EvalAttackInfo(wpawnattacks, wknightattacks, wbishopattacks, wrookattacks, wqueenattacks, wkingattacks, bpawnattacks, bknightattacks, bbishopattacks, brookattacks, bqueenattacks, bkingattacks)
+    ea = EvalAttackInfo(wpawnattacks, wknightattacks, wbishopattacks, wrookattacks, wqueenattacks, wkingattacks, bpawnattacks, bknightattacks, bbishopattacks, brookattacks, bqueenattacks, bkingattacks, passed)
     ei, ea
 end
 
@@ -116,8 +119,9 @@ function evaluate(board::Board, pktable::PawnKingTable)
 
     if (pkt_entry = getPKentry(pktable, board.pkhash)) !== PKT_BLANK
         score += pkt_entry.score
+        ea.passed = pkt_entry.passed
     else
-        score += evaluate_pawns(board, ei, ea, pktable)
+        score += evaluate_pawns(board, ea, pktable)
     end
 
     v = fld(scoreEG(score) + scoreMG(score), 2)
@@ -133,10 +137,14 @@ function evaluate(board::Board, pktable::PawnKingTable)
     score += evaluate_bishops(board, ei, ea)
     score += evaluate_rooks(board, ei, ea)
     score += evaluate_queens(board, ei, ea)
-    score += evaluate_kings(board, ei, ea)
+    score += evaluate_kings(board, ea)
     score += evaluate_pins(board)
-    score += evaluate_space(board, ei, ea)
+    score += evaluate_space(board, ea)
     score += evaluate_threats(board, ei, ea)
+
+    score += evaluate_passed(board, ea)
+
+    score += evaluate_initiative(board, ea.passed, score)
 
     scale_f = scale_factor(board, scoreEG(score))
 
@@ -153,7 +161,7 @@ function evaluate(board::Board, pktable::PawnKingTable)
 end
 
 
-function evaluate_pawns(board::Board, ei::EvalInfo, ea::EvalAttackInfo, pktable::PawnKingTable)
+function evaluate_pawns(board::Board, ea::EvalAttackInfo, pktable::PawnKingTable)
 
     w_pawns = white(board) & pawns(board)
     b_pawns = black(board) & pawns(board)
@@ -164,74 +172,88 @@ function evaluate_pawns(board::Board, ei::EvalInfo, ea::EvalAttackInfo, pktable:
     score = 0
 
     @inbounds for pawn in w_pawns
-        bonus = 0
         file = fileof(pawn)
         rank = rankof(pawn)
-        factor = 5 * rank - 13
+        blocked    = b_pawns & (Bitboard(pawn) << 8)
+        stoppers   = b_pawns & PASSED_PAWN_MASKS[1][pawn]
+        opposed    = stoppers & FILE[file]
+        lever      = b_pawns & PAWN_CAPTURES_WHITE[pawn]
+        leverpush  = b_pawns & PAWN_CAPTURES_WHITE[pawn + 8]
+        doubled    = !isempty(w_pawns & (Bitboard(pawn) >> 8))
+        neighbours = w_pawns & NEIGHBOUR_FILE_MASKS[file]
+        phalanx    = neighbours & RANK[rank]
+        support    = neighbours & RANK[rank - 1]
+
         # Passed pawns
-        if isempty(b_pawns & PASSED_PAWN_MASKS[1][pawn])
-            bonus += PASS_PAWN_THREAT[rank]
-            block_sqr = pawn + 8
-            if rank > 3
-                bonus += makescore(0, (fld(min(DISTANCE_BETWEEN[block_sqr, b_king],5)*19, 4) - min(DISTANCE_BETWEEN[block_sqr, w_king],5)*2)*factor)
-                if rank !== 7
-                    block_sqr_2 = block_sqr + 8
-                    bonus -= makescore(0, DISTANCE_BETWEEN[block_sqr_2, w_king]*factor)
-                end
-            end
-            if board[block_sqr] == WHITEPAWN
-                bonus -= makescore(50, 50)
-            end
-            score += bonus
-        end
-        # Isolated pawns
-        if isempty(NEIGHBOUR_FILE_MASKS[file] & w_pawns & ~FILE[file])
-            score -= ISOLATED_PAWN_PENALTY
-        end
-        # Double pawns
-        if ismany(w_pawns & FILE[file])
-            score -= DOUBLE_PAWN_PENALTY
+        if isempty(stoppers)
+            ea.passed |= Bitboard(pawn)
         end
 
+        # Backward pawns
+        backward = isempty(neighbours & PASSED_PAWN_MASKS[2][pawn - 8] & FILE[file]) && !isempty(leverpush | blocked)
+
+        # file mapping
         file_psqt = FILE_TO_QSIDE_MAP[file]
-        if !isempty(CONNECTED_PAWN_MASKS[1][pawn] & w_pawns)
+
+        # Connected pawns
+        if !isempty(support) || !isempty(phalanx)
             score += CONNECTED_PAWN_PSQT[rank][file_psqt]
+
+        # Isolated pawns
+        elseif isempty(neighbours)
+            score -= ISOLATED_PAWN_PENALTY + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+
+        # Backward pawns
+        elseif backward
+            score -= BACKWARD_PAWN + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+        end
+
+        # Doubled pawns
+        if isempty(support)
+            score -= DOUBLE_PAWN_PENALTY * (doubled ? 1 : 0) + WEAK_LEVER * (ismany(lever) ? 1 : 0)
         end
     end
 
     @inbounds for pawn in b_pawns
-        bonus = 0
         file = fileof(pawn)
-        rank = 9 - rankof(pawn)
-        factor = 5 * rank - 13
+        rank = rankof(pawn)
+        blocked    = w_pawns & (Bitboard(pawn) >> 8)
+        stoppers   = w_pawns & PASSED_PAWN_MASKS[2][pawn]
+        opposed    = stoppers & FILE[file]
+        lever      = w_pawns & PAWN_CAPTURES_BLACK[pawn]
+        leverpush  = w_pawns & PAWN_CAPTURES_BLACK[pawn - 8]
+        doubled    = !isempty(b_pawns & (Bitboard(pawn) << 8))
+        neighbours = b_pawns & NEIGHBOUR_FILE_MASKS[file]
+        phalanx    = neighbours & RANK[rank]
+        support    = neighbours & RANK[rank + 1]
+
         # Passed pawns
-        if isempty(w_pawns & PASSED_PAWN_MASKS[2][pawn])
-            bonus += PASS_PAWN_THREAT[rank]
-            block_sqr = pawn - 8
-            if rank > 3
-                bonus += makescore(0, (fld(min(DISTANCE_BETWEEN[block_sqr, w_king],5)*19, 4) - min(DISTANCE_BETWEEN[block_sqr, b_king],5)*2)*factor)
-                if rank !== 7
-                    block_sqr_2 = block_sqr - 8
-                    bonus -= makescore(0, DISTANCE_BETWEEN[block_sqr_2, b_king]*factor)
-                end
-            end
-            if board[block_sqr] == BLACKPAWN
-                bonus -= makescore(50, 50)
-            end
-            score -= bonus
-        end
-        # Isolated pawns
-        if isempty(NEIGHBOUR_FILE_MASKS[file] & b_pawns & ~FILE[file])
-            score += ISOLATED_PAWN_PENALTY
-        end
-        # Double pawns
-        if ismany(b_pawns & FILE[file])
-            score += DOUBLE_PAWN_PENALTY
+        if isempty(stoppers)
+            ea.passed |= Bitboard(pawn)
         end
 
+        # Backward pawns
+        backward = isempty(neighbours & PASSED_PAWN_MASKS[1][pawn + 8] & FILE[file]) && !isempty(leverpush | blocked)
+
+        # file mapping
         file_psqt = FILE_TO_QSIDE_MAP[file]
-        if !isempty(CONNECTED_PAWN_MASKS[2][pawn] & b_pawns)
-            score -= CONNECTED_PAWN_PSQT[rank][file_psqt]
+
+        # Connected pawns
+        if !isempty(support) || !isempty(phalanx)
+            score -= CONNECTED_PAWN_PSQT[9 - rank][file_psqt]
+
+        # Isolated pawns
+        elseif isempty(neighbours)
+            score += ISOLATED_PAWN_PENALTY + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+
+        # Backward pawns
+        elseif backward
+            score += BACKWARD_PAWN + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+        end
+
+        # Doubled pawns
+        if isempty(support)
+            score += DOUBLE_PAWN_PENALTY * (doubled ? 1 : 0) + WEAK_LEVER * (ismany(lever) ? 1 : 0)
         end
     end
 
@@ -243,7 +265,7 @@ function evaluate_pawns(board::Board, ei::EvalInfo, ea::EvalAttackInfo, pktable:
     end
 
 
-    storePKentry!(pktable, board.pkhash, score)
+    storePKentry!(pktable, board.pkhash, ea.passed, score)
     return score
 end
 
@@ -267,10 +289,13 @@ function evaluate_knights(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         score += KNIGHT_MOBILITY[count(attacks & ei.wmobility) + 1]
         score -= MINOR_KING_PROTECTION * DISTANCE_BETWEEN[w_king_sqr, knight]
     end
+
     # Score knight outposts
     score += count(w_outposts & w_knights) * KNIGHT_OUTPOST_BONUS
+
     # Score reachable knight outposts
     score += count(w_outposts & ea.wknightattacks & ~white(board)) * KNIGHT_POTENTIAL_OUTPOST_BONUS
+
     # Score knights behind pawns
     score += count((w_knights << 8) & w_pawns) * PAWN_SHIELD_BONUS
 
@@ -282,29 +307,20 @@ function evaluate_knights(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         score -= KNIGHT_MOBILITY[count(attacks & ei.bmobility) + 1]
         score += MINOR_KING_PROTECTION * DISTANCE_BETWEEN[b_king_sqr, knight]
     end
+
     # Score knight outposts
     score -= count(b_outposts & b_knights) * KNIGHT_OUTPOST_BONUS
+
     # Score reachable knight outposts
     score -= count(b_outposts & ea.bknightattacks & ~black(board)) * KNIGHT_POTENTIAL_OUTPOST_BONUS
+
     # Score knights behind pawns
     score -= count((b_knights >> 8) & b_pawns) * PAWN_SHIELD_BONUS
 
     # bonus for knights in rammed positions
-    num_rammed = count(ei.wrammedpawns)
-    score += div(count(w_knights) * num_rammed^2, 4) * KNIGHT_RAMMED_BONUS
-    score -= div(count(b_knights) * num_rammed^2, 4) * KNIGHT_RAMMED_BONUS
-
-    # Evaluate trapped knights.
-    for trap in KNIGHT_TRAP_PATTERNS[1]
-        if ((b_pawns & trap.pawnmask) == trap.pawnmask) && isone(w_knights & trap.minormask)
-            score -= KNIGHT_TRAP_PENALTY
-        end
-    end
-    for trap in KNIGHT_TRAP_PATTERNS[2]
-        if ((w_pawns & trap.pawnmask) == trap.pawnmask) && isone(b_knights & trap.minormask)
-            score += KNIGHT_TRAP_PENALTY
-        end
-    end
+    num2_rammed = count(ei.wrammedpawns)^2
+    score += div(count(w_knights) * num2_rammed, 4) * KNIGHT_RAMMED_BONUS
+    score -= div(count(b_knights) * num2_rammed, 4) * KNIGHT_RAMMED_BONUS
 
     score
 end
@@ -335,8 +351,10 @@ function evaluate_bishops(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         end
         score -= MINOR_KING_PROTECTION * DISTANCE_BETWEEN[w_king_sqr, bishop]
     end
+
     # Outpost bonus
     score += count(w_outposts & w_bishops) * BISHOP_OUTPOST_BONUS
+
     # Add a bonus for being behind a pawn.
     score += count((w_bishops << 8) & w_pawns) * PAWN_SHIELD_BONUS
 
@@ -351,20 +369,12 @@ function evaluate_bishops(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         end
         score += MINOR_KING_PROTECTION * DISTANCE_BETWEEN[b_king_sqr, bishop]
     end
+
+    # Outpost bonus
     score -= count(b_outposts & b_bishops) * BISHOP_OUTPOST_BONUS
+
     # Add a bonus for being behind a pawn
     score -= count((b_bishops >> 8) & b_pawns) * PAWN_SHIELD_BONUS
-
-    for trap in BISHOP_TRAP_PATTERNS[1]
-        if ((b_pawns & trap.pawnmask) == trap.pawnmask) && !isempty(w_bishops & trap.minormask)
-            score -= BISHOP_TRAP_PENALTY
-        end
-    end
-    for trap in BISHOP_TRAP_PATTERNS[2]
-        if ((w_pawns & trap.pawnmask) == trap.pawnmask) && !isempty(b_bishops & trap.minormask)
-            score += BISHOP_TRAP_PENALTY
-        end
-    end
 
     # bishop pair
     if count(w_bishops) >= 2
@@ -463,9 +473,9 @@ function evaluate_queens(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
 end
 
 
-function evaluate_kings(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
-    w_king = board[WHITEKING]
-    b_king = board[BLACKKING]
+function evaluate_kings(board::Board, ea::EvalAttackInfo)
+    w_king = white(board) & kings(board)
+    b_king = black(board) & kings(board)
     w_king_sqr = square(w_king)
     b_king_sqr = square(b_king)
     ea.wkingattacks |= kingMoves(w_king_sqr)
@@ -516,7 +526,7 @@ function evaluate_pins(board::Board)
 end
 
 
-function evaluate_space(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
+function evaluate_space(board::Board, ea::EvalAttackInfo)
     eval = 0
 
     w_filter = (RANK_2 | RANK_3 | RANK_4) & CENTERFILES
@@ -583,11 +593,11 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     case_bishops = count(case & bishops(board))
     case_rooks = count(case & rooks(board))
     case_queens = count(case & queens(board))
-    score += THREAT_BY_MINOR[1] * case_pawns
-    score += THREAT_BY_MINOR[2] * case_knights
-    score += THREAT_BY_MINOR[3] * case_bishops
-    score += THREAT_BY_MINOR[4] * case_rooks
-    score += THREAT_BY_MINOR[5] * case_queens
+    @inbounds score += THREAT_BY_MINOR[1] * case_pawns
+    @inbounds score += THREAT_BY_MINOR[2] * case_knights
+    @inbounds score += THREAT_BY_MINOR[3] * case_bishops
+    @inbounds score += THREAT_BY_MINOR[4] * case_rooks
+    @inbounds score += THREAT_BY_MINOR[5] * case_queens
 
     # Case where our opponent is weak and attacked by our rook
     case = weak & ea.wrookattacks
@@ -596,11 +606,11 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     case_bishops = count(case & bishops(board))
     case_rooks = count(case & rooks(board))
     case_queens = count(case & queens(board))
-    score += THREAT_BY_ROOK[1] * case_pawns
-    score += THREAT_BY_ROOK[2] * case_knights
-    score += THREAT_BY_ROOK[3] * case_bishops
-    score += THREAT_BY_ROOK[4] * case_rooks
-    score += THREAT_BY_ROOK[5] * case_queens
+    @inbounds score += THREAT_BY_ROOK[1] * case_pawns
+    @inbounds score += THREAT_BY_ROOK[2] * case_knights
+    @inbounds score += THREAT_BY_ROOK[3] * case_bishops
+    @inbounds score += THREAT_BY_ROOK[4] * case_rooks
+    @inbounds score += THREAT_BY_ROOK[5] * case_queens
 
     # Case where we get a bonus for restricting our opponent
     case = b_attacks & ~strongly_protected & w_attacks
@@ -613,6 +623,13 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     case = pawns(board) & white(board) & safe
     case = pawnCapturesWhite(case, black(board) & ~pawns(board))
     score += THREAT_BY_PAWN * count(case)
+
+    # Case threat by pawn push
+    case = pawnAdvance(white(board) & pawns(board), empty(board), WHITE)
+    case |= pawnDoubleAdvance(white(board) & pawns(board), empty(board), WHITE)
+    case &= ~ea.bpawnattacks & safe
+    case = pawnCapturesWhite(case, black(board) & ~pawns(board))
+    score += THREAT_BY_PUSH * count(case)
 
     # Evaluate if there are pieces that can reach a checking square, while being safe.
     # King Danger evaluations.
@@ -667,13 +684,17 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     if king_danger > 0
         score += makescore(king_danger, fld(king_danger, 2))
     end
+
     # Score the number of attacks on the king's flank
     camp = FULL ⊻ RANK_1 ⊻ RANK_2 ⊻ RANK_3
-    king_flank_attacks = w_attacks & KINGFLANK[fileof(b_king_sqr)] & camp
+    black_king_flank = KINGFLANK[fileof(b_king_sqr)]
+    king_flank_attacks = w_attacks & black_king_flank & camp
     king_flank_double_attacks = king_flank_attacks & w_double_attacks
     score += (count(king_flank_attacks) + count(king_flank_double_attacks)) * KING_FLANK_ATTACK
-    king_flank_defence = b_attacks & KINGFLANK[fileof(b_king_sqr)] & camp
+    king_flank_defence = b_attacks & black_king_flank & camp
     score -= count(king_flank_defence) * KING_FLANK_DEFEND
+
+    # King ring attack bonus
     score += count(b_king_box & weak)^2 * KING_BOX_WEAK
     score += count(unsafechecks)^2 * UNSAFE_CHECK
 
@@ -684,7 +705,6 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         case = ea.wknightattacks & knightMoves(square(black_queens)) & safe
         score += count(case) * KNIGHT_ON_QUEEN
     end
-
 
 
     #========================= Evaluation w.r.t. black ========================#
@@ -712,11 +732,11 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     case_bishops = count(case & bishops(board))
     case_rooks = count(case & rooks(board))
     case_queens = count(case & queens(board))
-    score -= THREAT_BY_MINOR[1] * case_pawns
-    score -= THREAT_BY_MINOR[2] * case_knights
-    score -= THREAT_BY_MINOR[3] * case_bishops
-    score -= THREAT_BY_MINOR[4] * case_rooks
-    score -= THREAT_BY_MINOR[5] * case_queens
+    @inbounds score -= THREAT_BY_MINOR[1] * case_pawns
+    @inbounds score -= THREAT_BY_MINOR[2] * case_knights
+    @inbounds score -= THREAT_BY_MINOR[3] * case_bishops
+    @inbounds score -= THREAT_BY_MINOR[4] * case_rooks
+    @inbounds score -= THREAT_BY_MINOR[5] * case_queens
 
     # Case where our opponent is weak and attacked by our rook
     case = weak & ea.brookattacks
@@ -725,20 +745,28 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     case_bishops = count(case & bishops(board))
     case_rooks = count(case & rooks(board))
     case_queens = count(case & queens(board))
-    score -= THREAT_BY_ROOK[1] * case_pawns
-    score -= THREAT_BY_ROOK[2] * case_knights
-    score -= THREAT_BY_ROOK[3] * case_bishops
-    score -= THREAT_BY_ROOK[4] * case_rooks
-    score -= THREAT_BY_ROOK[5] * case_queens
+    @inbounds score -= THREAT_BY_ROOK[1] * case_pawns
+    @inbounds score -= THREAT_BY_ROOK[2] * case_knights
+    @inbounds score -= THREAT_BY_ROOK[3] * case_bishops
+    @inbounds score -= THREAT_BY_ROOK[4] * case_rooks
+    @inbounds score -= THREAT_BY_ROOK[5] * case_queens
 
     # Case where we get a bonus for restricting our opponent
     case = b_attacks & ~strongly_protected & w_attacks
     score -= count(case) * RESTRICTION_BONUS
 
+    # Case threat by pawn
     safe = ~w_attacks | b_attacks
     case = pawns(board) & black(board) & safe
     case = pawnCapturesBlack(case, white(board) & ~pawns(board))
     score -= THREAT_BY_PAWN * count(case)
+
+    # Case threat by pawn push
+    case = pawnAdvance(black(board) & pawns(board), empty(board), BLACK)
+    case |= pawnDoubleAdvance(black(board) & pawns(board), empty(board), BLACK)
+    case &= ~ea.wpawnattacks & safe
+    case = pawnCapturesBlack(case, white(board) & ~pawns(board))
+    score -= THREAT_BY_PUSH * count(case)
 
     # Evaluate if there are pieces that can reach a checking square, while being safe.
     # King Danger evaluations.
@@ -793,12 +821,16 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
     if king_danger > 0
         score -= makescore(king_danger, fld(king_danger, 2))
     end
+
     # Count king flank attacks
-    king_flank_attackers = b_attacks & KINGFLANK[fileof(w_king_sqr)] & (FULL ⊻ RANK_8 ⊻ RANK_7 ⊻ RANK_6)
+    camp = (FULL ⊻ RANK_8 ⊻ RANK_7 ⊻ RANK_6)
+    white_king_flank = KINGFLANK[fileof(w_king_sqr)]
+    king_flank_attacks = b_attacks & white_king_flank & camp
     king_flank_double_attacks = king_flank_attacks & b_double_attacks
     score -= (count(king_flank_attacks) + count(king_flank_double_attacks)) * KING_FLANK_ATTACK
-    king_flank_defence = w_attacks & KINGFLANK[fileof(b_king_sqr)] & camp
+    king_flank_defence = w_attacks & white_king_flank & camp
     score += count(king_flank_defence) * KING_FLANK_DEFEND
+
     # King ring attack bonus
     score -= count(w_king_box & weak)^2 * KING_BOX_WEAK
     score -= count(unsafechecks)^2 * UNSAFE_CHECK
@@ -809,6 +841,139 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         safe = ei.bmobility & ~strongly_protected
         case = ea.bknightattacks & knightMoves(square(white_queens)) & safe
         score -= count(case) * KNIGHT_ON_QUEEN
+    end
+
+    score
+end
+
+
+function evaluate_initiative(board::Board, passed::Bitboard, score::Int)
+    eg = scoreEG(score)
+    mg = scoreMG(score)
+    black_king = square(kings(board) & black(board))
+    white_king = square(kings(board) & white(board))
+    black_king_rank = rankof(black_king)
+    white_king_rank = rankof(white_king)
+    black_king_file = fileof(black_king)
+    white_king_file = fileof(white_king)
+
+    outflank = abs(white_king_file - black_king_file) - abs(white_king_rank - black_king_rank)
+
+    infiltrating = (white_king_rank > 4) || (black_king_rank < 5)
+
+    pawns_both_flanks = !isempty(pawns(board) & KINGSIDE) || !isempty(pawns(board) & QUEENSIDE)
+
+    slimchance = isempty(passed) && (outflank < 0) && !pawns_both_flanks
+
+    complexity = 8 * count(passed) + 10 * count(pawns(board)) + 8 * outflank +
+        (infiltrating ? 11 : 0) + (pawns_both_flanks ? 19 : 0) + (has_non_pawn_material(board) ? 0 : 44) -
+        (slimchance ? 39 : 0) - 90
+
+    c_mg = (Int(mg > 0) - Int(mg < 0)) * max(min(complexity + 45, 0), -abs(mg))
+    c_eg = (Int(eg > 0) - Int(eg < 0)) * max(complexity, -abs(eg))
+    makescore(c_mg, c_eg)
+end
+
+
+function evaluate_passed(board::Board, ea::EvalAttackInfo)
+    black_king = square(kings(board) & black(board))
+    white_king = square(kings(board) & white(board))
+    white_pawns = white(board) & ea.passed
+    black_pawns = black(board) & ea.passed
+
+    w_attacks = ea.wknightattacks | ea.wpawnattacks | ea.wbishopattacks | ea.wrookattacks | ea.wqueenattacks | ea.wkingattacks
+    b_attacks = ea.bknightattacks | ea.bpawnattacks | ea.bbishopattacks | ea.brookattacks | ea.bqueenattacks | ea.bkingattacks
+
+    block_sqr = 0
+
+    score = 0
+    @inbounds for pawn in white_pawns
+        bonus = 0
+        file = fileof(pawn)
+        rank = rankof(pawn)
+        bonus += PASS_PAWN_THREAT[rank]
+        if rank > 3
+            factor = muladd(5, rank, -13)
+            block_sqr = pawn + 8
+            bonus += makescore(0, (fld(min(DISTANCE_BETWEEN[block_sqr, black_king],5)*19, 4) - min(DISTANCE_BETWEEN[block_sqr, white_king],5)*2)*factor)
+            if rank !== 7
+                block_sqr_2 = block_sqr + 8
+                bonus -= makescore(0, DISTANCE_BETWEEN[block_sqr_2, white_king]*factor)
+            end
+            if board[block_sqr] === BLANK
+                sqrs_to_queen = PASSED_PAWN_MASKS[1][pawn] & FILE[file]
+                unsafe_sqrs = PASSED_PAWN_MASKS[1][pawn]
+                case = (PASSED_PAWN_MASKS[2][pawn] & FILE[file]) & rooklike(board)
+                if isempty(case & black(board))
+                    unsafe_sqrs &= b_attacks
+                end
+
+                if isempty(unsafe_sqrs)
+                    k = 32
+                elseif isempty(unsafe_sqrs & sqrs_to_queen)
+                    k = 18
+                elseif isempty(unsafe_sqrs & Bitboard(block_sqr))
+                    k = 8
+                else
+                    k = 0
+                end
+
+                if !isempty(white(board) & case) || !isempty(w_attacks & Bitboard(block_sqr))
+                    k += 5
+                end
+
+                bonus += makescore(k * factor, k * factor)
+            end
+        end
+        if board[block_sqr] === WHITEPAWN
+            bonus = makescore(fld(scoreMG(bonus), 2), fld(scoreEG(bonus), 2))
+        end
+        score += bonus
+    end
+
+
+    @inbounds for pawn in black_pawns
+        bonus = 0
+        file = fileof(pawn)
+        rank = 9 - rankof(pawn)
+        bonus += PASS_PAWN_THREAT[rank]
+        if rank > 3
+            factor = muladd(5, rank, -13)
+            block_sqr = pawn - 8
+            bonus += makescore(0, (fld(min(DISTANCE_BETWEEN[block_sqr, white_king],5)*19, 4) - min(DISTANCE_BETWEEN[block_sqr, black_king],5)*2)*factor)
+            if rank !== 7
+                block_sqr_2 = block_sqr - 8
+                bonus -= makescore(0, DISTANCE_BETWEEN[block_sqr_2, black_king]*factor)
+            end
+            if board[block_sqr] === BLANK
+                sqrs_to_queen = PASSED_PAWN_MASKS[2][pawn] & FILE[file]
+                unsafe_sqrs = PASSED_PAWN_MASKS[2][pawn]
+                case = (PASSED_PAWN_MASKS[1][pawn] & FILE[file]) & rooklike(board)
+                if isempty(case & white(board))
+                    unsafe_sqrs &= w_attacks
+                end
+
+                if isempty(unsafe_sqrs)
+                    k = 32
+                elseif isempty(unsafe_sqrs & sqrs_to_queen)
+                    k = 18
+                elseif isempty(unsafe_sqrs & Bitboard(block_sqr))
+                    k = 8
+                else
+                    k = 0
+                end
+
+                if !isempty(black(board) & case) || !isempty(b_attacks & Bitboard(block_sqr))
+                    k += 5
+                end
+
+                bonus += makescore(k * factor, k * factor)
+            end
+        end
+        if board[block_sqr] === BLACKPAWN
+            bonus = makescore(fld(scoreMG(bonus), 2), fld(scoreEG(bonus), 2))
+        end
+        score -= bonus
     end
 
     score

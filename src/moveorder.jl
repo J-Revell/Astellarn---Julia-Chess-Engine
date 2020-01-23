@@ -146,7 +146,7 @@ end
 
 
 function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
-    moveorder = thread.moveorders[ply + 1]
+    @inbounds moveorder = thread.moveorders[ply + 1]
     board = thread.board
 
     # First pick the transposition table move.
@@ -170,16 +170,16 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
     # Pick the noisy moves which pass MVV-LVA, and a static_exchange_evaluator runby.
     # Do not play TT moves twice.
     if moveorder.stage === STAGE_GOOD_NOISY
-        if moveorder.noisy_size > 0
+        while moveorder.noisy_size > 0
             idx = idx_bestmove(moveorder, 1, moveorder.noisy_size)
             if moveorder.values[idx] >= 0
                 if !ischeck(board) && (static_exchange_evaluator(board, moveorder.movestack[idx], moveorder.margin) == false)
                     moveorder.values[idx] = -1
-                    return selectmove!(thread, ply, skipquiets)
+                    continue
                 end
                 move = popmove!(moveorder, idx)
                 if move === moveorder.tt_move
-                    return selectmove!(thread, ply, skipquiets)
+                    continue
                 else
                     # Avoid playing killer or counter moves twice.
                     (move == moveorder.killer1) && (moveorder.killer1 = MOVE_NONE)
@@ -188,11 +188,10 @@ function selectmove!(thread::Thread, ply::Int, skipquiets::Bool)::Move
                     return move
                 end
             else
-                moveorder.stage = STAGE_KILLER_1
+                break
             end
-        else
-            moveorder.stage = STAGE_KILLER_1
         end
+        moveorder.stage = STAGE_KILLER_1
     end
 
     # If noisy type, we can stop here.

@@ -99,6 +99,7 @@ end
 
 mutable struct PKT_Entry
     pkhash::ZobristHash
+    passed::Bitboard
     score::Int
 end
 

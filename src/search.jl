@@ -94,7 +94,7 @@ end
 When operating within the iterative deepening framework, aspiration windows are used via calls to this function.
 """
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
-    δ = 21
+    δ = 21 + fld(abs(eval), 256)
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
         β = min(MATE, eval + δ)
@@ -129,7 +129,7 @@ function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int
         end
 
         # expand window
-        δ += fld(δ, 2) + 5
+        δ += fld(δ, 2)
     end
     return eval
 end
@@ -561,29 +561,32 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # Late move reduction calculations.
         # This allows later searches to probe to a lower depth under given scenarios.
-        if isquiet && (depth > 2) && (played > 1)
+        if (depth > 2) && (played > 1) && (isquiet || cutnode || skipquiets)
             reduction = @inbounds LMRTABLE[min(depth, 64)][min(played, 64)]
-            if !pvnode
-                reduction += 1
+            # Below are quiet-move specific reduction conditions.
+            if isquiet
+                if !pvnode
+                    reduction += 1
+                end
+                # If we are not improving, increase the reduction depth.
+                if isone(improving)
+                    reduction += 1
+                end
+                # Add reductions for cutnodes
+                if cutnode
+                    reduction += 2
+                end
+                # Killer moves, and counter moves, are worth looking at more.
+                if moveorder.stage < STAGE_INIT_QUIET
+                    reduction -= 1
+                end
+                # Alter if we are moving our king when in check.
+                if ischeck(board) && (type(board[from(move)]) === KING)
+                    reduction += 1
+                end
+                # Adjust on the history
+                reduction -= max(-2, min(2, fld(hist + cmhist + fmhist, 5000)))
             end
-            # If we are not improving, increase the reduction depth.
-            if isone(improving)
-                reduction += 1
-            end
-            # Add reductions for cutnodes
-            if cutnode
-                reduction += 2
-            end
-            # Killer moves, and counter moves, are worth looking at more.
-            if moveorder.stage < STAGE_INIT_QUIET
-                reduction -= 1
-            end
-            # Alter if we are moving our king when in check.
-            if ischeck(board) && (type(board[from(move)]) === KING)
-                reduction += 1
-            end
-            # Adjust on the history
-            reduction -= max(-2, min(2, fld(hist + cmhist + fmhist, 5000)))
             reduction = min(depth - 1, max(reduction, 1))
         else
             reduction = 1

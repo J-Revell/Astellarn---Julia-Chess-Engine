@@ -144,6 +144,9 @@ const CONNECTED_PAWN_PSQT = SVector{8}([
     SVector{4}([makescore(  60, 25), makescore(  51, 50), makescore(  70, 55), makescore(  85, 60)]),
     SVector{4}([makescore( 110,  0), makescore( 205, 10), makescore( 230, 30), makescore( 240, 50)]),
     SVector{4}([makescore(   0,  0), makescore(   0,  0), makescore(   0,  0), makescore(   0,  0)])])
+const WEAK_UNOPPOSED = makescore(15, 30)
+const WEAK_LEVER = makescore(0, 55)
+const BACKWARD_PAWN = makescore(10, 25)
 
 
 #=========================== Knight Evaluation ================================#
@@ -199,6 +202,7 @@ const KING_FLANK_DEFEND = makescore(2, 0)
 const KING_BOX_WEAK = makescore(7, 0)
 const UNSAFE_CHECK = makescore(4, 0)
 const KNIGHT_ON_QUEEN = makescore(15, 10)
+const THREAT_BY_PUSH = makescore(50, 40)
 
 
 #========================= Mobility Evaluation ================================#

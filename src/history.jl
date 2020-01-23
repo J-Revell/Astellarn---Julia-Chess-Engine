@@ -208,12 +208,13 @@ end
 
 # Internals for the case where we have no counter or follow up move.
 function gethistoryscores_internal_history!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int)::Nothing
+    @inbounds thist = thread.history[thread.board.turn.val]
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
         sqr_to = to(moves[i])
         sqr_from = from(moves[i])
         # Add the scores
-        scores[i] = thread.history[thread.board.turn.val][sqr_from][sqr_to]
+        scores[i] = thist[sqr_from][sqr_to]
     end
     return
 end
@@ -222,14 +223,16 @@ end
 # Internals for the case where we have a counter move.
 function gethistoryscores_internal_histcount!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
     counter::Move, cm_piece::PieceType, cm_to::Integer)::Nothing
+    @inbounds thist = thread.history[thread.board.turn.val]
+    @inbounds tchist = thread.counterhistory[cm_piece.val][cm_to]
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
         sqr_to = to(moves[i])
         sqr_from = from(moves[i])
         move_piece = type(thread.board[sqr_from])
         # Add the scores
-        scores[i] = thread.history[thread.board.turn.val][sqr_from][sqr_to]
-        scores[i] += thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
+        scores[i] = thist[sqr_from][sqr_to]
+        scores[i] += tchist[move_piece.val][sqr_to]
     end
     return
 end
@@ -238,15 +241,18 @@ end
 # Internals for the case where we have a counter and a follow up move.
 function gethistoryscores_internal_histcountfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
     counter::Move, cm_piece::PieceType, cm_to::Integer, follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
+    @inbounds thist = thread.history[thread.board.turn.val]
+    @inbounds tchist = thread.counterhistory[cm_piece.val][cm_to]
+    @inbounds tfhist = thread.followhistory[fm_piece.val][fm_to]
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
         sqr_to = to(moves[i])
         sqr_from = from(moves[i])
         move_piece = type(thread.board[sqr_from])
         # Add the scores
-        scores[i] = thread.history[thread.board.turn.val][sqr_from][sqr_to]
-        scores[i] += thread.counterhistory[cm_piece.val][cm_to][move_piece.val][sqr_to]
-        scores[i] += thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
+        scores[i] = thist[sqr_from][sqr_to]
+        scores[i] += tchist[move_piece.val][sqr_to]
+        scores[i] += tfhist[move_piece.val][sqr_to]
     end
     return
 end
@@ -255,14 +261,16 @@ end
 # Internals for the case where we have a follow up move.
 function gethistoryscores_internal_histfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
     follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
+    @inbounds thist = thread.history[thread.board.turn.val]
+    @inbounds tfhist = thread.followhistory[fm_piece.val][fm_to]
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
         sqr_to = to(moves[i])
         sqr_from = from(moves[i])
         move_piece = type(thread.board[sqr_from])
         # Add the scores
-        scores[i] = thread.history[thread.board.turn.val][sqr_from][sqr_to]
-        scores[i] += thread.followhistory[fm_piece.val][fm_to][move_piece.val][sqr_to]
+        scores[i] = thist[sqr_from][sqr_to]
+        scores[i] += tfhist[move_piece.val][sqr_to]
     end
     return
 end
