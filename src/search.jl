@@ -106,11 +106,11 @@ end
 # The internals of aspiration_window
 function aspiration_window_internal(thread::Thread, ttable::TT_Table, depth::Int, eval::Int, α::Int, β::Int, δ::Int)::Int
     eval = eval
+    thread.ss.seldepth = 0
+    thread.ss.depth = depth
+
     while !thread.stop
         eval = absearch(thread, ttable, α, β, depth, 0, false)
-
-        # reporting
-        thread.ss.depth = depth
 
         # window cond met
         if ((α < eval < β) || (elapsedtime(thread.timeman) > 2.5)) && !thread.stop
@@ -392,7 +392,6 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             if (tt_bound == BOUND_EXACT) ||
                 ((tt_bound == BOUND_LOWER) && (eval >= β)) ||
                 ((tt_bound == BOUND_UPPER) && (eval <= α))
-                #tt_entry = TT_Entry(eval, MOVE_NONE, MAX_PLY - 1, tt_bound)
                 setTTentry!(ttable, board.hash, eval, MOVE_NONE, MAX_PLY - 1, tt_bound)
                 return eval
             end
@@ -555,7 +554,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         u = apply_move!(thread, move)
         played += 1
-        if isquiet && (quiets_tried.idx < MAX_QUIET_TRACK)
+        if isquiet && (quiets_tried.idx <= MAX_QUIET_TRACK)
             push!(quiets_tried, move)
         end
 
@@ -593,7 +592,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         # do we need an extension?
-        if ischeck(board) && !isroot
+        if (ischeck(board) || (isquiet && num_quiets <= 4 && cmhist >= 15000 && fmhist >= 15000)) && !isroot
             newdepth = depth + 1
         else
             newdepth = depth
@@ -636,10 +635,14 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     if iszero(played)
         if ischeck(board)
             # add ply to give an indication of the "fastest" mate
-            best = -MATE + ply
+            clear!(moveorder)
+            clear!(quiets_tried)
+            return -MATE + ply
         else
             # Stalemate is a draw.
-            best = 0
+            clear!(moveorder)
+            clear!(quiets_tried)
+            return 0
         end
     end
 

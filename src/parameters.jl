@@ -178,6 +178,43 @@ const KING_FLANK_ATTACK = makescore(10, 0)
 const PAWNLESS_FLANK = makescore(20, 95)
 
 
+const KING_SHELTER_OFFFILE = SVector{8}([
+SVector{8}([makescore(-11, 1), makescore(12, -25), makescore(18, -9), makescore(9, 2), makescore(4, 2), makescore(0, 0), makescore(-4, -31), makescore(-45, 15)]),
+SVector{8}([makescore(14, -9), makescore(18, -18), makescore(0, -6), makescore(-14, 2), makescore(-27, 12), makescore(-63, 60), makescore(81, 72), makescore(-24, 0)]),
+SVector{8}([makescore(30, -5), makescore(11, -9), makescore(-27, 5), makescore(-11, -9), makescore(-18, -5), makescore(-11, 0), makescore(0, 58), makescore(-12, -3)]),
+SVector{8}([makescore(2, 9), makescore(18, -11), makescore(2, -11), makescore(12, -21), makescore(21, -34), makescore(-54, 3), makescore(-124, 45), makescore(3, -8)]),
+SVector{8}([makescore(-15, 5), makescore(2, -5), makescore(-25, 0), makescore(-18, 3), makescore(-18, -7), makescore(-38, -2), makescore(28, -17), makescore(-7, -3)]),
+SVector{8}([makescore(40, -18), makescore(18, -17), makescore(-20, 0), makescore(-12, -18), makescore(3, -23), makescore(14, -20), makescore(36, -27), makescore(-23, 0)]),
+SVector{8}([makescore(21, -13), makescore(-2, -16), makescore(-22, -3), makescore(-18, -9), makescore(-27, -8), makescore(-34, 27), makescore(0, 38), makescore(-9, 0)]),
+SVector{8}([makescore(-9, -12), makescore(4, -18), makescore(5, 0), makescore(-3, 9), makescore(-11, 12), makescore(-9, 32), makescore(-171, 77), makescore(-17, 11)])
+])
+
+const KING_SHELTER_ONFILE = SVector{8}([
+SVector{8}([makescore(0, 0), makescore(-13, -25), makescore(2, -20), makescore(-40, 14), makescore(-24, 0), makescore(1, 40), makescore(-169, -10), makescore(-48, 5)]),
+SVector{8}([makescore(0, 0), makescore(22, -23), makescore(5, -9), makescore(-20, -3), makescore(-3, -14), makescore(24, 64), makescore(-186, -5), makescore(-40, 1)]),
+SVector{8}([makescore(0, 0), makescore(30, -13), makescore(-4, -9), makescore(5, -19), makescore(13, -9), makescore(-89, 45), makescore(-86, -75), makescore(-20, -7)]),
+SVector{8}([makescore(0, 0), makescore(-5, 7), makescore(-4, 0), makescore(-19, 0), makescore(-29, 0), makescore(-100, 30), makescore(5, -43), makescore(-24, -9)]),
+SVector{8}([makescore(0, 0), makescore(10, 0), makescore(10, -7), makescore(12, -13), makescore(12, -28), makescore(-59, 13), makescore(-106, -63), makescore(-3, -9)]),
+SVector{8}([makescore(0, 0), makescore(4, -10), makescore(-20, 0), makescore(-29, -8), makescore(15, -26), makescore(-40, 1), makescore(53, 36), makescore(-20, -8)]),
+SVector{8}([makescore(0, 0), makescore(20, -17), makescore(10, -15), makescore(-10, -9), makescore(-29, 7), makescore(-10, 13), makescore(-58, -50), makescore(-33, 10)]),
+SVector{8}([makescore(0, 0), makescore(10, -40), makescore(17, -29), makescore(-20, -6), makescore(-19, 16), makescore(-7, 20), makescore(-230, -57), makescore(-24, 0)])
+])
+
+const KING_STORM_UNBLOCKED = SVector{4}([
+SVector{8}([makescore(-7, 26), makescore(116, -10), makescore(-28, 23), makescore(-22, 5), makescore(-17, 0), makescore(-10, -7), makescore(-19, 2), makescore(-25, -5)]),
+SVector{8}([makescore(-6, 46), makescore(54, 9), makescore(-22, 21), makescore(-8, 8), makescore(-7, 2), makescore(2, -7), makescore(-4, 0), makescore(-14, 0)]),
+SVector{8}([makescore(5, 35), makescore(14, 20), makescore(-26, 18), makescore(-14, 8), makescore(0, 0), makescore(4, 0), makescore(8, -10), makescore(0, -4)]),
+SVector{8}([makescore(-5, 22), makescore(13, 18), makescore(-19, 8), makescore(-17, 0), makescore(-16, 0), makescore(4, -14), makescore(0, -10), makescore(-16, 0)])
+])
+
+const KING_STORM_BLOCKED = SVector{4}([
+SVector{8}([makescore(0, 0), makescore(-18, -19), makescore(-20, -4), makescore(15, -20), makescore(7, -10), makescore(0, -20), makescore(-6, -4), makescore(14, 26)]),
+SVector{8}([makescore(0, 0), makescore(-19, -37), makescore(-6, -11), makescore(32, -14), makescore(-4, -5), makescore(10, -26), makescore(-10, -13), makescore(-20, 0)]),
+SVector{8}([makescore(0, 0), makescore(-31, -52), makescore(-30, -9), makescore(8, -14), makescore(0, -5), makescore(-11, -17), makescore(-16, -18), makescore(-14, 3)]),
+SVector{8}([makescore(0, 0), makescore(-5, -20), makescore(-19, -20), makescore(-14, -7), makescore(-7, -10), makescore(1, -28), makescore(70, -14), makescore(10, 18)])
+])
+
+
 #============================ Queen Evaluation ================================#
 
 

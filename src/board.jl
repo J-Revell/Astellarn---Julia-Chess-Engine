@@ -444,6 +444,12 @@ function isdrawbymaterial(board::Board)
         elseif isone(knights(board))
             return true
         end
+    elseif piece_count == 4
+        if ismany(bishops(board) & LIGHT)
+            return true
+        elseif ismany(bishops(board) & DARK)
+            return true
+        end
     end
     return false
 end

@@ -2,7 +2,7 @@ ThreadStats() = ThreadStats(0, 0, 0, 0)
 
 Thread() = Thread(TimeManagement(),
     Board(),
-    [MoveStack(MAX_PLY + 1) for i in 1:MAX_PLY+1],
+    [MoveStack(MAX_PLY + 1) for i in 0:MAX_PLY+1],
     ThreadStats(),
     [MoveOrder() for i in 0:MAX_PLY+1],
     MoveStack(MAX_PLY + 1),

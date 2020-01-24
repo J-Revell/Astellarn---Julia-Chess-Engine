@@ -68,22 +68,22 @@ end
 # Update the history heuristics for the case where we a counter move.
 function updatehistory_internal_count!(thread::Thread, quietstried::MoveStack, bonus::Int, best_move::Move, colour::UInt8,
     counter::Move, cm_piece::PieceType, cm_to::Integer)::Nothing
+    abs_δ = abs(bonus)
     @inbounds for move in quietstried
         δ = (move == best_move) ? bonus : -bonus
         sqr_to = to(move)
         sqr_from = from(move)
         move_piece = type(thread.board[sqr_from])
 
-        fldabs_common = fld(abs(δ), HistoryDivide)
         mul_common = HistoryMultiply * δ
 
         # Update the butterfly table. (History heuristics)
         entry = thread.history[colour][sqr_from]
-        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
+        entry[sqr_to] += mul_common - fld(entry[sqr_to] * abs_δ, HistoryDivide)
 
         # Update the counter move history table.
         entry_c = thread.counterhistory[cm_piece.val][cm_to][move_piece.val]
-        entry_c[sqr_to] += muladd(-entry_c[sqr_to], fldabs_common, mul_common)
+        entry_c[sqr_to] += mul_common - fld(entry_c[sqr_to] * abs_δ, HistoryDivide)
     end
     return
 end
@@ -92,22 +92,22 @@ end
 # Function to update history heuristics when there is a follow up move.
 function updatehistory_internal_follow!(thread::Thread, quietstried::MoveStack, bonus::Int, best_move::Move, colour::UInt8,
     follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
+    abs_δ = abs(bonus)
     @inbounds for move in quietstried
         δ = (move == best_move) ? bonus : -bonus
         sqr_to = to(move)
         sqr_from = from(move)
         move_piece = type(thread.board[sqr_from])
 
-        fldabs_common = fld(abs(δ), HistoryDivide)
         mul_common = HistoryMultiply * δ
 
         # Update the butterfly table. (History heuristics)
         entry = thread.history[colour][sqr_from]
-        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
+        entry[sqr_to] += mul_common - fld(entry[sqr_to] * abs_δ, HistoryDivide)
 
         # Update the follow up move history table.
         entry_f = thread.followhistory[fm_piece.val][fm_to][move_piece.val]
-        entry_f[sqr_to] += muladd(-entry_f[sqr_to], fldabs_common, mul_common)
+        entry_f[sqr_to] += mul_common - fld(entry_f[sqr_to] * abs_δ, HistoryDivide)
     end
     return
 end
@@ -116,26 +116,26 @@ end
 # Internals to update the history heuristics when we have both a counter and follow up move.
 function updatehistory_internal_countfollow!(thread::Thread, quietstried::MoveStack, bonus::Int, best_move::Move, colour::UInt8,
     counter::Move, cm_piece::PieceType, cm_to::Integer, follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
+    abs_δ = abs(bonus)
     @inbounds for move in quietstried
         δ = (move == best_move) ? bonus : -bonus
         sqr_to = to(move)
         sqr_from = from(move)
         move_piece = type(thread.board[sqr_from])
 
-        fldabs_common = fld(abs(δ), HistoryDivide)
         mul_common = HistoryMultiply * δ
 
         # Update the butterfly table. (History heuristics)
         entry = thread.history[colour][sqr_from]
-        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
+        entry[sqr_to] += mul_common - fld(entry[sqr_to] * abs_δ, HistoryDivide)
 
         # Update the counter move history table.
         entry_c = thread.counterhistory[cm_piece.val][cm_to][move_piece.val]
-        entry_c[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
+        entry_c[sqr_to] += mul_common - fld(entry_c[sqr_to] * abs_δ, HistoryDivide)
 
         # Update the follow up move history table.
         entry_f = thread.followhistory[fm_piece.val][fm_to][move_piece.val]
-        entry_f[sqr_to] += muladd(-entry_f[sqr_to], fldabs_common, mul_common)
+        entry_f[sqr_to] += mul_common - fld(entry_f[sqr_to] * abs_δ, HistoryDivide)
     end
     return
 end
@@ -143,17 +143,17 @@ end
 
 # Update the history heuristics for the case where we have a counter move, and no follow move.
 function updatehistory_internal!(thread::Thread, quietstried::MoveStack, bonus::Int, best_move::Move, colour::UInt8)::Nothing
+    abs_δ = abs(bonus)
     @inbounds for move in quietstried
         δ = (move == best_move) ? bonus : -bonus
         sqr_to = to(move)
         sqr_from = from(move)
 
-        fldabs_common = fld(abs(δ), HistoryDivide)
         mul_common = HistoryMultiply * δ
 
         # Update the butterfly table. (History heuristics)
         entry = thread.history[colour][sqr_from]
-        entry[sqr_to] += muladd(-entry[sqr_to], fldabs_common, mul_common)
+        entry[sqr_to] += mul_common - fld(entry[sqr_to] * abs_δ, HistoryDivide)
     end
     return
 end

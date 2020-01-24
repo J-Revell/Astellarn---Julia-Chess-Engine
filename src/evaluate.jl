@@ -121,7 +121,11 @@ function evaluate(board::Board, pktable::PawnKingTable)
         score += pkt_entry.score
         ea.passed = pkt_entry.passed
     else
-        score += evaluate_pawns(board, ea, pktable)
+        kpscore = 0
+        kpscore += evaluate_pawns(board, ea)
+        kpscore += evaluate_kingpawns(board, ea)
+        storePKentry!(pktable, board.pkhash, ea.passed, kpscore)
+        score += kpscore
     end
 
     v = fld(scoreEG(score) + scoreMG(score), 2)
@@ -161,7 +165,7 @@ function evaluate(board::Board, pktable::PawnKingTable)
 end
 
 
-function evaluate_pawns(board::Board, ea::EvalAttackInfo, pktable::PawnKingTable)
+function evaluate_pawns(board::Board, ea::EvalAttackInfo)
 
     w_pawns = white(board) & pawns(board)
     b_pawns = black(board) & pawns(board)
@@ -264,8 +268,6 @@ function evaluate_pawns(board::Board, ea::EvalAttackInfo, pktable::PawnKingTable
         score += PAWNLESS_FLANK
     end
 
-
-    storePKentry!(pktable, board.pkhash, ea.passed, score)
     return score
 end
 
@@ -494,6 +496,84 @@ function evaluate_kings(board::Board, ea::EvalAttackInfo)
     end
     if cancastlequeenside(board, BLACK)
         score -= CASTLE_OPTION_BONUS
+    end
+
+    score
+end
+
+
+function evaluate_kingpawns(board::Board, ea::EvalAttackInfo)
+    w_king = white(board) & kings(board)
+    b_king = black(board) & kings(board)
+    w_king_sqr = square(w_king)
+    b_king_sqr = square(b_king)
+
+    score = 0
+
+    wkingfile = fileof(w_king_sqr)
+    lower = max(1, wkingfile - 1)
+    upper = min(8, wkingfile + 1)
+    @inbounds for file in lower:upper
+        wpawns = pawns(board) & white(board) & FILE[file] & PASSED_PAWN_MASKS[1][w_king_sqr]
+        if isempty(wpawns)
+            w_dist = 8
+        else
+            w_dist = abs(rankof(w_king_sqr) - rankof(trailing_zeros(wpawns.val)+1))
+        end
+
+        bpawns = pawns(board) & black(board) & FILE[file] & PASSED_PAWN_MASKS[1][w_king_sqr]
+        if isempty(bpawns)
+            b_dist = 8
+        else
+            b_dist = abs(rankof(w_king_sqr) - rankof(trailing_zeros(bpawns.val)+1))
+        end
+
+        if file === wkingfile
+            score += KING_SHELTER_ONFILE[file][w_dist]
+        else
+            score += KING_SHELTER_OFFFILE[file][w_dist]
+        end
+
+        blocked = (b_dist !== 8) && (w_dist === b_dist - 1)
+        fmap = FILE_TO_QSIDE_MAP[file]
+        if blocked
+            score += KING_STORM_BLOCKED[fmap][b_dist]
+        else
+            score += KING_STORM_UNBLOCKED[fmap][b_dist]
+        end
+    end
+
+    bkingfile = fileof(b_king_sqr)
+    lower = max(1, bkingfile - 1)
+    upper = min(8, bkingfile + 1)
+    @inbounds for file in lower:upper
+        bpawns = pawns(board) & black(board) & FILE[file] & PASSED_PAWN_MASKS[2][b_king_sqr]
+        if isempty(bpawns)
+            b_dist = 8
+        else
+            b_dist = abs(rankof(b_king_sqr) - rankof(64-leading_zeros(bpawns.val)))
+        end
+
+        wpawns = pawns(board) & white(board) & FILE[file] & PASSED_PAWN_MASKS[2][b_king_sqr]
+        if isempty(wpawns)
+            w_dist = 8
+        else
+            w_dist = abs(rankof(b_king_sqr) - rankof(64-leading_zeros(wpawns.val)))
+        end
+
+        if file === bkingfile
+            score -= KING_SHELTER_ONFILE[file][b_dist]
+        else
+            score -= KING_SHELTER_OFFFILE[file][b_dist]
+        end
+
+        blocked = (w_dist !== 8) && (b_dist === w_dist - 1)
+        fmap = FILE_TO_QSIDE_MAP[file]
+        if blocked
+            score -= KING_STORM_BLOCKED[fmap][w_dist]
+        else
+            score -= KING_STORM_UNBLOCKED[fmap][w_dist]
+        end
     end
 
     score
@@ -940,7 +1020,7 @@ function evaluate_passed(board::Board, ea::EvalAttackInfo)
         if rank > 3
             factor = muladd(5, rank, -13)
             block_sqr = pawn - 8
-            bonus += makescore(0, (fld(min(DISTANCE_BETWEEN[block_sqr, white_king],5)*19, 4) - min(DISTANCE_BETWEEN[block_sqr, black_king],5)*2)*factor)
+            bonus += makescore(0, (fld(min(DISTANCE_BETWEEN[block_sqr, white_king],5)*14, 3) - min(DISTANCE_BETWEEN[block_sqr, black_king],5)*2)*factor)
             if rank !== 7
                 block_sqr_2 = block_sqr - 8
                 bonus -= makescore(0, DISTANCE_BETWEEN[block_sqr_2, black_king]*factor)
