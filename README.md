@@ -4,6 +4,8 @@ Astellarn is a simple chess project to satisfy my own curiosity, and learn about
 
 Written in Julia, implementing the UCI protocol, with Syzygy tablebase support via calls to Fathom (https://github.com/jdart1/Fathom).
 
+Built for Linux.
+
 ## Features:
 
 ### Core representation:
