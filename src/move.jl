@@ -220,7 +220,7 @@ function apply_normal!(board::Board, move::Move)
         end
         board.hash ⊻= zobepkey(sqr_from)
     else
-        board.enpass = zero(board.enpass)
+        board.enpass = zero(UInt8)
     end
 
     updatecastling!(board, sqr_from, sqr_to)
@@ -231,7 +231,9 @@ function apply_normal!(board::Board, move::Move)
     bb_from = Bitboard(sqr_from)
     bb_to = Bitboard(sqr_to)
 
-    @inbounds board[type(p_from)] ⊻= bb_from ⊻ bb_to
+    ptype_from = type(p_from)
+
+    @inbounds board[ptype_from] ⊻= bb_from ⊻ bb_to
     @inbounds board[board.turn] ⊻= bb_from ⊻ bb_to
     @inbounds board[sqr_from] = BLANK
     @inbounds board[sqr_to] = p_from
@@ -241,7 +243,11 @@ function apply_normal!(board::Board, move::Move)
     board.psqteval += psqt(p_from, sqr_to)
 
     if p_to !== BLANK
-        @inbounds board[type(p_to)] ⊻= bb_to
+        ptype_to = type(p_to)
+        if ptype_to == PAWN
+            board.pkhash ⊻= zobkey(p_to, sqr_to)
+        end
+        @inbounds board[ptype_to] ⊻= bb_to
         @inbounds board[!board.turn] ⊻= bb_to
         board.hash ⊻= zobkey(p_to, sqr_to)
 
@@ -249,7 +255,7 @@ function apply_normal!(board::Board, move::Move)
         board.psqteval -= psqt(p_to, sqr_to)
     end
 
-    if (type(p_from) === PAWN) || (p_to !== BLANK)
+    if (ptype_from === PAWN) || (p_to !== BLANK)
         board.halfmovecount = 0
     else
         board.halfmovecount += 1
@@ -257,10 +263,8 @@ function apply_normal!(board::Board, move::Move)
 
     board.hash ⊻= zobkey(p_from, sqr_from)
     board.hash ⊻= zobkey(p_from, sqr_to)
-    if type(p_to) == PAWN
-        board.pkhash ⊻= zobkey(p_to, sqr_to)
-    end
-    if type(p_from) == PAWN || type(p_from) == KING
+
+    if ptype_from === PAWN || ptype_from == KING
         board.pkhash ⊻= zobkey(p_from, sqr_from)
         board.pkhash ⊻= zobkey(p_from, sqr_to)
     end

@@ -9,7 +9,7 @@ ABORT_SIGNAL = Base.Threads.Atomic{Bool}(false)
 #============================== Search Parameters =============================#
 
 
-const Q_FUTILITY_MARGIN = 150
+const Q_FUTILITY_MARGIN = 100
 const RAZOR_DEPTH = 1
 const RAZOR_MARGIN = 500
 const BETA_PRUNE_DEPTH = 8
@@ -21,10 +21,10 @@ const FUTILITY_PRUNE_DEPTH = 8
 const FUTILITY_MARGIN = 200
 const FUTILITY_MARGIN_NOHIST = 300
 const FUTILITY_LIMIT = @SVector [12000, 6000]
-const COUNTER_PRUNE_DEPTH = @SVector [3, 2]
-const COUNTER_PRUNE_LIMIT = @SVector [0, -1000]
-const FOLLOW_PRUNE_DEPTH = @SVector [3, 2]
-const FOLLOW_PRUNE_LIMIT = @SVector [-2000, -4000]
+const COUNTER_PRUNE_DEPTH = @SVector [4, 3]
+const COUNTER_PRUNE_LIMIT = @SVector [0, -500]
+const FOLLOW_PRUNE_DEPTH = @SVector [4, 3]
+const FOLLOW_PRUNE_LIMIT = @SVector [-1000, -3000]
 const WINDOW_DEPTH = 5
 const LATE_MOVE_COUNT = @SVector [SVector{10}([0, 2, 4,  7, 11, 16, 22, 29, 37, 46]), SVector{10}([0, 4, 7, 12, 20, 30, 42, 56, 73, 92])]
 const LATE_MOVE_PRUNE_DEPTH = 9
@@ -109,6 +109,7 @@ const PSQT = @SVector [PAWN_PSQT, KNIGHT_PSQT, BISHOP_PSQT, ROOK_PSQT, QUEEN_PSQ
 
 const PVALS = @SVector [makescore(120, 210), makescore(780, 850), makescore(820, 920), makescore(1280, 1380), makescore(2540, 2680), makescore(15000, 15000)]
 const PVALS_MG = SVector{6}(scoreMG.(PVALS))
+const PVALS_EG = SVector{6}(scoreEG.(PVALS))
 
 
 #=============================== Tempo Bonus ==================================#

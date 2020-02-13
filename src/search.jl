@@ -94,7 +94,7 @@ end
 When operating within the iterative deepening framework, aspiration windows are used via calls to this function.
 """
 function aspiration_window(thread::Thread, ttable::TT_Table, depth::Int, eval::Int)::Int
-    δ = 21 + fld(abs(eval), 256)
+    δ = 22 + fld(abs(eval), 256)
     if depth >= WINDOW_DEPTH
         α = max(-MATE, eval - δ)
         β = min(MATE, eval + δ)
@@ -207,8 +207,8 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
             return eval
         end
 
-        # Delta pruning step.
-        # If a "best case" (but perhaps non-existent) move, plus a small margin, is not enough to raise alpha, we stop.
+        # Delta pruning step. / Futility pruning.
+        # If a "best case" (but perhaps non-existent) move, plus a small margin, is not enough to raise alpha, we can stop here.
         # Rather not perform this when in check.
         margin = α - eval - Q_FUTILITY_MARGIN
         if !ischeck(board) && (optimistic_move_estimator(board) < margin)
@@ -239,10 +239,17 @@ end
 function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int, tt_move::Move, best::Int)::Int
     # We can select skipquiets = false during qsearch, as if it's a NOISY type moveorder, quiets are skipped anyway.
     # Otherwise, quiets are needed to generate king check evasions.
-    while ((move = selectmove!(thread, ply, false)) !== MOVE_NONE) && !thread.stop
+    played = 0
+    skipquiets = false
+    while ((move = selectmove!(thread, ply, skipquiets)) !== MOVE_NONE) && !thread.stop
+
+        if ischeck(thread.board) && (played >= 4) && (best > -MATE + MAX_PLY) && !istactical(thread.board, move)
+            skipquiets = true
+            continue
+        end
 
         u = apply_move!(thread, move)
-
+        played += 1
         eval = -qsearch(thread, ttable, -β, -α, ply + 1)
         undo_move!(thread, move, u)
 
@@ -585,6 +592,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
                 end
                 # Adjust on the history
                 reduction -= max(-2, min(2, fld(hist + cmhist + fmhist, 5000)))
+            elseif (depth <= 7) && (played >= 3)
+                reduction += 1
             end
             reduction = min(depth - 1, max(reduction, 1))
         else
@@ -592,7 +601,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
         end
 
         # do we need an extension?
-        if (ischeck(board) || (isquiet && num_quiets <= 4 && cmhist >= 15000 && fmhist >= 15000)) && !isroot
+        hist_thresh = 14000 + 10*ply^2
+        if (ischeck(board) || (isquiet && num_quiets <= 4 && cmhist >= hist_thresh && fmhist >= hist_thresh)) && !isroot
             newdepth = depth + 1
         else
             newdepth = depth

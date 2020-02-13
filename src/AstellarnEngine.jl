@@ -8,5 +8,5 @@ using Astellarn
 # start the uci loop
 # Base.@ccallable function julia_main()::Cint
     uci_main()
-    # return 0
+#     return 0
 # end
