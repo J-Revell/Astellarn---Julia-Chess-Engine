@@ -15,10 +15,10 @@ end
 Update the castling rights of the `board`, given a move is played from `sqr_from` to `sqr_to`.
 """
 function updatecastling!(board::Board, sqr_from::Integer, sqr_to::Integer)
-    board.hash ⊻= board.castling
+    board.hash ⊻= zobookey(board.castling)
     @inbounds board.castling &= CASTLING_RIGHT[sqr_from]
     @inbounds board.castling &= CASTLING_RIGHT[sqr_to]
-    board.hash ⊻= board.castling
+    board.hash ⊻= zobookey(board.castling)
 end
 
 
@@ -42,7 +42,7 @@ const NULL_MOVE = Move(0xffff)
 """
     Move(move_from::Integer, move_to::Integer, move_flag::Integer)
 
-Encode a move, giving the from & to squares, alongside the promotion flag.
+Encode a move, giving the from & to squares, alongside the move flag.
 """
 function Move(move_from::Integer, move_to::Integer, move_flag::Integer)
     Move((move_from - one(move_from)) | ((move_to - one(move_from)) << 6) | move_flag)
@@ -50,11 +50,15 @@ end
 
 
 """
-    Move(move_from::Integer, move_to::Integer)
+    Move(move_from::Integer, move_to::Integer, move_flag::Integer)
 
-Encode a move, giving the from & to squares, assuming no special move flags.
+Encode a move, giving the from & to squares, assuming no move flags.
 """
-Move(move_from::Integer, move_to::Integer) = Move(move_from, move_to, __NORMAL_MOVE)
+function Move(move_from::Integer, move_to::Integer)
+    Move((move_from - one(move_from)) | ((move_to - one(move_from)) << 6))
+end
+# the above function saves one bitwise 'or' operation per normal move generation.
+# Move(move_from::Integer, move_to::Integer) = Move(move_from, move_to, __NORMAL_MOVE)
 
 
 """
@@ -81,16 +85,18 @@ Given a move, return any special flags, as an `Integer`.
 flag(move::Move) = move.val & 0xf000 #>> 12
 
 
+"""
+    istactical (board::Board, move::Move)
+
+Given the board position and a move, return true if a move is tactical.
+A tactical move involves a capture, promotion, or castling.
+"""
 function istactical(board::Board, move::Move)
-    if flag(move) == __ENPASS
-        return true
-    elseif flag(move) == __KING_CASTLE
-        return true
-    elseif flag(move) == __QUEEN_CASTLE
-        return true
-    elseif flag(move) > __ENPASS
+    if flag(move) > __DOUBLE_PAWN
+        # All flag values above __DOUBLE_PAWN are tactical.
         return true
     elseif board[to(move)] !== BLANK
+        # Capture case
         return true
     else
         return false
@@ -169,13 +175,17 @@ function apply_move!(board::Board, move::Move)
     end
 
     # Apply the moves according to the appropriate flag
-    if (flag(move) === __NORMAL_MOVE) || (flag(move) == __DOUBLE_PAWN)
+    if flag(move) <= __DOUBLE_PAWN
+        # If the move is normal or a double pawn push
         undo_captured = apply_normal!(board, move)
     elseif flag(move) === __ENPASS
+        # If the move is enpassant
         undo_captured = apply_enpass!(board, move)
-    elseif (flag(move) === __KING_CASTLE) || (flag(move) == __QUEEN_CASTLE)
+    elseif flag(move) <= __QUEEN_CASTLE
+        # If the move is castling fallthrough.
         undo_captured = apply_castle!(board, move)
     else
+        # Otherwise it's a promotion fallthrough.
         undo_captured = apply_promo!(board, move)
     end
 
@@ -454,13 +464,17 @@ function undo_move!(board::Board, move::Move, undo::Undo)
     board.psqteval = undo.psqteval
     board.pkhash = undo.pkhash
     switchturn!(board)
-    if (flag(move) === __NORMAL_MOVE) || (flag(move) === __DOUBLE_PAWN)
+    if flag(move) <= __DOUBLE_PAWN
+        # If the move was a normal move or double pawn push
         undo_normal!(board, move, undo)
     elseif flag(move) === __ENPASS
+        # If the move was enpassant
         undo_enpass!(board, move, undo)
-    elseif (flag(move) === __KING_CASTLE) || (flag(move) === __QUEEN_CASTLE)
+    elseif flag(move) <= __QUEEN_CASTLE
+        # If the move was a castling move, fallthrough.
         undo_castle!(board, move, undo)
     else
+        # Otherwise, it was a promotion fallthrough.
         undo_promo!(board, move, undo)
     end
     return

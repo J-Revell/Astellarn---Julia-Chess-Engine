@@ -29,12 +29,14 @@ function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
     # Single pawn advances
     dests = (pwns << 8) & common.empty & ~RANK_8
     for dest in (dests & targets)
-        push!(movestack, Move(dest - 8, dest, __NORMAL_MOVE))
+        # add a normal move
+        push!(movestack, Move(dest - 8, dest))
     end
 
     # Double pawn advances
     doubledests = (dests << 8) & targets & RANK_4
     for dest in doubledests
+        # add a double pawn move
         push!(movestack, Move(dest - 16, dest, __DOUBLE_PAWN))
     end
     return
@@ -47,12 +49,14 @@ function build_bpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
     # Single pawn advances
     dests = (pwns >> 8) & common.empty & ~RANK_1
     for dest in (dests & targets)
-        push!(movestack, Move(dest + 8, dest, __NORMAL_MOVE))
+        # add a normal move
+        push!(movestack, Move(dest + 8, dest))
     end
 
     # Double pawn advances
     doubledests = (dests >> 8) & targets & RANK_5
     for dest in doubledests
+        # add a double pawn move
         push!(movestack, Move(dest + 16, dest, __DOUBLE_PAWN))
     end
     return
@@ -76,7 +80,7 @@ function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets:
 
     dests = (pwns << 9) & targets & ~FILE_H
     for dest in (dests & ~RANK_8)
-        push!(movestack, Move(dest - 9, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest - 9, dest))
     end
     build_promo_internal!(movestack, dests & RANK_8, 9)
 
@@ -85,7 +89,7 @@ function build_free_wpawn_captures!(movestack::MoveStack, board::Board, targets:
 
     dests = (pwns << 7) & targets & ~FILE_A
     for dest in (dests & ~RANK_8)
-        push!(movestack, Move(dest - 7, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest - 7, dest))
     end
     build_promo_internal!(movestack, dests & RANK_8, 7)
     return
@@ -99,7 +103,7 @@ function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets:
 
     dests = (pwns >> 7) & targets & ~FILE_H
     for dest in (dests & ~RANK_1)
-        push!(movestack, Move(dest + 7, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest + 7, dest))
     end
     build_promo_internal!(movestack, dests & RANK_1, -7)
 
@@ -107,7 +111,7 @@ function build_free_bpawn_captures!(movestack::MoveStack, board::Board, targets:
 
     dests = (pwns >> 9) & targets & ~FILE_A
     for dest in (dests & ~RANK_1)
-        push!(movestack, Move(dest + 9, dest, __NORMAL_MOVE))
+        push!(movestack, Move(dest + 9, dest))
     end
     build_promo_internal!(movestack, dests & RANK_1, -9)
     return
@@ -180,7 +184,7 @@ function build_pinned_pawn_captures_and_promos!(movestack::MoveStack, board::Boa
                     push!(movestack, Move(pwn, move_to, __ROOK_PROMO))
                     push!(movestack, Move(pwn, move_to, __QUEEN_PROMO))
                 else
-                    push!(movestack, Move(pwn, move_to, __NORMAL_MOVE))
+                    push!(movestack, Move(pwn, move_to))
                 end
             end
         end
@@ -191,7 +195,7 @@ end
 
 function push_normal!(movestack::MoveStack, sqr_from::Integer, dests::Bitboard)
     for dest in dests
-        push!(movestack, Move(sqr_from, dest, __NORMAL_MOVE))
+        push!(movestack, Move(sqr_from, dest))
     end
     return
 end
@@ -232,7 +236,7 @@ function build_pinned_bishop_moves!(movestack::MoveStack, board::Board, targets:
         block_1 = blockers(king, bishop)
         for move_to in (bishopMoves(bishop, occ) & targets)
             if !isempty(Bitboard(move_to) & block_1) || !isempty(Bitboard(bishop) & blockers(king, move_to))
-                push!(movestack, Move(bishop, move_to, __NORMAL_MOVE))
+                push!(movestack, Move(bishop, move_to))
             end
         end
     end
@@ -266,7 +270,7 @@ function build_pinned_rook_moves!(movestack::MoveStack, board::Board, targets::B
         block_1 = blockers(king, rook)
         for move_to in (rookMoves(rook, occ) & targets)
             if !isempty(Bitboard(move_to) & block_1) || !isempty(Bitboard(rook) & blockers(king, move_to))
-                push!(movestack, Move(rook, move_to, __NORMAL_MOVE))
+                push!(movestack, Move(rook, move_to))
             end
         end
     end
@@ -279,7 +283,7 @@ function build_king_moves!(movestack::MoveStack, board::Board, targets::Bitboard
     king = square(common.ourking)
     for move_to in (kingMoves(king) & targets)
         if !isattacked_through_king(board, move_to)
-            push!(movestack, Move(king, move_to, __NORMAL_MOVE))
+            push!(movestack, Move(king, move_to))
         end
     end
     return

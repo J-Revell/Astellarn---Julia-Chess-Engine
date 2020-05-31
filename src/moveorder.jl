@@ -75,8 +75,9 @@ end
 
 function MVVLVA!(moveorder::MoveOrder, board::Board)
     @inbounds for i in 1:moveorder.noisy_size
-        sqr_from = from(moveorder.movestack[i])
-        sqr_to = to(moveorder.movestack[i])
+        move = moveorder.movestack[i]
+        sqr_from = from(move)
+        sqr_to = to(move)
         ptype_from = type(board[sqr_from])
         ptype_to = type(board[sqr_to])
 
@@ -84,14 +85,16 @@ function MVVLVA!(moveorder::MoveOrder, board::Board)
             moveorder.values[i] = MVVLVA_VALS[ptype_to.val] - ptype_from.val
         end
 
-        if flag(moveorder.movestack[i]) === __ENPASS
+        _flag = flag(move)
+        if _flag <= __QUEEN_CASTLE
+            continue
+        elseif _flag === __ENPASS
             moveorder.values[i] = MVVLVA_VALS[1] - one(Int32)
-        end
-
-        if flag(moveorder.movestack[i]) === __QUEEN_PROMO
+        elseif _flag === __QUEEN_PROMO
             moveorder.values[i] += MVVLVA_VALS[5]
         end
     end
+    return
 end
 
 

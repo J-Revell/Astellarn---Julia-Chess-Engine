@@ -2,6 +2,12 @@ const BOUND_LOWER = UInt8(1)
 const BOUND_UPPER = UInt8(2)
 const BOUND_EXACT = UInt8(3)
 
+import Base.hash
+
+# Below we override the base hashing method as we already generated a hash!
+# Improves performance for larger depth searches where TT calls are numerous.
+Base.hash(x::UInt32) = x
+Base.hash(x::UInt16) = x
 
 mutable struct TT_Entry
     eval::Int16
