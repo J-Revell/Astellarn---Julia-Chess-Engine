@@ -50,10 +50,10 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
     end
 
     # Set the killer moves.
-    @inbounds killerstack = thread.killers[ply + 1]
-    if killerstack[1] !== best_move
-        @inbounds killerstack[2] = killerstack[1]
-        @inbounds killerstack[1] = best_move
+    killer1 = thread.killer1s[ply + 1]
+    if killer1 !== best_move
+        @inbounds thread.killer2s[ply + 1] = killer1
+        @inbounds thread.killer1s[ply + 1] = best_move
     end
 
     # Set the counter move.
@@ -164,7 +164,7 @@ end
 
 A function to extract the scores of quiet moves using the history heuristics. `idx_start` and `idx_end` determing the starting and ending indexes of the quiet moves in `moves`.
 """
-function gethistoryscores!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int, ply::Int)::Nothing
+function gethistoryscores!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int, ply::Int)::Nothing
     board = thread.board
 
     # extract one move ago
@@ -207,7 +207,7 @@ end
 
 
 # Internals for the case where we have no counter or follow up move.
-function gethistoryscores_internal_history!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int)::Nothing
+function gethistoryscores_internal_history!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int)::Nothing
     @inbounds thist = thread.history[thread.board.turn.val]
     @inbounds for i in idx_start:idx_end
         # Extract useful move information.
@@ -221,7 +221,7 @@ end
 
 
 # Internals for the case where we have a counter move.
-function gethistoryscores_internal_histcount!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
+function gethistoryscores_internal_histcount!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int,
     counter::Move, cm_piece::PieceType, cm_to::Integer)::Nothing
     @inbounds thist = thread.history[thread.board.turn.val]
     @inbounds tchist = thread.counterhistory[cm_piece.val][cm_to]
@@ -239,7 +239,7 @@ end
 
 
 # Internals for the case where we have a counter and a follow up move.
-function gethistoryscores_internal_histcountfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
+function gethistoryscores_internal_histcountfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int,
     counter::Move, cm_piece::PieceType, cm_to::Integer, follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
     @inbounds thist = thread.history[thread.board.turn.val]
     @inbounds tchist = thread.counterhistory[cm_piece.val][cm_to]
@@ -259,7 +259,7 @@ end
 
 
 # Internals for the case where we have a follow up move.
-function gethistoryscores_internal_histfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int}, idx_start::Int, idx_end::Int,
+function gethistoryscores_internal_histfollow!(thread::Thread, moves::MoveStack, scores::Vector{Int32}, idx_start::Int, idx_end::Int,
     follow::Move, fm_piece::PieceType, fm_to::Integer)::Nothing
     @inbounds thist = thread.history[thread.board.turn.val]
     @inbounds tfhist = thread.followhistory[fm_piece.val][fm_to]

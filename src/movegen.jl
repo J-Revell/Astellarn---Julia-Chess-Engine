@@ -28,7 +28,7 @@ function build_wpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
 
     # Single pawn advances
     dests = (pwns << 8) & common.empty & ~RANK_8
-    for dest in (dests & targets)
+    for dest in dests & targets
         # add a normal move
         push!(movestack, Move(dest - 8, dest))
     end
@@ -48,7 +48,7 @@ function build_bpawn_advances!(movestack::MoveStack, board::Board, targets::Bitb
 
     # Single pawn advances
     dests = (pwns >> 8) & common.empty & ~RANK_1
-    for dest in (dests & targets)
+    for dest in dests & targets
         # add a normal move
         push!(movestack, Move(dest + 8, dest))
     end
@@ -163,10 +163,11 @@ end
 
 function build_promo_internal!(movestack::MoveStack, dests::Bitboard, shift::Integer)
     for dest in dests
-        push!(movestack, Move(dest - shift, dest, __KNIGHT_PROMO))
-        push!(movestack, Move(dest - shift, dest, __BISHOP_PROMO))
-        push!(movestack, Move(dest - shift, dest, __ROOK_PROMO))
-        push!(movestack, Move(dest - shift, dest, __QUEEN_PROMO))
+        _move_uint16 = Move(dest - shift, dest).val
+        push!(movestack, Move(_move_uint16 | __KNIGHT_PROMO))
+        push!(movestack, Move(_move_uint16 | __BISHOP_PROMO))
+        push!(movestack, Move(_move_uint16 | __ROOK_PROMO))
+        push!(movestack, Move(_move_uint16 | __QUEEN_PROMO))
     end
     return
 end
@@ -178,13 +179,14 @@ function build_pinned_pawn_captures_and_promos!(movestack::MoveStack, board::Boa
     for pwn in pwns
         for move_to in (pawnAttacks(board.turn, pwn) & common.enemies & targets)
             if !isempty(Bitboard(pwn) & blockers(king, move_to))
+                _move_uint16 = Move(pwn, move_to).val
                 if !isempty(Bitboard(move_to) & RANK_18)
-                    push!(movestack, Move(pwn, move_to, __KNIGHT_PROMO))
-                    push!(movestack, Move(pwn, move_to, __BISHOP_PROMO))
-                    push!(movestack, Move(pwn, move_to, __ROOK_PROMO))
-                    push!(movestack, Move(pwn, move_to, __QUEEN_PROMO))
+                    push!(movestack, Move(_move_uint16 | __KNIGHT_PROMO))
+                    push!(movestack, Move(_move_uint16 | __BISHOP_PROMO))
+                    push!(movestack, Move(_move_uint16 | __ROOK_PROMO))
+                    push!(movestack, Move(_move_uint16 | __QUEEN_PROMO))
                 else
-                    push!(movestack, Move(pwn, move_to))
+                    push!(movestack, Move(_move_uint16))
                 end
             end
         end
@@ -212,9 +214,9 @@ end
 
 # internal functions to build bishop moves
 function build_bishop_moves!(movestack::MoveStack, board::Board, targets::Bitboard, common::MoveGenCommon)
-    build_free_bishop_moves!(movestack, board, targets, common::MoveGenCommon)
+    build_free_bishop_moves!(movestack, board, targets, common)
     if !isempty(pinned(board))
-        build_pinned_bishop_moves!(movestack, board, targets, common::MoveGenCommon)
+        build_pinned_bishop_moves!(movestack, board, targets, common)
     end
     return
 end
@@ -292,10 +294,10 @@ end
 
 function build_castling!(movestack::MoveStack, board::Board, common::MoveGenCommon)
     if cancastlekingside(board)
-        build_kingside_castling!(movestack, board, common::MoveGenCommon)
+        build_kingside_castling!(movestack, board, common)
     end
     if cancastlequeenside(board)
-        build_queenside_castling!(movestack, board, common::MoveGenCommon)
+        build_queenside_castling!(movestack, board, common)
     end
     return
 end

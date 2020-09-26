@@ -27,7 +27,7 @@ function importfen(fen::String)
         elseif char == '/'
             nothing
         else
-            return nothing
+            error("Could not process input")
         end
     end
 

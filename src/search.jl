@@ -158,6 +158,7 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     # Check for abort signal, or TimeManagement criteria.
     if isearlytermination(thread) || (ABORT_SIGNAL[] == true)
         thread.stop = true
+        # Does this cause a 0 eval bug?
         return 0
     end
 
@@ -221,8 +222,8 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     if ischeck(board)
         # We need evasions, so generate quiet moves.
         init_normal_moveorder!(thread, tt_move, ply)
-        @inbounds thread.killers[ply + 2][1] = MOVE_NONE
-        @inbounds thread.killers[ply + 2][2] = MOVE_NONE
+        @inbounds thread.killer1s[ply + 2] = MOVE_NONE
+        @inbounds thread.killer2s[ply + 2] = MOVE_NONE
     else
         # We just look at noisy moves.
         # We make sure that the moves satisfy a SEE margin.
@@ -241,6 +242,8 @@ function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, pl
     # Otherwise, quiets are needed to generate king check evasions.
     played = 0
     skipquiets = false
+    @inbounds pv_current = thread.pv[ply + 1]
+    @inbounds pv_future = thread.pv[ply + 2]
     while ((move = selectmove!(thread, ply, skipquiets)) !== MOVE_NONE) && !thread.stop
 
         if ischeck(thread.board) && (played >= 4) && (best > -MATE + MAX_PLY) && !istactical(thread.board, move)
@@ -259,9 +262,9 @@ function qsearch_internal(thread::Thread, ttable::TT_Table, α::Int, β::Int, pl
             best = eval
             if eval > α
                 α = best
-                clear!(thread.pv[ply + 1])
-                push!(thread.pv[ply + 1], move)
-                updatepv!(thread.pv[ply + 1], thread.pv[ply + 2])
+                clear!(pv_current)
+                push!(pv_current, move)
+                updatepv!(pv_current, pv_future)
             end
         end
 
@@ -416,8 +419,8 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     # Reset killer moves for the upcoming ply.
-    @inbounds thread.killers[ply + 2][1] = MOVE_NONE
-    @inbounds thread.killers[ply + 2][2] = MOVE_NONE
+    @inbounds thread.killer1s[ply + 2] = MOVE_NONE
+    @inbounds thread.killer2s[ply + 2] = MOVE_NONE
 
     # Razoring.
     # If the evaluation plus a small margin is still below alpha, we drop into the quiescence search.
@@ -643,15 +646,13 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     end
 
     if iszero(played)
+        clear!(moveorder)
+        clear!(quiets_tried)
         if ischeck(board)
             # add ply to give an indication of the "fastest" mate
-            clear!(moveorder)
-            clear!(quiets_tried)
             return -MATE + ply
         else
             # Stalemate is a draw.
-            clear!(moveorder)
-            clear!(quiets_tried)
             return 0
         end
     end
@@ -680,7 +681,8 @@ end
 
 Returns true if a move passes a static exchange criteria, false otherwise.
 """
-# should we think about pins?
+const SEE_VALUES = @SVector [100, 400, 400, 650, 1250, 15000]
+
 function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     from_sqr = Int(from(move))
     to_sqr = Int(to(move))
@@ -720,22 +722,22 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     balance = -threshold
 
     if to_piece !== BLANK
-        @inbounds balance += PVALS_MG[type(to_piece).val]
+        @inbounds balance += SEE_VALUES[type(to_piece).val]
     end
 
     if move_flag >= __KNIGHT_PROMO
-        @inbounds balance += PVALS_MG[type(victim).val] - PVALS_MG[1]
+        @inbounds balance += SEE_VALUES[type(victim).val] - SEE_VALUES[1]
     end
 
     if move_flag === __ENPASS
-        @inbounds balance += PVALS_MG[1]
+        @inbounds balance += SEE_VALUES[1]
     end
 
     if balance < 0
         return false
     end
 
-    @inbounds balance -= PVALS_MG[type(victim).val]
+    @inbounds balance -= SEE_VALUES[type(victim).val]
 
     if balance >= 0
         return true
@@ -773,11 +775,12 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
 
         attackers &= occ
 
-        balance = -balance - 1 - PVALS_MG[victim.val]
+        balance = -balance - 1 - SEE_VALUES[victim.val]
         color = !color
 
         if balance >= 0
-            if (victim === KING) && (isempty(attackers & board[!color]) === false)
+            if (victim === KING) && ((attackers & board[color]).val > 0)
+                error("yolo")
                 color = !color
             end
 
@@ -797,20 +800,20 @@ end
 # delta pruning
 function optimistic_move_estimator(board::Board)
     # assume pawn at minimum
-    value = PVALS_MG[1]
+    value = SEE_VALUES[1]
 
     # find highest val targets
     for i in 5:-1:2
         piecetype = PieceType(i)
         if isempty(board[board.turn] & board[piecetype]) == false
-            @inbounds value = PVALS_MG[i]
+            @inbounds value = SEE_VALUES[i]
             break
         end
     end
 
     # promo checks
     if isempty(pawns(board) & board[board.turn] & (board.turn == WHITE ? RANK_7 : RANK_2)) == false
-        @inbounds value += PVALS_MG[5] - PVALS_MG[1]
+        @inbounds value += SEE_VALUES[5] - SEE_VALUES[1]
     end
 
     return value

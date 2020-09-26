@@ -436,7 +436,9 @@ Detects draws by insufficient material. Returns `true` if the position is drawn.
 """
 function isdrawbymaterial(board::Board)
     piece_count = count(white(board)) + count(black(board))
-    if piece_count == 2
+    if piece_count > 4
+        return false
+    elseif piece_count == 2
         return true
     elseif piece_count == 3
         if isone(bishops(board))
@@ -475,10 +477,10 @@ end
 Detects 3-fold repetition by analysing the hash history. Returns `true` if the position is drawn.
 """
 function isrepetition(board::Board)
-    reps = 0
     if board.halfmovecount < 8
         return false
     end
+    reps = 0
     for i in (board.movecount):-2:(board.movecount - board.halfmovecount)
         if (board.hash == board.history[i])
             reps += 1

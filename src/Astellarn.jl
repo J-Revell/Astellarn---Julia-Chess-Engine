@@ -1,9 +1,10 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.2.6"
+    const ASTELLARN_VERSION = "v0.2.7"
 
     using Crayons
     using StaticArrays
     using Printf
+    #using SIMD
 
     import Base.&, Base.|, Base.~, Base.<<, Base.>>, Base.⊻, Base.!, Base.bswap
     import Base.isempty, Base.isone, Base.isequal
@@ -49,10 +50,14 @@ module Astellarn
     export ischeck, islegal, ischeckmate, isstalemate, isdrawbymaterial
     export monkey!, perft, engine!
 
+    export static_exchange_evaluator
+
     export WHITE, BLACK
     export PAWN, KNIGHT, BISHOP, ROOK, KING, QUEEN
     export WHITEPAWN, WHITEKNIGHT, WHITEBISHOP, WHITEROOK, WHITEQUEEN, WHITEKING
     export BLACKPAWN, BLACKKNIGHT, BLACKBISHOP, BLACKROOK, BLACKQUEEN, BLACKKING
+
+    export __KNIGHT_PROMO, __BISHOP_PROMO, __ROOK_PROMO, __QUEEN_PROMO, SEE_VALUES
 
     export uci_main
 

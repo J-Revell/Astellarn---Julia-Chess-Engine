@@ -74,3 +74,65 @@ end
     @test perft(b1, 4) == perft(b2, 4) == 422333
     @test perft(b1, 5) == perft(b2, 5) == 15833292
 end
+
+
+@testset "SEE k7/8/6b1/3p4/4r3/3PQ3/5N2/K7 w - - 0 1" begin
+    fen = "k7/8/6b1/3p4/4r3/3PQ3/5N2/K7 w - - 0 1"
+    b = importfen(fen)
+    t = 0
+    move = Move(21, 28)
+    @test static_exchange_evaluator(b, move, t) == true
+    b.turn = !b.turn
+    move = Move(28, 20)
+    @test static_exchange_evaluator(b, move, t) == true
+    move = Move(28, 36)
+    @test static_exchange_evaluator(b, move, t) == false
+end
+
+@testset "SEE 7k/3r4/3q4/8/3p4/2BK4/8/8 w - - 0 1" begin
+    fen = "7k/3r4/3q4/8/3p4/2BK4/8/8 w - - 0 1"
+    b = importfen(fen)
+    t = 0
+    move = Move(22, 29)
+    @test static_exchange_evaluator(b, move, t) == false
+    fen = "3r3k/8/8/2p1p3/3p4/2BK4/2N5/8 w - - 0 1"
+    b = importfen(fen)
+    t = 0
+    move = Move(22, 29)
+    @test static_exchange_evaluator(b, move, t) == false
+    fen = "3r3k/3r4/3q4/8/3p4/2BK4/1QN5/8 w - - 0 1"
+    b = importfen(fen)
+    t = 0
+    move = Move(22, 29)
+    @test static_exchange_evaluator(b, move, t) == true
+    fen = "3r3k/8/8/2p1p3/3n4/2BKP3/8/8 w - - 0 1"
+    b = importfen(fen)
+    t = 0
+    move = Move(22, 29)
+    @test static_exchange_evaluator(b, move, t) == true
+    fen = "k7/8/8/8/1rrpK3/3R4/8/8 w - - 0 1"
+    b = importfen(fen)
+    t = 0
+    move = Move(21, 29)
+    @test static_exchange_evaluator(b, move, t) == false
+end
+
+@testset "Wider SEE tests" begin
+    fen_data = [
+    ("4R3/2r3p1/5bk1/1p1r3p/p2PR1P1/P1BK1P2/1P6/8 b - -", Move(33, 26), 0),
+    ("4R3/2r3p1/5bk1/1p1r1p1p/p2PR1P1/P1BK1P2/1P6/8 b - -", Move(33, 26), 0),
+    ("4r1k1/5pp1/nbp4p/1p2p2q/1P2P1b1/1BP2N1P/1B2QPPK/3R4 b - -", Move(26, 19), 0),
+    ("2r1r1k1/pp1bppbp/3p1np1/q3P3/2P2P2/1P2B3/P1N1B1PP/2RQ1RK1 b - -", Move(45, 36), SEE_VALUES[1]),
+    ("7r/5qpk/p1Qp1b1p/3r3n/BB3p2/5p2/P1P2P2/4RK1R w - -", Move(4, 60), 0),
+    ("6rr/6pk/p1Qp1b1p/2n5/1B3p2/5p2/P1P2P2/4RK1R w - -", Move(4, 60), -SEE_VALUES[4]),
+    ("7r/5qpk/2Qp1b1p/1N1r3n/BB3p2/5p2/P1P2P2/4RK1R w - -", Move(4, 60), -SEE_VALUES[4]),
+    ("6RR/4bP2/8/8/5r2/3K4/5p2/4k3 w - -", Move(51, 59, __QUEEN_PROMO), SEE_VALUES[3] - SEE_VALUES[1]),
+    ("6RR/4bP2/8/8/5r2/3K4/5p2/4k3 w - -", Move(51, 59, __KNIGHT_PROMO), SEE_VALUES[2] - SEE_VALUES[1]),
+    ("7R/5P2/8/8/8/3K2r1/5p2/4k3 w - -", Move(51, 59, __QUEEN_PROMO), SEE_VALUES[5] - SEE_VALUES[1]),
+    ("7R/5P2/8/8/8/3K2r1/5p2/4k3 w - -", Move(51, 59, __BISHOP_PROMO), SEE_VALUES[3] - SEE_VALUES[1]),
+    ("7R/4bP2/8/8/1q6/3K4/5p2/4k3 w - -", Move(51, 59, __ROOK_PROMO), -SEE_VALUES[1])
+    ]
+    for fd in fen_data
+        @test static_exchange_evaluator(importfen(fd[1]), fd[2], fd[3]) == true
+    end
+end

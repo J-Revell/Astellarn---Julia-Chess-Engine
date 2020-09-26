@@ -71,11 +71,12 @@ end
 # [j] => from
 # [k] => to
 # https://www.chessprogramming.org/index.php?title=Butterfly_Boards
-# const ButterflyHistTable = MArray{Tuple{2},MArray{Tuple{64},MArray{Tuple{64},Int,1,64},1,64},1,2}
-# const CounterHistTable = MArray{Tuple{6},MArray{Tuple{64},MArray{Tuple{6},MArray{Tuple{64},Int,1,64},1,6},1,64},1,6}
 const CounterTable = MArray{Tuple{2},MArray{Tuple{6},MArray{Tuple{64},Move,1,64},1,6},1,2}
 const ButterflyHistTable =  Vector{Vector{Vector{Int}}}
 const CounterHistTable = Vector{Vector{Vector{Vector{Int}}}}
+CounterTable() = CounterTable([[repeat([MOVE_NONE], 64) for j in 1:6] for k in 1:2])
+ButterflyHistTable() = ButterflyHistTable([[zeros(Int, 64) for i in 1:64] for j in 1:2])
+CounterHistTable() = CounterHistTable([[[zeros(Int, 64) for j in 1:6] for k in 1:64] for l in 1:6])
 
 """
     MoveOrder
@@ -86,7 +87,7 @@ mutable struct MoveOrder
     type::UInt8
     stage::UInt8
     movestack::MoveStack
-    values::Vector{Int}
+    values::Vector{Int32}
     margin::Int
     noisy_size::Int
     quiet_size::Int
@@ -125,7 +126,8 @@ mutable struct Thread
     history::ButterflyHistTable
     counterhistory::CounterHistTable
     followhistory::CounterHistTable
-    killers::Vector{MoveStack}
+    killer1s::MoveStack
+    killer2s::MoveStack
     cmtable::CounterTable
     pktable::PawnKingTable
     stop::Bool

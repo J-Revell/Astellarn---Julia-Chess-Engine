@@ -3,10 +3,8 @@ function movetostring(move::Move)
     from_sqr = from(move)
     to_sqr = to(move)
     flags = flag(move)
-
     # convert to string
-    ucistring = ""
-    ucistring *= LABELLED_SQUARES[from_sqr]
+    ucistring = LABELLED_SQUARES[from_sqr]
     ucistring *= LABELLED_SQUARES[to_sqr]
     if flags == __KNIGHT_PROMO
         ucistring *= "n"
@@ -17,7 +15,6 @@ function movetostring(move::Move)
     elseif flags == __QUEEN_PROMO
         ucistring *= "q"
     end
-
     return ucistring
 end
 
@@ -173,8 +170,16 @@ function uci_go(threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubStr
     end
 
     # Init the time manager and set to the thread
-    timeman = TimeManagement(MOVE_OVERHEAD, infinite, movetime, depth, start_time, clock_time, inc_time, movestogo, 0, 0)
-    threads[1].timeman = timeman
+    threads[1].timeman.isinfinite = infinite
+    threads[1].timeman.movetime   = movetime
+    threads[1].timeman.depth      = depth
+    threads[1].timeman.start_time = start_time
+    threads[1].timeman.clock_time = clock_time
+    threads[1].timeman.inc_time   = inc_time
+    threads[1].timeman.movestogo  = movestogo
+    threads[1].timeman.ideal_time = 0
+    threads[1].timeman.max_time   = 0
+
     threads[1].stop = false
 
     # following section is a hack, while multithreadding is not supported.
@@ -192,7 +197,7 @@ function uci_go(threads::ThreadPool, ttable::TT_Table, splitlines::Vector{SubStr
     # Extract the search info and stats.
     move = threads[1].pv[1][1]
     nodes = threads[1].ss.nodes
-    elapsed = elapsedtime(timeman)
+    elapsed = elapsedtime(threads[1].timeman)
     nps = nodes*1000/elapsed
     hf = hashfull(ttable)
 
@@ -216,16 +221,15 @@ function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}
         fen = join(splitlines[3:8], " ")
         board = importfen(fen)
     end
-
     # make the given moves, if any
     makemoves = false
+    movestack = MoveStack(MAX_MOVES)
     for i in eachindex(splitlines)
         if splitlines[i] == "moves"
             makemoves = true
             continue
         end
         if makemoves == true
-            movestack = MoveStack(200)
             gen_moves!(movestack, board)
             for move in movestack
                 if movetostring(move) == splitlines[i]
@@ -233,6 +237,7 @@ function uci_position!(threads::ThreadPool, splitlines::Vector{SubString{String}
                     break
                 end
             end
+            clear!(movestack)
         end
     end
     setthreadpoolboard!(threads, board)
@@ -260,7 +265,7 @@ function uci_setoptions(threads::ThreadPool, splitlines::Vector{SubString{String
     end
 
     if splitlines[3] == "MoveOverhead"
-        global MOVE_OVERHEAD = parse(Int, splitlines[5])
+        threads[1].timeman.move_overhead = parse(Int, splitlines[5])
         println("info string set MoveOverhead to ", splitlines[5])
     end
     return

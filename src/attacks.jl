@@ -240,6 +240,12 @@ function squareAttackers(board::Board, sqr::Integer)
     end
     attackers &= enemy(board)
 end
+# function squareAttackers(board::Board, sqr::Integer)
+#     occ = occupied(board)
+#     pvec = Vec{5, UInt64}((pawns(board).val, knights(board).val, kings(board).val, bishoplike(board).val, rooklike(board).val))
+#     avec = Vec{5, UInt64}((pawnAttacks(board.turn, sqr).val, knightMoves(sqr).val, kingMoves(sqr).val, bishopMoves(sqr, occ).val, rookMoves(sqr, occ).val))
+#     attackers = Bitboard(reduce(|, pvec & avec) & enemy(board).val)
+# end
 squareAttackers(board::Board, bb::Bitboard) = squareAttackers(board, square(bb))
 
 
@@ -256,6 +262,13 @@ function squaresquareAttackers_through_king(board::Board, sqr::Integer)
     end
     attackers &= enemy(board)
 end
+# function squaresquareAttackers_through_king(board::Board, sqr::Integer)
+#     occ = occupied(board)
+#     occ &= ~(kings(board) & friendly(board))
+#     pvec = Vec{4, UInt64}((pawns(board).val, knights(board).val, bishoplike(board).val, rooklike(board).val))
+#     avec = Vec{4, UInt64}((pawnAttacks(board.turn, sqr).val, knightMoves(sqr).val, bishopMoves(sqr, occ).val, rookMoves(sqr, occ).val))
+#     attackers = Bitboard(reduce(|, pvec & avec) & enemy(board).val)
+# end
 
 
 """

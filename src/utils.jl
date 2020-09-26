@@ -32,7 +32,7 @@ function init_reduction_table()
     lmrtable = zeros(Int, (64, 64))
     for depth in 1:64
         for played in 1:64
-            lmrtable[depth, played] = floor(Int, 0.6 + log(depth) * log(played) / 2.0)
+            @inbounds lmrtable[depth, played] = floor(Int, 0.6 + log(depth) * log(played) / 2.0)
         end
     end
     lmrtable

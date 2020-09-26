@@ -74,8 +74,8 @@ end
 
 
 function stage(board::Board)
-    stage = 24 - 4count(queens(board)) - 2count(rooks(board)) - count(knights(board) | bishops(board))
-    stage = fld(stage * 256 + 12, 24)
+    stage = 6156 - 1024count(queens(board)) - 512count(rooks(board)) - 256count(knights(board) | bishops(board))
+    stage = fld(stage, 24)
 end
 
 
@@ -205,16 +205,16 @@ function evaluate_pawns(board::Board, ea::EvalAttackInfo)
 
         # Isolated pawns
         elseif isempty(neighbours)
-            score -= ISOLATED_PAWN_PENALTY + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+            score -= ISOLATED_PAWN_PENALTY + WEAK_UNOPPOSED * isempty(opposed)
 
         # Backward pawns
         elseif backward
-            score -= BACKWARD_PAWN + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+            score -= BACKWARD_PAWN + WEAK_UNOPPOSED * isempty(opposed)
         end
 
         # Doubled pawns
         if isempty(support)
-            score -= DOUBLE_PAWN_PENALTY * (doubled ? 1 : 0) + WEAK_LEVER * (ismany(lever) ? 1 : 0)
+            score -= DOUBLE_PAWN_PENALTY * doubled + WEAK_LEVER * ismany(lever)
         end
     end
 
@@ -248,16 +248,16 @@ function evaluate_pawns(board::Board, ea::EvalAttackInfo)
 
         # Isolated pawns
         elseif isempty(neighbours)
-            score += ISOLATED_PAWN_PENALTY + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+            score += ISOLATED_PAWN_PENALTY + WEAK_UNOPPOSED * isempty(opposed)
 
         # Backward pawns
         elseif backward
-            score += BACKWARD_PAWN + WEAK_UNOPPOSED * (isempty(opposed) ? 1 : 0)
+            score += BACKWARD_PAWN + WEAK_UNOPPOSED * isempty(opposed)
         end
 
         # Doubled pawns
         if isempty(support)
-            score += DOUBLE_PAWN_PENALTY * (doubled ? 1 : 0) + WEAK_LEVER * (ismany(lever) ? 1 : 0)
+            score += DOUBLE_PAWN_PENALTY * doubled + WEAK_LEVER * ismany(lever)
         end
     end
 
@@ -513,19 +513,22 @@ function evaluate_kingpawns(board::Board, ea::EvalAttackInfo)
     wkingfile = fileof(w_king_sqr)
     lower = max(1, wkingfile - 1)
     upper = min(8, wkingfile + 1)
+    _wpawns = pawns(board) & white(board) & PASSED_PAWN_MASKS[1][w_king_sqr]
+    _bpawns = pawns(board) & black(board) & PASSED_PAWN_MASKS[1][w_king_sqr]
+    wksqr = rankof(w_king_sqr)
     @inbounds for file in lower:upper
-        wpawns = pawns(board) & white(board) & FILE[file] & PASSED_PAWN_MASKS[1][w_king_sqr]
+        wpawns = _wpawns & FILE[file]
         if isempty(wpawns)
             w_dist = 8
         else
-            w_dist = abs(rankof(w_king_sqr) - rankof(trailing_zeros(wpawns.val)+1))
+            w_dist = abs(wksqr - rankof(trailing_zeros(wpawns.val)+1))
         end
 
-        bpawns = pawns(board) & black(board) & FILE[file] & PASSED_PAWN_MASKS[1][w_king_sqr]
+        bpawns = _bpawns & FILE[file]
         if isempty(bpawns)
             b_dist = 8
         else
-            b_dist = abs(rankof(w_king_sqr) - rankof(trailing_zeros(bpawns.val)+1))
+            b_dist = abs(wksqr - rankof(trailing_zeros(bpawns.val)+1))
         end
 
         if file === wkingfile
@@ -546,19 +549,22 @@ function evaluate_kingpawns(board::Board, ea::EvalAttackInfo)
     bkingfile = fileof(b_king_sqr)
     lower = max(1, bkingfile - 1)
     upper = min(8, bkingfile + 1)
+    _bpawns = pawns(board) & black(board) & PASSED_PAWN_MASKS[2][b_king_sqr]
+    _wpawns = pawns(board) & white(board) & PASSED_PAWN_MASKS[2][b_king_sqr]
+    bksqr = rankof(b_king_sqr)
     @inbounds for file in lower:upper
-        bpawns = pawns(board) & black(board) & FILE[file] & PASSED_PAWN_MASKS[2][b_king_sqr]
+        bpawns = _bpawns & FILE[file]
         if isempty(bpawns)
             b_dist = 8
         else
-            b_dist = abs(rankof(b_king_sqr) - rankof(64-leading_zeros(bpawns.val)))
+            b_dist = abs(bksqr - rankof(64-leading_zeros(bpawns.val)))
         end
 
-        wpawns = pawns(board) & white(board) & FILE[file] & PASSED_PAWN_MASKS[2][b_king_sqr]
+        wpawns = _wpawns & FILE[file]
         if isempty(wpawns)
             w_dist = 8
         else
-            w_dist = abs(rankof(b_king_sqr) - rankof(64-leading_zeros(wpawns.val)))
+            w_dist = abs(bksqr - rankof(64-leading_zeros(wpawns.val)))
         end
 
         if file === bkingfile
@@ -589,12 +595,14 @@ function evaluate_pins(board::Board)
     board.turn = !board.turn
 
     if board.turn == WHITE
-        eval -= count(board.pinned) * PIN_BONUS
-        eval += count(opp_pinned) * PIN_BONUS
+        eval -= count(board.pinned)
+        eval += count(opp_pinned)
     else
-        eval += count(board.pinned) * PIN_BONUS
-        eval -= count(opp_pinned) * PIN_BONUS
+        eval += count(board.pinned)
+        eval -= count(opp_pinned)
     end
+
+    eval *= PIN_BONUS
 
     # specific additional pin bonus
     eval -= count(pinned(board) & queens(board)) * 30
@@ -613,8 +621,9 @@ function evaluate_space(board::Board, ea::EvalAttackInfo)
     b_filter = (RANK_5 | RANK_6 | RANK_7) & CENTERFILES
     w_attacks = ea.wpawnattacks | ea.wknightattacks | ea.wbishopattacks | ea.wrookattacks | ea.wqueenattacks | ea.wkingattacks
     b_attacks = ea.bpawnattacks | ea.bknightattacks | ea.bbishopattacks | ea.brookattacks | ea.bqueenattacks | ea.bkingattacks
-    eval += count(w_filter & ~b_attacks) * SPACE_BONUS
-    eval -= count(b_filter & ~w_attacks) * SPACE_BONUS
+    eval += count(w_filter & ~b_attacks)
+    eval -= count(b_filter & ~w_attacks)
+    eval *= SPACE_BONUS
 
     makescore(eval, eval)
 end

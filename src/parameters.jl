@@ -3,7 +3,6 @@ const MAX_MOVES = 256
 const MAX_PLY = 128
 const MATE = 32000
 const MAX_QUIET_TRACK = 92
-MOVE_OVERHEAD = 100 # But it's not constant, and we don't declare it as such otherwise the compiler may hard-code it.
 ABORT_SIGNAL = Base.Threads.Atomic{Bool}(false)
 
 #============================== Search Parameters =============================#

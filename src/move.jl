@@ -233,7 +233,7 @@ function apply_normal!(board::Board, move::Move)
         board.enpass = zero(UInt8)
     end
 
-    updatecastling!(board, sqr_from, sqr_to)
+    board.castling > 0x00 && updatecastling!(board, sqr_from, sqr_to)
 
     p_from = piece(board, sqr_from)
     p_to = piece(board, sqr_to)
@@ -402,7 +402,7 @@ function apply_promo!(board::Board, move::Move)
     sqr_from = from(move)
     sqr_to = to(move)
 
-    updatecastling!(board, sqr_from, sqr_to)
+    board.castling > 0x00 && updatecastling!(board, sqr_from, sqr_to)
 
     bb_from = Bitboard(sqr_from)
     bb_to = Bitboard(sqr_to)

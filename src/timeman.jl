@@ -14,7 +14,7 @@ mutable struct TimeManagement
 end
 
 
-TimeManagement() = TimeManagement(0, false, 0, 0, 0, 0, 0, 0, 0, 0)
+TimeManagement() = TimeManagement(100, false, 0, 0, 0, 0, 0, 0, 0, 0)
 
 
 elapsedtime(timeman::TimeManagement) = (time() - timeman.start_time) * 1000
@@ -29,8 +29,8 @@ function initTimeManagement!(timeman::TimeManagement)
         timeman.ideal_time = fld(timeman.clock_time, timeman.movestogo + 5) + timeman.inc_time
         timeman.max_time = 10 * fld(timeman.clock_time, timeman.movestogo + 10) + timeman.inc_time
     end
-    timeman.ideal_time = min(timeman.ideal_time, timeman.clock_time - MOVE_OVERHEAD)
-    timeman.max_time = min(timeman.max_time, timeman.clock_time - MOVE_OVERHEAD)
+    timeman.ideal_time = min(timeman.ideal_time, timeman.clock_time - timeman.move_overhead)
+    timeman.max_time = min(timeman.max_time, timeman.clock_time - timeman.move_overhead)
     if timeman.movetime > 0
         timeman.ideal_time = timeman.movetime
         timeman.max_time = timeman.movetime

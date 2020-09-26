@@ -136,8 +136,8 @@ function init_normal_moveorder!(thread::Thread, tt_move::Move, ply::Int)
     else
         @inbounds moveorder.counter = thread.cmtable[(!board.turn).val][previous_piece.val][previous_to]
     end
-    @inbounds moveorder.killer1 = thread.killers[ply + 1][1]
-    @inbounds moveorder.killer2 = thread.killers[ply + 1][2]
+    @inbounds moveorder.killer1 = thread.killer1s[ply + 1]
+    @inbounds moveorder.killer2 = thread.killer2s[ply + 1]
     # generate moves
     gen_noisy_moves!(moveorder.movestack, board)
     moveorder.noisy_size = moveorder.movestack.idx
