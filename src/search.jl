@@ -158,13 +158,12 @@ function qsearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, ply::Int)::
     # Check for abort signal, or TimeManagement criteria.
     if isearlytermination(thread) || (ABORT_SIGNAL[] == true)
         thread.stop = true
-        # Does this cause a 0 eval bug?
         return 0
     end
 
     # Check if the current position is drawn. (Ignoring stalemate)
     if isdrawbymaterial(board) || is50moverule(board)
-        return 0
+        return draw_noise(thread)
     end
 
     # If we have reached the maximum search ply depth, we stop here.
@@ -334,7 +333,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
 
         # If we detect a draw, we can return an evaluation of zero.
         if isdrawbymaterial(board) || is50moverule(board) || isrepetition(board)
-            return 0
+            return draw_noise(thread)
         end
 
         # If we reach the max ply, we evaluate the board here and return.
@@ -412,6 +411,9 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # If the last move was a NULL move, the evaluation is simply a change in 2*TEMPO_BONUS (flip a sign).
     if tt_eval !== -MATE
         eval = thread.evalstack[ply + 1] = tt_eval
+        if eval == 0
+            eval = 2 * (thread.ss.nodes & 1) - 1
+        end
     elseif (ply > 0) && (thread.movestack[ply] == NULL_MOVE)
         eval = thread.evalstack[ply + 1] = -thread.evalstack[ply] + 2*TEMPO_BONUS
     else
@@ -477,7 +479,7 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
     # We are not in a PV-node.
     # A potential exists on the board such that it can beat β plus a margin.
     if !pvnode &&  (depth >= PROBCUT_DEPTH) && (abs(β) < (MATE - MAX_PLY)) &&
-        (eval + optimistic_move_estimator(board) >= β + PROBCUT_MARGIN)
+        (eval >= β || eval + optimistic_move_estimator(board) >= β + PROBCUT_MARGIN)
         probcut_count = 0
         raised_β = min(β + PROBCUT_MARGIN, MATE - MAX_PLY - 1)
         init_noisy_moveorder!(thread, ply, raised_β - eval)
@@ -545,12 +547,12 @@ function absearch(thread::Thread, ttable::TT_Table, α::Int, β::Int, depth::Int
             end
 
             # Counter move pruning
-            if (depth <= COUNTER_PRUNE_DEPTH[improving]) && (cmhist < COUNTER_PRUNE_LIMIT[improving])
+            if (moveorder.stage > STAGE_COUNTER) && (depth <= COUNTER_PRUNE_DEPTH[improving]) && (cmhist < COUNTER_PRUNE_LIMIT[improving])
                 continue
             end
 
             # Follow up move pruning
-            if (depth <= FOLLOW_PRUNE_DEPTH[improving]) && (fmhist < FOLLOW_PRUNE_LIMIT[improving])
+            if (moveorder.stage > STAGE_COUNTER) && (depth <= FOLLOW_PRUNE_DEPTH[improving]) && (fmhist < FOLLOW_PRUNE_LIMIT[improving])
                 continue
             end
         end
@@ -681,7 +683,7 @@ end
 
 Returns true if a move passes a static exchange criteria, false otherwise.
 """
-const SEE_VALUES = @SVector [100, 400, 400, 650, 1250, 15000]
+const SEE_VALUES = @SVector [210, 890, 940, 1250, 2700, 15000]
 
 function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     from_sqr = Int(from(move))
@@ -779,11 +781,6 @@ function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
         color = !color
 
         if balance >= 0
-            if (victim === KING) && ((attackers & board[color]).val > 0)
-                error("yolo")
-                color = !color
-            end
-
             break
         end
 
@@ -824,4 +821,8 @@ function updatepv!(pv_current::MoveStack, pv_future::MoveStack)
     for tmp_pv_move in pv_future
         push!(pv_current, tmp_pv_move)
     end
+end
+
+function draw_noise(thread::Thread)
+    return 2 * (thread.ss.nodes & 1) - 1
 end

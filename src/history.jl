@@ -36,6 +36,22 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
         fm_to = zero(UInt16)
     end
 
+    # Set the killer moves.
+    killer1 = thread.killer1s[ply + 1]
+    if killer1 !== best_move
+        @inbounds thread.killer2s[ply + 1] = killer1
+        @inbounds thread.killer1s[ply + 1] = best_move
+    end
+
+    # Set the counter move.
+    if (counter !== MOVE_NONE) && (counter !== NULL_MOVE)
+        thread.cmtable[(!thread.board.turn).val][cm_piece.val][cm_to] = best_move
+    end
+
+    if quietstried.idx == 1 && depthbonus <= 1
+        return
+    end
+
     bonus = min(depthbonus, HistoryMaximum)
 
     # Below, the decision to split the cases up into 4 functions is so that the compiler can allow for SIMD optimisations.
@@ -47,18 +63,6 @@ function updatehistory!(thread::Thread, quietstried::MoveStack, ply::Int, depthb
         updatehistory_internal_follow!(thread, quietstried, bonus, best_move, colour, follow, fm_piece, fm_to)
     else
         updatehistory_internal!(thread, quietstried, bonus, best_move, colour)
-    end
-
-    # Set the killer moves.
-    killer1 = thread.killer1s[ply + 1]
-    if killer1 !== best_move
-        @inbounds thread.killer2s[ply + 1] = killer1
-        @inbounds thread.killer1s[ply + 1] = best_move
-    end
-
-    # Set the counter move.
-    if (counter !== MOVE_NONE) && (counter !== NULL_MOVE)
-        thread.cmtable[(!thread.board.turn).val][cm_piece.val][cm_to] = best_move
     end
 
     return

@@ -136,3 +136,56 @@ end
         @test static_exchange_evaluator(importfen(fd[1]), fd[2], fd[3]) == true
     end
 end
+
+
+@testset "Symmetry eval" begin
+    fen = "2q5/b2k3P/4pn2/3pr3/3PR3/4PN2/B2K3p/2Q5 w - - 0 1"
+    b = importfen(fen)
+    pktable = PawnKingTable()
+    eval_white = evaluate(b, pktable)
+    b.turn = !b.turn
+    eval_black = evaluate(b, pktable)
+    @test abs(eval_black) == abs(eval_white)
+
+    fen1 = "k7/P6n/KP5r/7b/7p/8/8/5RBN w - - 0 1"
+    b = importfen(fen1)
+    pktable = PawnKingTable()
+    eval_white = evaluate(b, pktable)
+    ei, ea = initEvalInfo(b)
+    scorewk = evaluate_knights(b, ei, ea)
+    scorewb = evaluate_bishops(b, ei, ea)
+    scorewr = evaluate_rooks(b, ei, ea)
+    scorewq = evaluate_queens(b, ei, ea)
+    scorewki = evaluate_kings(b, ea)
+    scorewpin = evaluate_pins(b)
+    scorewspace = evaluate_space(b, ea)
+    scorewthreat = evaluate_threats(b, ei, ea)
+    scorewpass = evaluate_passed(b, ea)
+    scorewinit = evaluate_initiative(b, ea.passed, 400)
+    fen2 = "5rbn/8/8/7P/7B/kp5R/p6N/K7 b - - 0 1"
+    b = importfen(fen2)
+    eval_black = evaluate(b, pktable)
+    ei, ea = initEvalInfo(b)
+    scorebk = evaluate_knights(b, ei, ea)
+    scorebb = evaluate_bishops(b, ei, ea)
+    scorebr = evaluate_rooks(b, ei, ea)
+    scorebq = evaluate_queens(b, ei, ea)
+    scorebki = evaluate_kings(b, ea)
+    scorebpin = evaluate_pins(b)
+    scorebspace = evaluate_space(b, ea)
+    scorebthreat = evaluate_threats(b, ei, ea)
+    scorebpass = evaluate_passed(b, ea)
+    scorebinit = evaluate_initiative(b, ea.passed, 400)
+
+    @test scorebk == -scorewk
+    @test scorebb == -scorewb
+    @test scorebr == -scorewr
+    @test scorebq == -scorewq
+    @test scorebki == -scorewki
+    @test scorebpin == -scorewpin
+    @test scorebspace == -scorewspace
+    @test scorebthreat == -scorewthreat
+    @test scorebpass == -scorewpass
+    @test scorebinit == -scorewinit
+    @test eval_black == -eval_white
+end

@@ -129,6 +129,7 @@ function evaluate(board::Board, pktable::PawnKingTable)
     end
 
     v = fld(scoreEG(score) + scoreMG(score), 2)
+    v = round(Int, v * (100.0 - Float64(board.halfmovecount)) / 100.0)
     if abs(v) > LAZY_THRESH
         if board.turn == WHITE
             return v
@@ -156,10 +157,12 @@ function evaluate(board::Board, pktable::PawnKingTable)
     eval = fld(eval, 256)
 
     if board.turn == WHITE
-        eval += TEMPO_BONUS
+        eval += TEMPO_BONUS#
+        eval = round(Int, eval * (100.0 - Float64(board.halfmovecount)) / 100.0)
         return eval
     else
         eval -= TEMPO_BONUS
+        eval = round(Int, eval * (100.0 - Float64(board.halfmovecount)) / 100.0)
         return -eval
     end
 end
@@ -758,16 +761,16 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         king_danger += QUEEN_SAFE_CHECK
     end
     if isempty(board[WHITEQUEEN])
-        king_danger -= 80
+        king_danger -= KD_QUEEN
     end
     if isempty(board[WHITEROOK])
-        king_danger -= 40
+        king_danger -= KD_ROOK
     end
     if isempty(board[WHITEBISHOP])
-        king_danger -= 15
+        king_danger -= KD_BISHOP
     end
     if isempty(board[WHITEKNIGHT])
-        king_danger -= 20
+        king_danger -= KD_KNIGHT
     end
     king_danger += 9 * count(w_attacks & ea.bkingattacks)
     if king_danger > 0
@@ -895,16 +898,16 @@ function evaluate_threats(board::Board, ei::EvalInfo, ea::EvalAttackInfo)
         king_danger += QUEEN_SAFE_CHECK
     end
     if isempty(board[BLACKQUEEN])
-        king_danger -= 80
+        king_danger -= KD_QUEEN
     end
     if isempty(board[BLACKROOK])
-        king_danger -= 40
+        king_danger -= KD_ROOK
     end
     if isempty(board[BLACKBISHOP])
-        king_danger -= 15
+        king_danger -= KD_BISHOP
     end
     if isempty(board[BLACKKNIGHT])
-        king_danger -= 20
+        king_danger -= KD_KNIGHT
     end
     king_danger += 9 * count(b_attacks & ea.wkingattacks)
     if king_danger > 0

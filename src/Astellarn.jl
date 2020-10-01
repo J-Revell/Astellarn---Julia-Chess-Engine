@@ -1,5 +1,5 @@
 module Astellarn
-    const ASTELLARN_VERSION = "v0.2.7"
+    const ASTELLARN_VERSION = "v0.2.8"
 
     using Crayons
     using StaticArrays
@@ -57,7 +57,9 @@ module Astellarn
     export WHITEPAWN, WHITEKNIGHT, WHITEBISHOP, WHITEROOK, WHITEQUEEN, WHITEKING
     export BLACKPAWN, BLACKKNIGHT, BLACKBISHOP, BLACKROOK, BLACKQUEEN, BLACKKING
 
-    export __KNIGHT_PROMO, __BISHOP_PROMO, __ROOK_PROMO, __QUEEN_PROMO, SEE_VALUES
+    export __KNIGHT_PROMO, __BISHOP_PROMO, __ROOK_PROMO, __QUEEN_PROMO, SEE_VALUES, PawnKingTable, evaluate, initEvalInfo
+
+    export evaluate_knights, evaluate_bishops, evaluate_rooks, evaluate_queens, evaluate_kings, evaluate_pins, evaluate_threats, evaluate_initiative, evaluate_space, evaluate_passed
 
     export uci_main
 
