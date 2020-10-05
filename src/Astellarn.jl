@@ -1,5 +1,6 @@
+__precompile__()
 module Astellarn
-    const ASTELLARN_VERSION = "v0.2.8"
+    const ASTELLARN_VERSION = "v0.2.9-dev"
 
     using Crayons
     using StaticArrays

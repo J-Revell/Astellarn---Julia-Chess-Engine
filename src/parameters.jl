@@ -8,16 +8,16 @@ ABORT_SIGNAL = Base.Threads.Atomic{Bool}(false)
 #============================== Search Parameters =============================#
 
 
-const Q_FUTILITY_MARGIN = 100
+const Q_FUTILITY_MARGIN = 193
 const RAZOR_DEPTH = 1
-const RAZOR_MARGIN = 500
+const RAZOR_MARGIN = 325
 const BETA_PRUNE_DEPTH = 8
-const BETA_PRUNE_MARGIN = 185
+const BETA_PRUNE_MARGIN = 172
 const SEE_PRUNE_DEPTH = 8
 const SEE_QUIET_MARGIN = -190
 const SEE_NOISY_MARGIN = -25
 const FUTILITY_PRUNE_DEPTH = 8
-const FUTILITY_MARGIN = 200
+const FUTILITY_MARGIN = 392
 const FUTILITY_MARGIN_NOHIST = 300
 const FUTILITY_LIMIT = @SVector [12000, 6000]
 const COUNTER_PRUNE_DEPTH = @SVector [4, 3]
@@ -37,45 +37,45 @@ const PROBCUT_MARGIN = 190
 
 const PAWN_PSQT = SVector{8}([
     SVector{4}([makescore(  0,  0), makescore(  0,  0), makescore(  0,  0), makescore( 0,   0)]),
-    SVector{4}([makescore(  5,-10), makescore(  5, -5), makescore( 10, 10), makescore( 20,  0)]),
-    SVector{4}([makescore(-10,-10), makescore(-15,-10), makescore( 10,-10), makescore( 15,  5)]),
-    SVector{4}([makescore(-10,  5), makescore(-25,  0), makescore(  5,-10), makescore( 20, -5)]),
-    SVector{4}([makescore( 15, 10), makescore(  0,  5), makescore(-15,  5), makescore(  0,-10)]),
-    SVector{4}([makescore( -5, 30), makescore(-10, 20), makescore(-10, 20), makescore( 20, 30)]),
-    SVector{4}([makescore(-10,  0), makescore( 10,-10), makescore( -5, 10), makescore(-15, 20)]),
+    SVector{4}([makescore(  -5, -6), makescore( 48, 15), makescore( 18, 27), makescore( 5,  3)]),
+    SVector{4}([makescore(-24,-15), makescore( -3, 3), makescore( -19,-11), makescore( -27, -9)]),
+    SVector{4}([makescore(-31, 6), makescore(-14, 8), makescore(  -19, 9), makescore( 10, -33)]),
+    SVector{4}([makescore( -16, 23), makescore(  14, -2), makescore(0,-11), makescore( -10,-24)]),
+    SVector{4}([makescore( 4, 14), makescore(15, 23), makescore(13, -15), makescore( -30, -37)]),
+    SVector{4}([makescore( 33,  28), makescore( -6, 25), makescore( 1, 12), makescore(24, -47)]),
     SVector{4}([makescore(  0,  0), makescore(  0,  0), makescore(  0,  0), makescore( 0,   0)])])
 
 const KNIGHT_PSQT = SVector{8}([
-    SVector{4}([makescore(-175, -95), makescore(-90, -65), makescore(-75, -50), makescore(-70, -20)]),
-    SVector{4}([makescore( -75, -70), makescore(-40, -55), makescore(-30, -20), makescore(-15,  10)]),
-    SVector{4}([makescore( -60, -40), makescore(-20, -25), makescore(  5,  -5), makescore( 10,  30)]),
-    SVector{4}([makescore( -35, -35), makescore( 10,   0), makescore( 40,  15), makescore( 50,  30)]),
-    SVector{4}([makescore( -35, -45), makescore( 15, -15), makescore( 45,  10), makescore( 50,  40)]),
-    SVector{4}([makescore( -10, -50), makescore( 20, -45), makescore( 60, -20), makescore( 55,  20)]),
-    SVector{4}([makescore( -65, -70), makescore(-25, -50), makescore(  5, -50), makescore( 40,  10)]),
-    SVector{4}([makescore(-200,-100), makescore(-80, -85), makescore(-55, -55), makescore(-25, -15)])])
+    SVector{4}([makescore(-8, -37), makescore(-42, -59), makescore(-96, -14), makescore(-80, 32)]),
+    SVector{4}([makescore( -28, -42), makescore(-108, -4), makescore(-1, -56), makescore(-26, 6)]),
+    SVector{4}([makescore( -33, 7), makescore(49, -40), makescore( 16,  -15), makescore( -14, 23)]),
+    SVector{4}([makescore( -9, 16), makescore( 29, -10), makescore( 66, 14), makescore( 32,  38)]),
+    SVector{4}([makescore( 27, 5), makescore( 54, 19), makescore( 13, 49), makescore( 72,  43)]),
+    SVector{4}([makescore( 32, -39), makescore( 74, 1), makescore( 94, 2), makescore( 130,  -18)]),
+    SVector{4}([makescore( -84, -33), makescore(-32, 10), makescore( 86, -24), makescore( -3, 2)]),
+    SVector{4}([makescore(-175,-117), makescore(29, -25), makescore(-46, 9), makescore( 40, 1)])])
 
 
 const BISHOP_PSQT = SVector{8}([
-    SVector{4}([makescore(-50, -55), makescore( -5, -30), makescore(-10,-35), makescore(-20,-10)]),
-    SVector{4}([makescore(-15, -35), makescore( 10, -15), makescore( 20,-20), makescore(  5,  0)]),
-    SVector{4}([makescore(-10, -15), makescore( 20,   0), makescore( -5,  0), makescore( 20, 10)]),
-    SVector{4}([makescore( -5, -20), makescore( 10,  -5), makescore( 25,  0), makescore( 40, 20)]),
-    SVector{4}([makescore(-10, -20), makescore( 30,   0), makescore( 20,-15), makescore( 30, 15)]),
-    SVector{4}([makescore(-15, -30), makescore(  5,   5), makescore(  1,  5), makescore( 10,  5)]),
-    SVector{4}([makescore(-20, -30), makescore(-15, -20), makescore(  5,  0), makescore(  0,  0)]),
-    SVector{4}([makescore(-50, -45), makescore(  0, -40), makescore(-15,-40), makescore(-20,-25)])])
+    SVector{4}([makescore(-103, -41), makescore( -82, 59), makescore(-49,-15), makescore(-53,22)]),
+    SVector{4}([makescore(-33, -62), makescore( 3, -58), makescore( 12,-23), makescore(  -9,  6)]),
+    SVector{4}([makescore(-8, -16), makescore( -22, 7), makescore( -1,  -48), makescore( 11, 5)]),
+    SVector{4}([makescore( 32, 8), makescore( 88,  -83), makescore( 10,  10), makescore( 46, -17)]),
+    SVector{4}([makescore( 29, 21), makescore( 21,  1), makescore( 23, 4), makescore( 66, -32)]),
+    SVector{4}([makescore( 21, 44), makescore(  60,  -21), makescore( 23,  -20), makescore( 17, -15)]),
+    SVector{4}([makescore(-47, -50), makescore(-42, -37), makescore(  -14,  20), makescore( -13,  36)]),
+    SVector{4}([makescore(-32, -80), makescore( -10, 31), makescore(-47,-16), makescore(-3,-28)])])
 
 
 const ROOK_PSQT = SVector{8}([
-    SVector{4}([makescore(-30,-10), makescore(-20,-10), makescore(-15,-10), makescore(-5,-10)]),
-    SVector{4}([makescore(-20,-10), makescore(-10,-10), makescore(-10,  0), makescore( 5,  0)]),
-    SVector{4}([makescore(-25,  5), makescore(-10,-10), makescore(  0,  0), makescore( 0, -5)]),
-    SVector{4}([makescore(-10, -5), makescore( -5,  0), makescore( -5,-10), makescore(-5,  5)]),
-    SVector{4}([makescore(-30, -5), makescore(-15, 10), makescore( -5,  5), makescore( 0, -5)]),
-    SVector{4}([makescore(-20,  5), makescore(  0,  0), makescore(  5, -5), makescore(10, 10)]),
-    SVector{4}([makescore(  0,  5), makescore( 10,  5), makescore( 15, 20), makescore(20, -5)]),
-    SVector{4}([makescore(-20, 20), makescore(-20,  0), makescore(  0, 20), makescore(10, 10)])])
+    SVector{4}([makescore(-25,-17), makescore(-47,12), makescore(35,-20), makescore(31,-37)]),
+    SVector{4}([makescore(-93,1), makescore(-58,-4), makescore(-9, -27), makescore( -42, -21)]),
+    SVector{4}([makescore(-56, -15), makescore(45,-15), makescore( -44, -22), makescore( -16, -39)]),
+    SVector{4}([makescore(-26, -5), makescore( -9, 19), makescore( -14, 2), makescore(16,  -29)]),
+    SVector{4}([makescore(-41, 20), makescore(-12, -7), makescore( 43, 21), makescore( -15, 13)]),
+    SVector{4}([makescore(-19, 8), makescore( 85, -4), makescore( -4, -1), makescore(-23, 20)]),
+    SVector{4}([makescore(  57,  -14), makescore( 20, 17), makescore( 38, 1), makescore(-31, 25)]),
+    SVector{4}([makescore( 38, 23), makescore(111, 18), makescore( -13, 48), makescore(-93, 66)])])
 
 
 const QUEEN_PSQT = SVector{8}([
@@ -106,7 +106,7 @@ const PSQT = @SVector [PAWN_PSQT, KNIGHT_PSQT, BISHOP_PSQT, ROOK_PSQT, QUEEN_PSQ
 #=============================== PIECE VALUES =================================#
 
 
-const PVALS = @SVector [makescore(207, 235), makescore(930, 878), makescore(949, 955), makescore(1177, 1503), makescore(2689, 2820), makescore(15000, 15000)]
+const PVALS = @SVector [makescore(211, 245), makescore(949, 863), makescore(953, 962), makescore(1220, 1490), makescore(2711, 2840), makescore(15000, 15000)]
 const PVALS_MG = SVector{6}(scoreMG.(PVALS))
 const PVALS_EG = SVector{6}(scoreEG.(PVALS))
 
@@ -120,21 +120,21 @@ const TEMPO_BONUS = 22
 #============================= Rook Evaluation ================================#
 
 
-const ROOK_OPEN_FILE_BONUS = makescore(105, 11)
-const ROOK_SEMIOPEN_FILE_BONUS = makescore(24, 4)
+const ROOK_OPEN_FILE_BONUS = makescore(114, 10)
+const ROOK_SEMIOPEN_FILE_BONUS = makescore(42, 5)
 const ROOK_KING_FILE_BONUS = 10
-const ROOK_ON_QUEEN_FILE = makescore(38, 18)
+const ROOK_ON_QUEEN_FILE = makescore(20, 26)
 
 
 #============================= Pawn Evaluation ================================#
 
 
-const PAWN_SHIELD_BONUS = makescore(19, 5)
-const DOUBLE_PAWN_PENALTY = makescore(28, 57)
-const ISOLATED_PAWN_PENALTY = makescore(34, 28)
+const PAWN_SHIELD_BONUS = makescore(13, 10)
+const DOUBLE_PAWN_PENALTY = makescore(34, 84)
+const ISOLATED_PAWN_PENALTY = makescore(17, 34)
 const PAWN_DEFEND_PAWN_BONUS = 10
 const WEAK_PAWN_PENALTY = 25
-const PASS_PAWN_THREAT = SVector{7}([makescore(0, 0), makescore(10, 30), makescore(20, 35), makescore(15, 40), makescore(60, 70), makescore(170, 180), makescore(275, 260)])
+const PASS_PAWN_THREAT = SVector{7}([makescore(0, 0), makescore(6, 23), makescore(7, 37), makescore(3, 1), makescore(16, 29), makescore(142, 149), makescore(237, 216)])
 const CONNECTED_PAWN_PSQT = SVector{8}([
     SVector{4}([makescore(   0,  0), makescore(   0,  0), makescore(   0,  0), makescore(   0,  0)]),
     SVector{4}([makescore(   0,-10), makescore(  10,  0), makescore(   5,  0), makescore(   5, 15)]),
@@ -144,29 +144,29 @@ const CONNECTED_PAWN_PSQT = SVector{8}([
     SVector{4}([makescore(  60, 25), makescore(  51, 50), makescore(  70, 55), makescore(  85, 60)]),
     SVector{4}([makescore( 110,  0), makescore( 205, 10), makescore( 230, 30), makescore( 240, 50)]),
     SVector{4}([makescore(   0,  0), makescore(   0,  0), makescore(   0,  0), makescore(   0,  0)])])
-const WEAK_UNOPPOSED = makescore(22, 30)
-const WEAK_LEVER = makescore(7, 50)
-const BACKWARD_PAWN = makescore(15, 20)
+const WEAK_UNOPPOSED = makescore(22, 52)
+const WEAK_LEVER = makescore(31, 34)
+const BACKWARD_PAWN = makescore(37, 11)
 
 
 #=========================== Knight Evaluation ================================#
 
 
 const KNIGHT_TRAP_PENALTY = makescore(50, 50)
-const KNIGHT_RAMMED_BONUS = makescore(5, 12)
-const KNIGHT_OUTPOST_BONUS = makescore(11, 67)
-const KNIGHT_POTENTIAL_OUTPOST_BONUS = makescore(2, 19)
+const KNIGHT_RAMMED_BONUS = makescore(6, 14)
+const KNIGHT_OUTPOST_BONUS = makescore(20, 61)
+const KNIGHT_POTENTIAL_OUTPOST_BONUS = makescore(8, 29)
 
 
 #=========================== Bishop Evaluation ================================#
 
 
 const BISHOP_TRAP_PENALTY = makescore(80, 80)
-const BISHOP_COLOR_PENALTY = makescore(10, 23)
-const BISHOP_RAMMED_COLOR_PENALTY = makescore(14, 20)
-const BISHOP_PAIR_BONUS = makescore(35, 75)
-const BISHOP_OUTPOST_BONUS = makescore(40, 31)
-const BISHOP_CENTRAL_CONTROL = makescore(42, 36)
+const BISHOP_COLOR_PENALTY = makescore(3, 14)
+const BISHOP_RAMMED_COLOR_PENALTY = makescore(3, 31)
+const BISHOP_PAIR_BONUS = makescore(55, 77)
+const BISHOP_OUTPOST_BONUS = makescore(50, 29)
+const BISHOP_CENTRAL_CONTROL = makescore(60, 33)
 
 
 #============================= King Evaluation ================================#
@@ -174,8 +174,8 @@ const BISHOP_CENTRAL_CONTROL = makescore(42, 36)
 
 const CASTLE_OPTION_BONUS = makescore(10, 0)
 const KING_PAWN_SHIELD_BONUS = 12
-const KING_FLANK_ATTACK = makescore(12, 2)
-const PAWNLESS_FLANK = makescore(54, 94)
+const KING_FLANK_ATTACK = makescore(11, 3)
+const PAWNLESS_FLANK = makescore(19, 111)
 
 
 const KING_SHELTER_OFFFILE = SVector{8}([
@@ -221,29 +221,30 @@ SVector{8}([makescore(0, 0), makescore(-5, -20), makescore(-19, -20), makescore(
 #============================ Other Evaluation ================================#
 
 
-const SPACE_BONUS = 1
-const PIN_BONUS = 25
-const HANGING_BONUS = makescore(2, 23)
-const THREAT_BY_KING = makescore(4, 33)
-const THREAT_BY_MINOR = @SVector [makescore(13, 35), makescore(67, 81), makescore(57, 64), makescore(152, 5), makescore(104, 129)]
-const THREAT_BY_ROOK = @SVector [makescore(23, 35), makescore(61, 44), makescore(50, 98), makescore(2, 7), makescore(122, 22)]
-const THREAT_BY_PAWN = makescore(124, 17)
+const SPACE_BONUS = 4
+const PIN_BONUS = 21
+const HANGING_BONUS = makescore(6, 19)
+const THREAT_BY_MINOR = @SVector [makescore(16, 24), makescore(60, 86), makescore(42, 74), makescore(131, 7), makescore(89, 123)]
+const THREAT_BY_ROOK = @SVector [makescore(10, 31), makescore(58, 36), makescore(44, 88), makescore(1, 6), makescore(120, 45)]
 const LAZY_THRESH = 2000
 const MINOR_KING_PROTECTION = makescore(8, 6)
-const RESTRICTION_BONUS = makescore(13, 0)
-const KNIGHT_SAFE_CHECK = 179
-const QUEEN_SAFE_CHECK  = 144
-const BISHOP_SAFE_CHECK = 81
-const ROOK_SAFE_CHECK   = 146
-const KD_QUEEN  = 42
-const KD_ROOK   = 6
-const KD_BISHOP = 1
+const RESTRICTION_BONUS = makescore(19, 2)
+const KNIGHT_SAFE_CHECK = 182
+const QUEEN_SAFE_CHECK  = 148
+const BISHOP_SAFE_CHECK = 87
+const ROOK_SAFE_CHECK   = 137
+const KD_QUEEN  = 44
+const KD_ROOK   = 9
+const KD_BISHOP = 9
 const KD_KNIGHT = 1
-const KING_FLANK_DEFEND = makescore(8, 0)
-const KING_BOX_WEAK = makescore(5, 18)
-const UNSAFE_CHECK = makescore(18, 3)
+const THREAT_BY_PAWN = makescore(129, 28)
+const THREAT_BY_PUSH = makescore(62, 43)
+const THREAT_BY_KING = makescore(8, 26)
+
+const KING_FLANK_DEFEND = makescore(10, 1)
+const KING_BOX_WEAK = makescore(7, 16)
+const UNSAFE_CHECK = makescore(18, 0)
 const KNIGHT_ON_QUEEN = makescore(15, 10)
-const THREAT_BY_PUSH = makescore(57, 58)
 
 
 #========================= Mobility Evaluation ================================#

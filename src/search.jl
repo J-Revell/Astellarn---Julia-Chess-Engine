@@ -683,7 +683,7 @@ end
 
 Returns true if a move passes a static exchange criteria, false otherwise.
 """
-const SEE_VALUES = @SVector [210, 890, 940, 1250, 2700, 15000]
+const SEE_VALUES = @SVector [200, 775, 775, 1250, 2400, 15000]
 
 function static_exchange_evaluator(board::Board, move::Move, threshold::Int)
     from_sqr = Int(from(move))
